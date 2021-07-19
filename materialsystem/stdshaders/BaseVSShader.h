@@ -488,6 +488,7 @@ FORCEINLINE void InitVecParam( int nIndex, IMaterialVar **params, float x, float
 	}
 }
 
+
 class ConVar;
 
 #ifdef _DEBUG

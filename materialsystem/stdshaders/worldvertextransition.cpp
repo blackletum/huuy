@@ -63,7 +63,7 @@ BEGIN_VS_SHADER( WorldVertexTransition_DX9, "Help for WorldVertexTransition" )
 		SHADER_PARAM( SEAMLESS_SCALE, SHADER_PARAM_TYPE_FLOAT, "0", "Scale factor for 'seamless' texture mapping. 0 means to use ordinary mapping" )
 		SHADER_PARAM( ENVMAPLIGHTSCALE, SHADER_PARAM_TYPE_FLOAT, "0.0", "How much the lightmap effects environment map reflection, 0.0 is off, 1.0 will allow complete blackness of the environment map if the lightmap is black" )
 		SHADER_PARAM( ENVMAPLIGHTSCALEMINMAX, SHADER_PARAM_TYPE_VEC2, "[0.0 1.0]", "Thresholds for the lightmap envmap effect.  Setting the min higher increases the minimum light amount at which the envmap gets nerfed to nothing." )
-END_SHADER_PARAMS
+	END_SHADER_PARAMS
 
 	void SetupVars( WorldVertexTransitionEditor_DX8_Vars_t& info )
 	{
@@ -121,8 +121,9 @@ END_SHADER_PARAMS
 		info.m_nSelfShadowedBumpFlag = SSBUMP;
 		info.m_nSeamlessMappingScale = SEAMLESS_SCALE;
 		info.m_nAlphaTestReference = -1;
-		info.m_nSeamlessMappingScale = SEAMLESS_SCALE;
-		info.m_nAlphaTestReference = -1;
+
+		info.m_nEnvMapLightScale = ENVMAPLIGHTSCALE;
+		info.m_nEnvMapLightScaleMinMax = ENVMAPLIGHTSCALEMINMAX;
 	}
 
 	SHADER_FALLBACK

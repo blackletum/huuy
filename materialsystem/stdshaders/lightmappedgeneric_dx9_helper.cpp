@@ -135,8 +135,7 @@ void InitParamsLightmappedGeneric_DX9( CBaseVSShader *pShader, IMaterialVar** pa
 		params[info.m_nEnvmapSaturation]->SetFloatValue( 1.0f );
 
 	if ( (info.m_nEnvMapLightScaleMinMax != -1) && !params[info.m_nEnvMapLightScaleMinMax]->IsDefined() )
-	    params[info.m_nEnvMapLightScaleMinMax]->SetVecValue( 0.0, 1.0 );
-
+		params[info.m_nEnvMapLightScaleMinMax]->SetVecValue( 0.0, 1.0 );
 	
 	InitFloatParam( info.m_nAlphaTestReference, params, 0.0f );
 
@@ -723,6 +722,16 @@ void DrawLightmappedGeneric_DX9_Internal(CBaseVSShader *pShader, IMaterialVar** 
 			float envmapSaturation = params[info.m_nEnvmapSaturation]->GetFloatValue();
 			float fresnelReflection = params[info.m_nFresnelReflection]->GetFloatValue();
 			bool hasEnvmap = params[info.m_nEnvmap]->IsTexture();
+			int envmap_variant; //0 = no envmap, 1 = regular, 2 = darken in shadow mode
+			if( hasEnvmap )
+			{
+				//only enabled darkened cubemap mode when the scale calls for it. And not supported in ps20 when also using a 2nd bumpmap
+				envmap_variant = ((GetFloatParam( info.m_nEnvMapLightScale, params ) > 0.0f) && (g_pHardwareConfig->SupportsPixelShaders_2_b() || !hasBump2)) ? 2 : 1;
+			}
+			else
+			{
+				envmap_variant = 0; 
+			}
 
 			int envmap_variant; //0 = no envmap, 1 = regular, 2 = darken in shadow mode
 			if( hasEnvmap )
@@ -798,7 +807,7 @@ void DrawLightmappedGeneric_DX9_Internal(CBaseVSShader *pShader, IMaterialVar** 
 				}
 				pContextData->m_SemiStaticCmdsOut.SetPixelShaderConstant( 20, envMapParams );
 			}
-			
+
 			// texture binds
 			if( hasBaseTexture )
 			{
