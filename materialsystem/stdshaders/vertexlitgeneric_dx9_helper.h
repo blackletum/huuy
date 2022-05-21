@@ -61,7 +61,10 @@ struct VertexLitGeneric_DX9_Vars_t
 	int m_nSelfIllumTint;
 	int m_nSelfIllumFresnel;
 	int m_nSelfIllumFresnelMinMaxExp;
+<<<<<<< HEAD:materialsystem/stdshaders/vertexlitgeneric_dx9_helper.h
 	int m_nSelfIllumMaskScale;
+=======
+>>>>>>> 89bd594e4 (latest CS:GO phong shader):src/materialsystem/stdshaders/vertexlitgeneric_dx9_helper.h
 	int m_nSelfIllumFresnelEnabledThisFrame;
 
 	int m_nPhongExponent;
@@ -156,12 +159,16 @@ struct VertexLitGeneric_DX9_Vars_t
 
 	int m_nPhongDisableHalfLambert;
 
+<<<<<<< HEAD:materialsystem/stdshaders/vertexlitgeneric_dx9_helper.h
 	int m_nDecalTexture;
+=======
+>>>>>>> 89bd594e4 (latest CS:GO phong shader):src/materialsystem/stdshaders/vertexlitgeneric_dx9_helper.h
 	int m_nDecalTextureCombineMode;
 
 	int m_nEnvMapLightScale;
 	int m_nEnvMapLightScaleMinMax;
 
+<<<<<<< HEAD:materialsystem/stdshaders/vertexlitgeneric_dx9_helper.h
 	int m_nBlendWithSmokeGrenade;
 	int m_nBlendWithSmokeGrenadePosEntity;
 	int m_nBlendWithSmokeGrenadePosSmoke;
@@ -170,6 +177,9 @@ struct VertexLitGeneric_DX9_Vars_t
 
 	int m_nTintMaskTexture;
 	int m_nEnvMapMaskInTintMaskTexture;
+=======
+	int m_nPearlescent;
+>>>>>>> 89bd594e4 (latest CS:GO phong shader):src/materialsystem/stdshaders/vertexlitgeneric_dx9_helper.h
 };
 
 void InitParamsVertexLitGeneric_DX9( CBaseVSShader *pShader, IMaterialVar** params, const char *pMaterialName, bool bVertexLitGeneric, VertexLitGeneric_DX9_Vars_t &info );

@@ -380,6 +380,12 @@ public:
 		m_Storage.PutInt( nReg );
 	}
 
+	FORCEINLINE void SetPixelShaderFogParams_CSGO( int nReg )
+	{
+		m_Storage.PutInt( CBCMD_SETPIXELSHADERFOGPARAMS_CSGO );
+		m_Storage.PutInt( nReg );
+	}
+
 	FORCEINLINE void BindStandardTexture( Sampler_t nSampler, StandardTextureId_t nTextureId )
 	{
 		m_Storage.PutInt( CBCMD_BIND_STANDARD_TEXTURE );
