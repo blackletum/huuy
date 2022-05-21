@@ -61,7 +61,6 @@ struct VertexLitGeneric_DX9_Vars_t
 	int m_nSelfIllumTint;
 	int m_nSelfIllumFresnel;
 	int m_nSelfIllumFresnelMinMaxExp;
-	int m_nSelfIllumMaskScale;
 	int m_nSelfIllumFresnelEnabledThisFrame;
 
 	int m_nPhongExponent;
@@ -156,20 +155,12 @@ struct VertexLitGeneric_DX9_Vars_t
 
 	int m_nPhongDisableHalfLambert;
 
-	int m_nDecalTexture;
 	int m_nDecalTextureCombineMode;
 
 	int m_nEnvMapLightScale;
 	int m_nEnvMapLightScaleMinMax;
 
-	int m_nBlendWithSmokeGrenade;
-	int m_nBlendWithSmokeGrenadePosEntity;
-	int m_nBlendWithSmokeGrenadePosSmoke;
-
-	int m_nModelDecalIgnoreZ;
-
-	int m_nTintMaskTexture;
-	int m_nEnvMapMaskInTintMaskTexture;
+	int m_nPearlescent;
 };
 
 void InitParamsVertexLitGeneric_DX9( CBaseVSShader *pShader, IMaterialVar** params, const char *pMaterialName, bool bVertexLitGeneric, VertexLitGeneric_DX9_Vars_t &info );

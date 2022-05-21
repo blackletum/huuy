@@ -22,6 +22,7 @@
 #include "materialsystem/imaterialvar.h"
 #include "materialsystem/imaterial.h"
 #include "BaseShader.h"
+#include "shaderlib/shadercombosemantics.h"
 
 #include "materialsystem/itexture.h"
 
@@ -358,11 +359,23 @@ inline bool CShader_IsFlag2Set( IMaterialVar **params, MaterialVarFlags2_t _flag
 	shader ## _Dynamic_Index _pshIndex; \
 	int psh ## shader = 0
 
+#define DECLARE_DYNAMIC_PIXEL_SHADER_CSGO( shader ) \
+	int declaredynpixshader_ ## shader ## _missingcurlybraces = 0; \
+	declaredynpixshader_ ## shader ## _missingcurlybraces = declaredynpixshader_ ## shader ## _missingcurlybraces; \
+	shader ## _Dynamic_Index _pshIndex( pShaderAPI ); \
+	int psh ## shader = 0
+
 // vsh ## shader is used here to generate a warning if you don't ever call SET_DYNAMIC_VERTEX_SHADER
 #define DECLARE_DYNAMIC_VERTEX_SHADER( shader ) \
 	int declaredynvertshader_ ## shader ## _missingcurlybraces = 0; \
 	NOTE_UNUSED( declaredynvertshader_ ## shader ## _missingcurlybraces ); \
 	shader ## _Dynamic_Index _vshIndex; \
+	int vsh ## shader = 0
+
+#define DECLARE_DYNAMIC_VERTEX_SHADER_CSGO( shader ) \
+	int declaredynvertshader_ ## shader ## _missingcurlybraces = 0; \
+	declaredynvertshader_ ## shader ## _missingcurlybraces = declaredynvertshader_ ## shader ## _missingcurlybraces; \
+	shader ## _Dynamic_Index _vshIndex( pShaderAPI ); \
 	int vsh ## shader = 0
 
 
@@ -373,11 +386,23 @@ inline bool CShader_IsFlag2Set( IMaterialVar **params, MaterialVarFlags2_t _flag
 	shader ## _Static_Index _pshIndex; \
 	int psh ## shader = 0
 
+#define DECLARE_STATIC_PIXEL_SHADER_CSGO( shader ) \
+	int declarestaticpixshader_ ## shader ## _missingcurlybraces = 0; \
+	declarestaticpixshader_ ## shader ## _missingcurlybraces = declarestaticpixshader_ ## shader ## _missingcurlybraces; \
+	shader ## _Static_Index _pshIndex( pShaderShadow, params ); \
+	int psh ## shader = 0
+
 // vsh ## shader is used here to generate a warning if you don't ever call SET_STATIC_VERTEX_SHADER
 #define DECLARE_STATIC_VERTEX_SHADER( shader ) \
 	int declarestaticvertshader_ ## shader ## _missingcurlybraces = 0; \
 	NOTE_UNUSED( declarestaticvertshader_ ## shader ## _missingcurlybraces ); \
 	shader ## _Static_Index _vshIndex; \
+	int vsh ## shader = 0
+
+#define DECLARE_STATIC_VERTEX_SHADER_CSGO( shader ) \
+	int declarestaticvertshader_ ## shader ## _missingcurlybraces = 0; \
+	declarestaticvertshader_ ## shader ## _missingcurlybraces = declarestaticvertshader_ ## shader ## _missingcurlybraces; \
+	shader ## _Static_Index _vshIndex( pShaderShadow, params ); \
 	int vsh ## shader = 0
 
 
