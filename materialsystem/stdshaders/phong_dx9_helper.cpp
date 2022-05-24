@@ -280,7 +280,7 @@ void DrawPhong_DX9( CBaseVSShader *pShader, IMaterialVar** params, IShaderDynami
 {
 	CPhong_DX9_Context *pContextData = reinterpret_cast< CPhong_DX9_Context *> ( *pContextDataPtr );
 
-	bool bSupportsSM3 = g_pHardwareConfig->SupportsShaderModel_3_0();
+	bool bSupportsSM3 = g_pHardwareConfig->SupportsShaderModel_3_0() && !g_pHardwareConfig->PreferReducedFillrate();
 	bool bUseStaticControlFlow = g_pHardwareConfig->SupportsStaticControlFlow();
 
 	bool bHasFlashlight = pShader->UsingFlashlight( params );
@@ -988,13 +988,13 @@ void DrawPhong_DX9( CBaseVSShader *pShader, IMaterialVar** params, IShaderDynami
 			SET_DYNAMIC_VERTEX_SHADER_COMBO( SKINNING, numBones > 0 );
 			SET_DYNAMIC_VERTEX_SHADER_COMBO( COMPRESSED_VERTS, (int)vertexCompression );
 			SET_DYNAMIC_VERTEX_SHADER_COMBO( TESSELLATION, 0 );
-			SET_DYNAMIC_VERTEX_SHADER_COMBO( NUM_LIGHTS, bUseStaticControlFlow ? 0 : ( IsPS3() ) ? MIN(2, lightState.m_nNumLights) : lightState.m_nNumLights );
+			SET_DYNAMIC_VERTEX_SHADER_COMBO( NUM_LIGHTS, bUseStaticControlFlow ? 0 : MIN(2, lightState.m_nNumLights) );
 			SET_DYNAMIC_VERTEX_SHADER_COMBO( CSM_VIEWMODELQUALITY, 0 );
 			SET_DYNAMIC_VERTEX_SHADER_COMBO( STATICLIGHT3, false );
 			SET_DYNAMIC_VERTEX_SHADER( phong_vs20 );
 
 			DECLARE_DYNAMIC_PIXEL_SHADER_CSGO( phong_ps20b );
-			SET_DYNAMIC_PIXEL_SHADER_COMBO( NUM_LIGHTS, ( IsPS3() ) ? MIN(2, lightState.m_nNumLights) : lightState.m_nNumLights );
+			SET_DYNAMIC_PIXEL_SHADER_COMBO( NUM_LIGHTS, MIN(2, lightState.m_nNumLights) );
 			SET_DYNAMIC_PIXEL_SHADER_COMBO( WRITEWATERFOGTODESTALPHA, bWriteWaterFogToAlpha );
 			SET_DYNAMIC_PIXEL_SHADER_COMBO( WRITE_DEPTH_TO_DESTALPHA, bWriteDepthToAlpha );
 			SET_DYNAMIC_PIXEL_SHADER_COMBO( FLASHLIGHTSHADOWS, bFlashlightShadows );
