@@ -7,6 +7,7 @@
 //===========================================================================//
 #include "BaseVSShader.h"
 #include "vertexlitgeneric_dx9_helper.h"
+#include "skin_dx9_helper.h"
 #include "phong_dx9_helper.h"
 
 #include "VertexLit_and_unlit_Generic_vs20.inc"
@@ -109,7 +110,10 @@ void InitParamsVertexLitGeneric_DX9( CBaseVSShader *pShader, IMaterialVar** para
 		}
 		else
 		{
-			InitParamsPhong_DX9( pShader, params, pMaterialName, info );
+			if ( g_pConfig->UseOldPhong() )
+				InitParamsSkin_DX9( pShader, params, pMaterialName, info );
+			else
+				InitParamsPhong_DX9( pShader, params, pMaterialName, info );
 			return;
 		}
 	}
@@ -1434,7 +1438,10 @@ void DrawVertexLitGeneric_DX9( CBaseVSShader *pShader, IMaterialVar** params, IS
 {
 	if ( WantsSkinShader( params, info ) && g_pHardwareConfig->SupportsPixelShaders_2_b() && g_pConfig->UseBumpmapping() && g_pConfig->UsePhong() )
 	{
-		DrawPhong_DX9( pShader, params, pShaderAPI, pShaderShadow, info, vertexCompression, pContextDataPtr );
+		if ( g_pConfig->UseOldPhong() )
+			DrawSkin_DX9( pShader, params, pShaderAPI, pShaderShadow, info, vertexCompression, pContextDataPtr );
+		else
+			DrawPhong_DX9( pShader, params, pShaderAPI, pShaderShadow, info, vertexCompression, pContextDataPtr );
 		return;
 	}
 	
