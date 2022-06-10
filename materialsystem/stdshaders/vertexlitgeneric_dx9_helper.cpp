@@ -110,7 +110,7 @@ void InitParamsVertexLitGeneric_DX9( CBaseVSShader *pShader, IMaterialVar** para
 		}
 		else
 		{
-			if ( g_pConfig->UseOldPhong() )
+			if ( g_pConfig->UseOldPhong() || !g_pHardwareConfig->SupportsShaderModel_3_0() )
 				InitParamsSkin_DX9( pShader, params, pMaterialName, info );
 			else
 				InitParamsPhong_DX9( pShader, params, pMaterialName, info );
@@ -262,7 +262,10 @@ void InitVertexLitGeneric_DX9( CBaseVSShader *pShader, IMaterialVar** params, bo
 		   params[info.m_nPhong]->GetIntValue() && 
 		 g_pHardwareConfig->SupportsPixelShaders_2_b() ) )
 	{
-		InitPhong_DX9( pShader, params, info );
+		if ( g_pConfig->UseOldPhong() || !g_pHardwareConfig->SupportsShaderModel_3_0() )
+			InitSkin_DX9( pShader, params, info );
+		else
+			InitPhong_DX9( pShader, params, info );
 		return;
 	}
 
@@ -1438,7 +1441,7 @@ void DrawVertexLitGeneric_DX9( CBaseVSShader *pShader, IMaterialVar** params, IS
 {
 	if ( WantsSkinShader( params, info ) && g_pHardwareConfig->SupportsPixelShaders_2_b() && g_pConfig->UseBumpmapping() && g_pConfig->UsePhong() )
 	{
-		if ( g_pConfig->UseOldPhong() )
+		if ( g_pConfig->UseOldPhong() || !g_pHardwareConfig->SupportsShaderModel_3_0() )
 			DrawSkin_DX9( pShader, params, pShaderAPI, pShaderShadow, info, vertexCompression, pContextDataPtr );
 		else
 			DrawPhong_DX9( pShader, params, pShaderAPI, pShaderShadow, info, vertexCompression, pContextDataPtr );
