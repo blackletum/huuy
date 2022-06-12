@@ -415,12 +415,24 @@ inline bool CShader_IsFlag2Set( IMaterialVar **params, MaterialVarFlags2_t _flag
 	_pshIndex.Set ## var( ( val ) );  if(g_shaderConfigDumpEnable){printf("\n   PS dyn  var %s = %d (%s)", #var, (int) val, #val );}; \
 	int psh_forgot_to_set_dynamic_ ## var = 0
 
+#define SET_DYNAMIC_PIXEL_SHADER_COMBO_CSGO( var, val ) \
+	int dynpixshadercombo_ ## var ## _missingcurlybraces = 0; \
+	dynpixshadercombo_ ## var ## _missingcurlybraces = dynpixshadercombo_ ## var ## _missingcurlybraces; \
+	_pshIndex.Set ## var( ( val ) );  if(g_shaderConfigDumpEnable){printf("\n   PS dyn  var %s = %d (%s)", #var, (int) val, #val );}; \
+	int psh_forgot_to_set_dynamic_ ## var = 0
+
 // vsh_forgot_to_set_dynamic_ ## var is used to make sure that you set all
 // all combos.  If you don't, you will get an undefined variable used error 
 // in the SET_DYNAMIC_VERTEX_SHADER block.
 #define SET_DYNAMIC_VERTEX_SHADER_COMBO( var, val ) \
 	int dynvertshadercombo_ ## var ## _missingcurlybraces = 0; \
 	NOTE_UNUSED( dynvertshadercombo_ ## var ## _missingcurlybraces ); \
+	_vshIndex.Set ## var( ( val ) );  if(g_shaderConfigDumpEnable){printf("\n   VS dyn  var %s = %d (%s)", #var, (int) val, #val );}; \
+	int vsh_forgot_to_set_dynamic_ ## var = 0
+
+#define SET_DYNAMIC_VERTEX_SHADER_COMBO_CSGO( var, val ) \
+	int dynvertshadercombo_ ## var ## _missingcurlybraces = 0; \
+	dynvertshadercombo_ ## var ## _missingcurlybraces = dynvertshadercombo_ ## var ## _missingcurlybraces; \
 	_vshIndex.Set ## var( ( val ) );  if(g_shaderConfigDumpEnable){printf("\n   VS dyn  var %s = %d (%s)", #var, (int) val, #val );}; \
 	int vsh_forgot_to_set_dynamic_ ## var = 0
 
@@ -434,12 +446,24 @@ inline bool CShader_IsFlag2Set( IMaterialVar **params, MaterialVarFlags2_t _flag
 	_pshIndex.Set ## var( ( val ) ); if(g_shaderConfigDumpEnable){printf("\n   PS stat var %s = %d (%s)", #var, (int) val, #val );}; \
 	int psh_forgot_to_set_static_ ## var = 0
 
+#define SET_STATIC_PIXEL_SHADER_COMBO_CSGO( var, val ) \
+	int staticpixshadercombo_ ## var ## _missingcurlybraces = 0; \
+	staticpixshadercombo_ ## var ## _missingcurlybraces = staticpixshadercombo_ ## var ## _missingcurlybraces; \
+	_pshIndex.Set ## var( ( val ) ); if(g_shaderConfigDumpEnable){printf("\n   PS stat var %s = %d (%s)", #var, (int) val, #val );}; \
+	int psh_forgot_to_set_static_ ## var = 0
+
 // vsh_forgot_to_set_static_ ## var is used to make sure that you set all
 // all combos.  If you don't, you will get an undefined variable used error 
 // in the SET_STATIC_VERTEX_SHADER block.
 #define SET_STATIC_VERTEX_SHADER_COMBO( var, val ) \
 	int staticvertshadercombo_ ## var ## _missingcurlybraces = 0; \
 	NOTE_UNUSED( staticvertshadercombo_ ## var ## _missingcurlybraces ); \
+	_vshIndex.Set ## var( ( val ) ); if(g_shaderConfigDumpEnable){printf("\n   VS stat var %s = %d (%s)", #var, (int) val, #val );}; \
+	int vsh_forgot_to_set_static_ ## var = 0
+
+#define SET_STATIC_VERTEX_SHADER_COMBO_CSGO( var, val ) \
+	int staticvertshadercombo_ ## var ## _missingcurlybraces = 0; \
+	staticvertshadercombo_ ## var ## _missingcurlybraces = staticvertshadercombo_ ## var ## _missingcurlybraces; \
 	_vshIndex.Set ## var( ( val ) ); if(g_shaderConfigDumpEnable){printf("\n   VS stat var %s = %d (%s)", #var, (int) val, #val );}; \
 	int vsh_forgot_to_set_static_ ## var = 0
 
@@ -455,6 +479,14 @@ inline bool CShader_IsFlag2Set( IMaterialVar **params, MaterialVarFlags2_t _flag
 	int psh_testAllCombos = shaderDynamicTest_ ## shader; \
 	NOTE_UNUSED( psh_testAllCombos ); \
 	NOTE_UNUSED( psh ## shader ); \
+	pShaderAPI->SetPixelShaderIndex( _pshIndex.GetIndex() )
+
+#define SET_DYNAMIC_PIXEL_SHADER_CSGO( shader ) \
+	int dynamicpixshader_ ## shader ## _missingcurlybraces = 0; \
+	dynamicpixshader_ ## shader ## _missingcurlybraces = dynamicpixshader_ ## shader ## _missingcurlybraces; \
+	int psh_testAllCombos = shaderDynamicTest_ ## shader; \
+	psh_testAllCombos = psh_testAllCombos; \
+	psh ## shader = psh ## shader; \
 	pShaderAPI->SetPixelShaderIndex( _pshIndex.GetIndex() )
 
 #define SET_DYNAMIC_PIXEL_SHADER_CMD( cmdstream, shader ) \
@@ -479,6 +511,14 @@ inline bool CShader_IsFlag2Set( IMaterialVar **params, MaterialVarFlags2_t _flag
 	NOTE_UNUSED( vsh ## shader ); \
 	pShaderAPI->SetVertexShaderIndex( _vshIndex.GetIndex() )
 
+#define SET_DYNAMIC_VERTEX_SHADER_CSGO( shader ) \
+	int dynamicvertshader_ ## shader ## _missingcurlybraces = 0; \
+	dynamicvertshader_ ## shader ## _missingcurlybraces = dynamicvertshader_ ## shader ## _missingcurlybraces; \
+	int vsh_testAllCombos = shaderDynamicTest_ ## shader; \
+	vsh_testAllCombos = vsh_testAllCombos; \
+	vsh ## shader = vsh ## shader; \
+	pShaderAPI->SetVertexShaderIndex( _vshIndex.GetIndex() )
+
 #define SET_DYNAMIC_VERTEX_SHADER_CMD( cmdstream, shader ) \
 	int dynamicvertshader_ ## shader ## _missingcurlybraces = 0; \
 	NOTE_UNUSED( dynamicvertshader_ ## shader ## _missingcurlybraces ); \
@@ -501,6 +541,14 @@ inline bool CShader_IsFlag2Set( IMaterialVar **params, MaterialVarFlags2_t _flag
 	NOTE_UNUSED( psh ## shader ); \
 	pShaderShadow->SetPixelShader( #shader, _pshIndex.GetIndex() )
 
+#define SET_STATIC_PIXEL_SHADER_CSGO( shader ) \
+	int staticpixshader_ ## shader ## _missingcurlybraces = 0; \
+	staticpixshader_ ## shader ## _missingcurlybraces = staticpixshader_ ## shader ## _missingcurlybraces; \
+	int psh_testAllCombos = shaderStaticTest_ ## shader; \
+	psh_testAllCombos = psh_testAllCombos; \
+	psh ## shader = psh ## shader; \
+	pShaderShadow->SetPixelShader( #shader, _pshIndex.GetIndex() )
+
 // vsh_testAllCombos adds up all of the vsh_forgot_to_set_static_ ## var's from 
 // SET_STATIC_VERTEX_SHADER_COMBO so that an error is generated if they aren't set.
 // vsh_testAllCombos is set to itself to avoid an unused variable warning.
@@ -512,6 +560,14 @@ inline bool CShader_IsFlag2Set( IMaterialVar **params, MaterialVarFlags2_t _flag
 	int vsh_testAllCombos = shaderStaticTest_ ## shader; \
 	NOTE_UNUSED( vsh_testAllCombos ); \
 	NOTE_UNUSED( vsh ## shader ); \
+	pShaderShadow->SetVertexShader( #shader, _vshIndex.GetIndex() )
+
+#define SET_STATIC_VERTEX_SHADER_CSGO( shader ) \
+	int staticvertshader_ ## shader ## _missingcurlybraces = 0; \
+	staticvertshader_ ## shader ## _missingcurlybraces = staticvertshader_ ## shader ## _missingcurlybraces; \
+	int vsh_testAllCombos = shaderStaticTest_ ## shader; \
+	vsh_testAllCombos = vsh_testAllCombos; \
+	vsh ## shader = vsh ## shader; \
 	pShaderShadow->SetVertexShader( #shader, _vshIndex.GetIndex() )
 
 #endif // CSHADER_H

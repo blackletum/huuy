@@ -433,9 +433,7 @@ struct FlashlightState_t
 		m_flShadowDepthBias = 0.0005f;
 		m_flShadowJitterSeed = 0.0f;
 		m_flShadowAtten = 0.0f;
-		m_flAmbientOcclusion = 0.0f;
 		m_nShadowQuality = 0;
-		m_bShadowHighRes = false;
 
 		m_bScissor = false; 
 		m_nLeft = -1;
@@ -443,23 +441,8 @@ struct FlashlightState_t
 		m_nRight = -1;
 		m_nBottom = -1;
 
-		m_bVolumetric = false;
-		m_flNoiseStrength = 0.8f;
-		m_flFlashlightTime = 0.0f;
-		m_nNumPlanes = 64;
-		m_flPlaneOffset = 0.0f;
-		m_flVolumetricIntensity = 1.0f;
-
-		m_bOrtho = false;
-		m_fOrthoLeft = -1.0f;
-		m_fOrthoRight = 1.0f;
-		m_fOrthoTop = -1.0f;
-		m_fOrthoBottom = 1.0f;
-
 		m_fBrightnessScale = 1.0f;
 		m_pSpotlightTexture = NULL;
-		m_pProjectedMaterial = NULL;
-		m_bShareBetweenSplitscreenPlayers = false;
 	}
 
 	Vector m_vecLightOrigin;
