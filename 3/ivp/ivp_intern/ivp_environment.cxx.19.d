@@ -1,0 +1,106 @@
+/root/souce-engine-cssoso-1.0/3/ivp/ivp_intern/ivp_environment.cxx.19.o: \
+  ../ivp/ivp_intern/ivp_environment.cxx \
+  ../ivp/ivp_physics/ivp_physics.hxx \
+  /root/android-ndk-r10e/sources/android/support/include/stdio.h \
+  /root/android-ndk-r10e/sources/android/support/include/math.h \
+  /root/android-ndk-r10e/sources/android/support/include/string.h \
+  ../ivp/ivp_utility/ivu_types.hxx ../ivp/ivp_utility/ivu_vector.hxx \
+  ../ivp/ivp_utility/ivu_bigvector.hxx ../ivp/ivp_utility/ivu_linear.hxx \
+  ../ivp/ivp_utility/ivu_linear_macros.hxx \
+  ../ivp/ivp_utility/ivu_linear_software.hxx \
+  ../ivp/ivp_utility/ivu_linear_double.hxx \
+  ../ivp/ivp_physics/ivp_surface_manager.hxx \
+  ../ivp/ivp_physics/ivp_object.hxx \
+  ../ivp/ivp_physics/ivp_real_object.hxx \
+  ../ivp/ivp_utility/ivu_min_list.hxx \
+  ../ivp/ivp_controller/ivp_actuator.hxx \
+  ../ivp/ivp_controller/ivp_actuator_info.hxx \
+  ../ivp/ivp_controller/ivp_controller.hxx \
+  ../ivp/ivp_physics/ivp_environment.hxx \
+  ../ivp/ivp_utility/ivu_active_value.hxx \
+  ../ivp/ivp_physics/ivp_listener_hull.hxx \
+  ../ivp/ivp_controller/ivp_actuator_spring.hxx \
+  ../ivp/ivp_physics/ivp_ball.hxx ../ivp/ivp_physics/ivp_polygon.hxx \
+  ../ivp/ivp_physics/ivp_core.hxx \
+  ../ivp/havana/havok/hk_physics/physics.h \
+  ../ivp/havana/havok/hk_base/base.h \
+  ../ivp/havana/havok/hk_base/base_types.h \
+  ../ivp/havana/havok/hk_base/memory/memory.h \
+  ../ivp/havana/havok/hk_base/memory/memory.inl \
+  ../ivp/havana/havok/hk_base/memory/memory_managed_virtual_class.h \
+  ../ivp/havana/havok/hk_base/array/array.h \
+  ../ivp/havana/havok/hk_base/array/array.inl \
+  ../ivp/havana/havok/hk_base/array/pre_allocated_array.h \
+  ../ivp/havana/havok/hk_base/display.h \
+  ../ivp/havana/havok/hk_base/console.h \
+  ../ivp/havana/havok/hk_base/string/string.h \
+  ../ivp/havana/havok/hk_math/vecmath.h \
+  ../ivp/havana/havok/hk_math/types.h \
+  ../ivp/havana/havok/hk_math/base_math.h \
+  ../ivp/havana/havok/hk_math/math.inl \
+  ../ivp/havana/havok/hk_math/vector3/vector3.h \
+  ../ivp/havana/havok/hk_math/vector4.h \
+  ../ivp/havana/havok/hk_math/plane.h \
+  ../ivp/havana/havok/hk_math/diagonal_matrix.h \
+  ../ivp/havana/havok/hk_math/quaternion/quaternion.h \
+  ../ivp/havana/havok/hk_math/matrix3.h \
+  ../ivp/havana/havok/hk_math/rotation.h \
+  ../ivp/havana/havok/hk_math/transform.h \
+  ../ivp/havana/havok/hk_math/qtransform.h \
+  ../ivp/havana/havok/hk_math/ray.h ../ivp/havana/havok/hk_math/ray.inl \
+  ../ivp/havana/havok/hk_math/interval.h \
+  ../ivp/havana/havok/hk_math/vector3/vector3.inl \
+  ../ivp/havana/havok/hk_math/vector4.inl \
+  ../ivp/havana/havok/hk_math/plane.inl \
+  ../ivp/havana/havok/hk_math/quaternion/quaternion.inl \
+  ../ivp/havana/havok/hk_math/matrix3.inl \
+  ../ivp/havana/havok/hk_math/rotation.inl \
+  ../ivp/havana/havok/hk_math/transform.inl \
+  ../ivp/havana/havok/hk_math/qtransform.inl \
+  ../ivp/havana/havok/hk_math/densematrix.h \
+  ../ivp/havana/havok/hk_math/densematrix.inl \
+  ../ivp/havana/havok/hk_physics/constraint/constraint_limit.h \
+  ../ivp/ivp_utility/ivu_matrix_macros.hxx \
+  ../ivp/havana/havok/hk_physics/core/vm_query.h \
+  ../ivp/havana/havok/hk_physics/constraint/constraint.h \
+  ../ivp/ivp_utility/ivu_string.hxx \
+  ../ivp/ivp_collision/ivp_mindist_intern.hxx \
+  ../ivp/ivp_utility/ivu_fvector.hxx \
+  ../ivp/ivp_collision/ivp_mindist.hxx \
+  ../ivp/ivp_physics/ivp_time_event.hxx \
+  ../ivp/ivp_collision/ivp_collision.hxx \
+  ../ivp/ivp_collision/ivp_mindist_minimize.hxx \
+  ../ivp/ivp_utility/ivu_hash.hxx \
+  ../ivp/ivp_collision/ivp_mindist_event.hxx \
+  ../ivp/ivp_physics/ivp_debug.hxx \
+  ../ivp/ivp_physics/ivp_debug_manager.hxx \
+  ../ivp/ivp_intern/ivp_physic_private.hxx \
+  ../ivp/ivp_intern/ivp_sim_unit.hxx ../ivp/ivp_physics/ivp_time.hxx \
+  ../ivp/ivp_utility/ivu_memory.hxx ../ivp/ivp_physics/ivp_templates.hxx \
+  ../ivp/ivp_controller/ivp_controller_motion.hxx \
+  ../ivp/ivp_physics/ivp_material.hxx \
+  ../ivp/ivp_physics/ivp_contact_situation.hxx \
+  ../ivp/ivp_collision/ivp_collision_filter.hxx \
+  ../ivp/ivp_collision/ivp_compact_ledge.hxx \
+  ../ivp/ivp_collision/ivp_clustering_longrange.hxx \
+  ../ivp/ivp_physics/ivp_cache_object.hxx \
+  ../ivp/ivp_collision/ivp_cache_ledge_point.hxx \
+  ../ivp/ivp_collision/ivp_range_manager.hxx \
+  ../ivp/ivp_physics/ivp_anomaly_manager.hxx \
+  ../ivp/ivp_physics/ivp_great_matrix.hxx \
+  ../ivp/ivp_controller/ivp_constraint_local.hxx \
+  ../ivp/ivp_controller/ivp_constraint.hxx \
+  ../ivp/ivp_controller/ivp_constraint_types.hxx \
+  ../ivp/ivp_utility/ivu_mapping.hxx ../ivp/ivp_intern/ivp_friction.hxx \
+  ../ivp/ivp_collision/ivp_listener_collision.hxx \
+  ../ivp/ivp_physics/ivp_listener_object.hxx \
+  ../ivp/ivp_physics/ivp_listener_psi.hxx \
+  ../ivp/ivp_intern/ivp_calc_next_psi_solver.hxx \
+  ../ivp/ivp_intern/ivp_merge_core.hxx ../ivp/ivp_utility/ivu_set.hxx \
+  ../ivp/ivp_utility/ivu_vhash.hxx \
+  ../ivp/ivp_controller/ivp_controller_buoyancy.hxx \
+  ../ivp/ivp_controller/ivp_attacher_to_cores.hxx \
+  ../ivp/ivp_controller/ivp_multidimensional_interp.hxx \
+  ../ivp/ivp_physics/ivp_performancecounter.hxx \
+  ../ivp/ivp_physics/ivp_betterstatisticsmanager.hxx \
+  ../ivp/ivp_physics/ivp_authenticity.hxx
