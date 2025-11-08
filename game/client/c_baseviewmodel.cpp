@@ -12,6 +12,7 @@
 #include "view_shared.h"
 #include "iviewrender.h"
 #include "view.h"
+#include "tier1/convar.h"
 #include "mathlib/vmatrix.h"
 #include "cl_animevent.h"
 #include "eventlist.h"
@@ -384,6 +385,139 @@ bool C_BaseViewModel::ShouldDraw()
 	}
 }
 
+#include "cbase.h"
+#include "tier1/convar.h"
+
+// ---- Rifles ----
+ConVar loadout_ak47_skin("loadout_ak47_skin", "models/weapons/v_models/rif_ak47_skins/v_rif_ak47_redline", FCVAR_ARCHIVE, "AK-47 skin material path");
+ConVar loadout_aug_skin("loadout_aug_skin", "", FCVAR_ARCHIVE, "AUG skin material path");
+ConVar loadout_awp_skin("loadout_awp_skin", "", FCVAR_ARCHIVE, "AWP skin material path");
+ConVar loadout_famas_skin("loadout_famas_skin", "", FCVAR_ARCHIVE, "FAMAS skin material path");
+ConVar loadout_galilar_skin("loadout_galilar_skin", "", FCVAR_ARCHIVE, "Galil AR skin material path");
+ConVar loadout_m4a1_silenser_skin("loadout_m4a1_silenser_skin", "", FCVAR_ARCHIVE, "M4A1-S skin material path");
+ConVar loadout_m4a4_skin("loadout_m4a4_skin", "", FCVAR_ARCHIVE, "M4A4 skin material path");
+ConVar loadout_sg556_skin("loadout_sg556_skin", "", FCVAR_ARCHIVE, "SG556 skin material path");
+
+// ---- SMG ----
+ConVar loadout_bizon_skin("loadout_bizon_skin", "", FCVAR_ARCHIVE, "PP-Bizon skin material path");
+ConVar loadout_mac10_skin("loadout_mac10_skin", "", FCVAR_ARCHIVE, "MAC-10 skin material path");
+ConVar loadout_mp5sd_skin("loadout_mp5sd_skin", "", FCVAR_ARCHIVE, "MP5-SD skin material path");
+ConVar loadout_mp9_skin("loadout_mp9_skin", "", FCVAR_ARCHIVE, "MP9 skin material path");
+ConVar loadout_p90_skin("loadout_p90_skin", "", FCVAR_ARCHIVE, "P90 skin material path");
+ConVar loadout_ump45_skin("loadout_ump45_skin", "", FCVAR_ARCHIVE, "UMP-45 skin material path");
+
+// ---- Heavy ----
+ConVar loadout_m249_skin("loadout_m249_skin", "", FCVAR_ARCHIVE, "M249 skin material path");
+ConVar loadout_negev_skin("loadout_negev_skin", "", FCVAR_ARCHIVE, "Negev skin material path");
+ConVar loadout_mag7_skin("loadout_mag7_skin", "", FCVAR_ARCHIVE, "MAG-7 skin material path");
+ConVar loadout_nova_skin("loadout_nova_skin", "", FCVAR_ARCHIVE, "Nova skin material path");
+ConVar loadout_sawedoff_skin("loadout_sawedoff_skin", "", FCVAR_ARCHIVE, "Sawed-Off skin material path");
+ConVar loadout_xm1014_skin("loadout_xm1014_skin", "", FCVAR_ARCHIVE, "XM1014 skin material path");
+
+// ---- Pistols ----
+ConVar loadout_cz75a_skin("loadout_cz75a_skin", "", FCVAR_ARCHIVE, "CZ75-Auto skin material path");
+ConVar loadout_deagle_skin("loadout_deagle_skin", "", FCVAR_ARCHIVE, "Desert Eagle skin material path");
+ConVar loadout_elite_skin("loadout_elite_skin", "", FCVAR_ARCHIVE, "Dual Berettas skin material path");
+ConVar loadout_fiveseven_skin("loadout_fiveseven_skin", "", FCVAR_ARCHIVE, "Five-SeveN skin material path");
+ConVar loadout_glock_skin("loadout_glock_skin", "", FCVAR_ARCHIVE, "Glock-18 skin material path");
+ConVar loadout_hkp2000_skin("loadout_hkp2000_skin", "", FCVAR_ARCHIVE, "P2000 skin material path");
+ConVar loadout_p250_skin("loadout_p250_skin", "", FCVAR_ARCHIVE, "P250 skin material path");
+ConVar loadout_revolver_skin("loadout_revolver_skin", "", FCVAR_ARCHIVE, "R8 Revolver skin material path");
+ConVar loadout_tec9_skin("loadout_tec9_skin", "", FCVAR_ARCHIVE, "Tec-9 skin material path");
+ConVar loadout_usp_silencer_skin("loadout_usp_silencer_skin", "", FCVAR_ARCHIVE, "USP-S skin material path");
+
+// ---- Snipers ----
+ConVar loadout_g3sg1_skin("loadout_g3sg1_skin", "", FCVAR_ARCHIVE, "G3SG1 skin material path");
+ConVar loadout_scar20_skin("loadout_scar20_skin", "", FCVAR_ARCHIVE, "SCAR-20 skin material path");
+ConVar loadout_ssg08_skin("loadout_ssg08_skin", "", FCVAR_ARCHIVE, "SSG 08 skin material path");
+
+// ---- Knives ----
+ConVar loadout_knife_bayonet_skin("loadout_knife_bayonet_skin", "", FCVAR_ARCHIVE, "Bayonet skin material path");
+ConVar loadout_knife_butterfly_skin("loadout_knife_butterfly_skin", "", FCVAR_ARCHIVE, "Butterfly Knife skin material path");
+ConVar loadout_knife_cains_skin("loadout_knife_cains_skin", "", FCVAR_ARCHIVE, "Cains Knife skin material path");
+ConVar loadout_knife_cord_skin("loadout_knife_cord_skin", "", FCVAR_ARCHIVE, "Cord Knife skin material path");
+ConVar loadout_knife_css_skin("loadout_knife_css_skin", "", FCVAR_ARCHIVE, "Classic Knife skin material path");
+ConVar loadout_knife_falshion_skin("loadout_knife_falshion_skin", "", FCVAR_ARCHIVE, "Falchion Knife skin material path");
+ConVar loadout_knife_flip_skin("loadout_knife_flip_skin", "", FCVAR_ARCHIVE, "Flip Knife skin material path");
+ConVar loadout_knife_gut_skin("loadout_knife_gut_skin", "", FCVAR_ARCHIVE, "Gut Knife skin material path");
+ConVar loadout_knife_gypsy_jackknife_skin("loadout_knife_gypsy_jackknife_skin", "", FCVAR_ARCHIVE, "Navaja Knife skin material path");
+ConVar loadout_knife_karambit_skin("loadout_knife_karambit_skin", "", FCVAR_ARCHIVE, "Karambit skin material path");
+ConVar loadout_knife_m9_bayonet_skin("loadout_knife_m9_bayonet_skin", "", FCVAR_ARCHIVE, "M9 Bayonet skin material path");
+ConVar loadout_knife_outdoor_skin("loadout_knife_outdoor_skin", "", FCVAR_ARCHIVE, "Outdoor Knife skin material path");
+ConVar loadout_knife_push_skin("loadout_knife_push_skin", "", FCVAR_ARCHIVE, "Shadow Daggers skin material path");
+ConVar loadout_knife_skeleton_skin("loadout_knife_skeleton_skin", "", FCVAR_ARCHIVE, "Skeleton Knife skin material path");
+ConVar loadout_knife_stiletto_skin("loadout_knife_stiletto_skin", "", FCVAR_ARCHIVE, "Stiletto Knife skin material path");
+ConVar loadout_knife_survival_bowie_skin("loadout_knife_survival_bowie_skin", "", FCVAR_ARCHIVE, "Bowie Knife skin material path");
+ConVar loadout_knife_tactical_skin("loadout_knife_tactical_skin", "", FCVAR_ARCHIVE, "Huntsman Knife skin material path");
+ConVar loadout_knife_ursus_skin("loadout_knife_ursus_skin", "", FCVAR_ARCHIVE, "Ursus Knife skin material path");
+ConVar loadout_knife_widowmaker_skin("loadout_knife_widowmaker_skin", "", FCVAR_ARCHIVE, "Widowmaker Knife skin material path");
+
+struct WeaponSkin_t
+{
+    const char* pszWeaponClass;
+    ConVar* pSkinConVar;
+    IMaterial* pMaterial;
+    CUtlString sLastSkin;
+
+    WeaponSkin_t(const char* weapon, ConVar* cvar)
+        : pszWeaponClass(weapon), pSkinConVar(cvar), pMaterial(nullptr) {}
+};
+
+
+static WeaponSkin_t g_WeaponSkins[] = {
+    { "weapon_ak47", &loadout_ak47_skin },
+    { "weapon_aug", &loadout_aug_skin },
+    { "weapon_awp", &loadout_awp_skin },
+    { "weapon_bizon", &loadout_bizon_skin },
+    { "weapon_cz75a", &loadout_cz75a_skin },
+    { "weapon_deagle", &loadout_deagle_skin },
+    { "weapon_elite", &loadout_elite_skin },
+    { "weapon_famas", &loadout_famas_skin },
+    { "weapon_fiveseven", &loadout_fiveseven_skin },
+    { "weapon_g3sg1", &loadout_g3sg1_skin },
+    { "weapon_galilar", &loadout_galilar_skin },
+    { "weapon_glock", &loadout_glock_skin },
+    { "weapon_hkp2000", &loadout_hkp2000_skin },
+    { "weapon_knife_bayonet", &loadout_knife_bayonet_skin },
+    { "weapon_knife_butterfly", &loadout_knife_butterfly_skin },
+    { "weapon_knife_cains", &loadout_knife_cains_skin },
+    { "weapon_knife_cord", &loadout_knife_cord_skin },
+    { "weapon_knife_css", &loadout_knife_css_skin },
+    { "weapon_knife_falshion", &loadout_knife_falshion_skin },
+    { "weapon_knife_flip", &loadout_knife_flip_skin },
+    { "weapon_knife_gut", &loadout_knife_gut_skin },
+    { "weapon_knife_gypsy_jackknife", &loadout_knife_gypsy_jackknife_skin },
+    { "weapon_knife_karambit", &loadout_knife_karambit_skin },
+    { "weapon_knife_m9_bayonet", &loadout_knife_m9_bayonet_skin },
+    { "weapon_knife_outdoor", &loadout_knife_outdoor_skin },
+    { "weapon_knife_push", &loadout_knife_push_skin },
+    { "weapon_knife_skeleton", &loadout_knife_skeleton_skin },
+    { "weapon_knife_stiletto", &loadout_knife_stiletto_skin },
+    { "weapon_knife_survival_bowie", &loadout_knife_survival_bowie_skin },
+    { "weapon_knife_tactical", &loadout_knife_tactical_skin },
+    { "weapon_knife_ursus", &loadout_knife_ursus_skin },
+    { "weapon_knife_widowmaker", &loadout_knife_widowmaker_skin },
+    { "weapon_m4a1_silenser", &loadout_m4a1_silenser_skin },
+    { "weapon_m4a4", &loadout_m4a4_skin },
+    { "weapon_m249", &loadout_m249_skin },
+    { "weapon_mac10", &loadout_mac10_skin },
+    { "weapon_mag7", &loadout_mag7_skin },
+    { "weapon_mp5sd", &loadout_mp5sd_skin },
+    { "weapon_mp9", &loadout_mp9_skin },
+    { "weapon_negev", &loadout_negev_skin },
+    { "weapon_nova", &loadout_nova_skin },
+    { "weapon_p90", &loadout_p90_skin },
+    { "weapon_p250", &loadout_p250_skin },
+    { "weapon_revolver", &loadout_revolver_skin },
+    { "weapon_sawedoff", &loadout_sawedoff_skin },
+    { "weapon_scar20", &loadout_scar20_skin },
+    { "weapon_sg556", &loadout_sg556_skin },
+    { "weapon_ssg08", &loadout_ssg08_skin },
+    { "weapon_tec9", &loadout_tec9_skin },
+    { "weapon_ump45", &loadout_ump45_skin },
+    { "weapon_usp_silencer", &loadout_usp_silencer_skin },
+    { "weapon_xm1014", &loadout_xm1014_skin }
+};
 //-----------------------------------------------------------------------------
 // Purpose: Render the weapon. Draw the Viewmodel if the weapon's being carried
 //			by this player, otherwise draw the worldmodel.
@@ -470,6 +604,69 @@ int C_BaseViewModel::DrawModel( int flags )
 			m_viewmodelStatTrakAddon->DrawModel( flags );
 		}
 	}
+	
+	if (flags & STUDIO_RENDER)
+{
+    C_BasePlayer* pLocal = C_BasePlayer::GetLocalPlayer();
+    if (!pLocal)
+        return ret;
+
+    C_BaseCombatWeapon* pWeapon = pLocal->GetActiveWeapon();
+    if (!pWeapon)
+        return ret;
+
+    const char* pszClass = pWeapon->GetClassname();
+    if (!pszClass)
+        return ret;
+
+    IMaterial* pSkinMat = nullptr;
+
+    for (auto& ws : g_WeaponSkins)
+    {
+        if (Q_stricmp(pszClass, ws.pszWeaponClass) == 0)
+        {
+            const char* skinPath = ws.pSkinConVar->GetString();
+
+            if (!ws.pMaterial || ws.sLastSkin != skinPath)
+            {
+                ws.sLastSkin = skinPath;
+                ws.pMaterial = materials->FindMaterial(skinPath, TEXTURE_GROUP_MODEL, true);
+
+                if (!ws.pMaterial || IsErrorMaterial(ws.pMaterial))
+                {
+                    Warning("Failed to load skin: %s for weapon: %s\n", skinPath, pszClass);
+                    ws.pMaterial = nullptr;
+                    break;
+                }
+
+                ws.pMaterial->IncrementReferenceCount();
+
+                MaterialLock_t hLock = materials->Lock();
+                ws.pMaterial->RefreshPreservingMaterialVars();
+                materials->Unlock(hLock);
+            }
+
+            if (ws.pMaterial && !ws.pMaterial->IsPrecached())
+            {
+                MaterialLock_t hLock = materials->Lock();
+                ws.pMaterial->Refresh();
+                materials->Unlock(hLock);
+            }
+
+            pSkinMat = ws.pMaterial;
+            break;
+        }
+    }
+
+    if (!pSkinMat)
+        return BaseClass::DrawModel(flags); 
+
+    modelrender->ForcedMaterialOverride(pSkinMat);
+    int skinRet = BaseClass::DrawModel(flags);
+    modelrender->ForcedMaterialOverride(nullptr);
+
+    return skinRet;
+}
 
 	return ret;
 }
