@@ -611,9 +611,14 @@ int C_BaseViewModel::DrawModel( int flags )
     if (!pLocal)
         return ret;
 
-    C_BaseCombatWeapon* pWeapon = pLocal->GetActiveWeapon();
+    C_WeaponCSBase* pWeapon = dynamic_cast<C_WeaponCSBase*>(pLocal->GetActiveWeapon());
     if (!pWeapon)
         return ret;
+
+    if (pWeapon->GetOriginalOwnerIndex() != pLocal->entindex())
+    {
+        return BaseClass::DrawModel(flags);
+    }
 
     const char* pszClass = pWeapon->GetClassname();
     if (!pszClass)
@@ -626,6 +631,9 @@ int C_BaseViewModel::DrawModel( int flags )
         if (Q_stricmp(pszClass, ws.pszWeaponClass) == 0)
         {
             const char* skinPath = ws.pSkinConVar->GetString();
+
+            if (!skinPath || !skinPath[0])
+                break;
 
             if (!ws.pMaterial || ws.sLastSkin != skinPath)
             {
@@ -659,7 +667,7 @@ int C_BaseViewModel::DrawModel( int flags )
     }
 
     if (!pSkinMat)
-        return BaseClass::DrawModel(flags); 
+        return BaseClass::DrawModel(flags);
 
     modelrender->ForcedMaterialOverride(pSkinMat);
     int skinRet = BaseClass::DrawModel(flags);
@@ -671,20 +679,122 @@ int C_BaseViewModel::DrawModel( int flags )
 	return ret;
 }
 
+// ---- Gloves skin ConVars ----
+ConVar loadout_glove_bloodhound_skin("loadout_glove_bloodhound_skin", "", FCVAR_ARCHIVE, "Material path for Bloodhound gloves (viewmodel)");
+ConVar loadout_glove_fingerless_skin("loadout_glove_fingerless_skin", "", FCVAR_ARCHIVE, "Material path for Fingerless gloves");
+ConVar loadout_glove_fullfinger_skin("loadout_glove_fullfinger_skin", "", FCVAR_ARCHIVE, "Material path for Fullfinger gloves");
+ConVar loadout_glove_handwrap_leathery_skin("loadout_glove_handwrap_leathery_skin", "", FCVAR_ARCHIVE, "Material path for Handwrap (leathery)");
+ConVar loadout_glove_hardknuckle_skin("loadout_glove_hardknuckle_skin", "", FCVAR_ARCHIVE, "Material path for Hardknuckle gloves");
+ConVar loadout_glove_hardknuckle_black_skin("loadout_glove_hardknuckle_black_skin", "", FCVAR_ARCHIVE, "Material path for Hardknuckle Black gloves");
+ConVar loadout_glove_hardknuckle_blue_skin("loadout_glove_hardknuckle_blue_skin", "", FCVAR_ARCHIVE, "Material path for Hardknuckle Blue gloves");
+ConVar loadout_glove_motorcycle_skin("loadout_glove_motorcycle_skin", "", FCVAR_ARCHIVE, "Material path for Motorcycle gloves");
+ConVar loadout_glove_slick_skin("loadout_glove_slick_skin", "", FCVAR_ARCHIVE, "Material path for Slick gloves");
+ConVar loadout_glove_specialist_skin("loadout_glove_specialist_skin", "", FCVAR_ARCHIVE, "Material path for Specialist gloves");
+ConVar loadout_glove_sporty_skin("loadout_glove_sporty_skin", "", FCVAR_ARCHIVE, "Material path for Sporty gloves");
+ConVar loadout_glove_sas_old_skin("loadout_glove_sas_old_skin", "", FCVAR_ARCHIVE, "Material path for SAS old gloves");
+ConVar loadout_glove_fbi_old_skin("loadout_glove_fbi_old_skin", "", FCVAR_ARCHIVE, "Material path for FBI old gloves");
+ConVar loadout_glove_phoenix_old_skin("loadout_glove_phoenix_old_skin", "", FCVAR_ARCHIVE, "Material path for Phoenix old gloves");
+ConVar loadout_glove_leet_old_skin("loadout_glove_leet_old_skin", "", FCVAR_ARCHIVE, "Material path for Leet old gloves");
+ConVar loadout_glove_bare_hands_skin("loadout_glove_bare_hands_skin", "", FCVAR_ARCHIVE, "Material path for Bare hands (v_bare_hands)");
+
+struct GloveSkin_t
+{
+    const char* pszVModelName;   
+    ConVar*     pConVar;         
+    IMaterial*  pMaterial;       
+    CUtlString  sLastSkin;       
+
+    GloveSkin_t(const char* vm, ConVar* cv) : pszVModelName(vm), pConVar(cv), pMaterial(nullptr), sLastSkin() {}
+};
+
+static GloveSkin_t g_GloveSkins[] = {
+    { "models/weapons/v_models/arms/glove_bloodhound/v_glove_bloodhound.mdl", &loadout_glove_bloodhound_skin },
+    { "models/weapons/v_models/arms/glove_bloodhound/v_glove_bloodhound_perfectworld.mdl", &loadout_glove_bloodhound_skin }, // alias
+    { "models/weapons/v_models/arms/glove_fingerless/v_glove_fingerless.mdl", &loadout_glove_fingerless_skin },
+    { "models/weapons/v_models/arms/glove_fullfinger/v_glove_fullfinger.mdl", &loadout_glove_fullfinger_skin },
+    { "models/weapons/v_models/arms/glove_handwrap_leathery/v_glove_handwrap_leathery.mdl", &loadout_glove_handwrap_leathery_skin },
+    { "models/weapons/v_models/arms/glove_hardknuckle/v_glove_hardknuckle.mdl", &loadout_glove_hardknuckle_skin },
+    { "models/weapons/v_models/arms/glove_hardknuckle/v_glove_hardknuckle_black.mdl", &loadout_glove_hardknuckle_black_skin },
+    { "models/weapons/v_models/arms/glove_hardknuckle/v_glove_hardknuckle_blue.mdl", &loadout_glove_hardknuckle_blue_skin },
+    { "models/weapons/v_models/arms/glove_motorcycle/v_glove_motorcycle.mdl", &loadout_glove_motorcycle_skin },
+    { "models/weapons/v_models/arms/glove_slick/v_glove_slick.mdl", &loadout_glove_slick_skin },
+    { "models/weapons/v_models/arms/glove_specialist/v_glove_specialist.mdl", &loadout_glove_specialist_skin },
+    { "models/weapons/v_models/arms/glove_sporty/v_glove_sporty.mdl", &loadout_glove_sporty_skin },
+    { "models/weapons/v_models/arms/glove_sas_old/v_glove_sas_old.mdl", &loadout_glove_sas_old_skin },
+    { "models/weapons/v_models/arms/glove_fbi_old/v_glove_fbi_old.mdl", &loadout_glove_fbi_old_skin },
+    { "models/weapons/v_models/arms/glove_phoenix_old/v_glove_phoenix_old.mdl", &loadout_glove_phoenix_old_skin },
+    { "models/weapons/v_models/arms/glove_leet_old/v_glove_leet_old.mdl", &loadout_glove_leet_old_skin },
+    { "models/weapons/v_models/arms/bare/v_bare_hands.mdl", &loadout_glove_bare_hands_skin }
+};
+static const int g_nGloveSkinsCount = ARRAYSIZE(g_GloveSkins);
+
+static GloveSkin_t* FindGloveSkinEntryForModelName(const char* pszModelName)
+{
+    if (!pszModelName || !pszModelName[0]) return nullptr;
+
+    for (int i = 0; i < g_nGloveSkinsCount; ++i)
+    {
+        if (Q_stricmp(pszModelName, g_GloveSkins[i].pszVModelName) == 0)
+            return &g_GloveSkins[i];
+    }
+    return nullptr;
+}
+
 //-----------------------------------------------------------------------------
 // Purpose: 
 //-----------------------------------------------------------------------------
 int C_BaseViewModel::InternalDrawModel( int flags )
 {
-	CMatRenderContextPtr pRenderContext( materials );
-	if ( ShouldFlipViewModel() )
-		pRenderContext->CullMode( MATERIAL_CULLMODE_CW );
+    CMatRenderContextPtr pRenderContext( materials );
+    if ( ShouldFlipViewModel() )
+        pRenderContext->CullMode( MATERIAL_CULLMODE_CW );
 
-	int ret = BaseClass::InternalDrawModel( flags );
+    // --- BEGIN: glove material override logic ---
+    IMaterial* pOverrideMat = nullptr;
 
-	pRenderContext->CullMode( MATERIAL_CULLMODE_CCW );
+    const model_t* pModel = modelinfo->GetModel( GetModelIndex() );
+    const char* pszModelName = pModel ? modelinfo->GetModelName( pModel ) : nullptr;
 
-	return ret;
+    if ( pszModelName )
+    {
+        GloveSkin_t* pEntry = FindGloveSkinEntryForModelName( pszModelName );
+        if ( pEntry && pEntry->pConVar )
+        {
+            const char* pszMatPath = pEntry->pConVar->GetString();
+            if ( pszMatPath && pszMatPath[0] != '\0' )
+            {
+                if ( !pEntry->pMaterial || V_stricmp( pEntry->sLastSkin.String(), pszMatPath ) != 0 )
+                {
+                    pEntry->sLastSkin = pszMatPath;
+                    pEntry->pMaterial = materials->FindMaterial( pszMatPath, TEXTURE_GROUP_MODEL, true );
+                    if ( pEntry->pMaterial && !pEntry->pMaterial->IsErrorMaterial() )
+                    {
+                        pEntry->pMaterial->IncrementReferenceCount();
+                    }
+                    else
+                    {
+                        pEntry->pMaterial = nullptr;
+                    }
+                }
+
+                if ( pEntry->pMaterial && !pEntry->pMaterial->IsErrorMaterial() )
+                    pOverrideMat = pEntry->pMaterial;
+            }
+        }
+    }
+
+    if ( pOverrideMat )
+        modelrender->ForcedMaterialOverride( pOverrideMat );
+
+    int ret = BaseClass::InternalDrawModel( flags );
+
+    if ( pOverrideMat )
+        modelrender->ForcedMaterialOverride( nullptr );
+    // --- END override logic ---
+
+    pRenderContext->CullMode( MATERIAL_CULLMODE_CCW );
+
+    return ret;
 }
 
 //-----------------------------------------------------------------------------
