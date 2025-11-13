@@ -20,7 +20,9 @@
 #include "utlmap.h"
 
 #if defined( CLIENT_DLL )
+#undef CBaseCombatWeapon
 #define CBaseCombatWeapon C_BaseCombatWeapon
+#undef CBaseWeaponWorldModel
 #define CBaseWeaponWorldModel C_BaseWeaponWorldModel
 #endif
 
@@ -205,12 +207,15 @@ public:
 	bool HoldsPlayerAnimations( void );
 
 #ifdef CLIENT_DLL
+ //   void ApplyCustomMaterials();
+    
+    virtual int DrawModel(int flags);
+    
 	virtual void	FireEvent( const Vector& origin, const QAngle& angles, int event, const char *options );
 	virtual bool	ShouldDraw( void ) OVERRIDE;
 	virtual void	OnDataChanged( DataUpdateType_t updateType );
 
 	float * GetRenderClipPlane( void );
-	virtual int DrawModel( int flags );
 
 	virtual bool SetupBones( matrix3x4_t *pBoneToWorldOut, int nMaxBones, int boneMask, float currentTime );
 
@@ -353,6 +358,7 @@ public:
 
 #ifdef CLIENT_DLL
 	virtual void			CreateMove( float flInputSampleTime, CUserCmd *pCmd, const QAngle &vecOldViewAngles ) {}
+    void	OnDataChanged( DataUpdateType_t type );
 
 	virtual void			FireEvent( const Vector& origin, const QAngle& angles, int event, const char *options );
 #endif
@@ -500,6 +506,7 @@ public:
 	virtual poseparamtable_t* PoseParamList( int &iPoseParamCount ) { return NULL; }
 
 	virtual void			Activate( void );
+	CUtlString m_sAppliedSkinPath;
 
 	virtual bool ShouldUseLargeViewModelVROverride() { return false; }
 public:
@@ -574,7 +581,6 @@ public:
 	// Should this object cast shadows?
 	virtual ShadowType_t	ShadowCastType();
 	virtual void			SetDormant( bool bDormant );
-	virtual void			OnDataChanged( DataUpdateType_t updateType );
 	virtual void			OnRestore();
 
 	virtual void			RestartParticleEffect( void ) {}

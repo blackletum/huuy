@@ -473,6 +473,8 @@ $Project "Client (CStrike)"
 				$File	"$SRCDIR\game\shared\cstrike\weapon_ump45.cpp"
 				$File	"$SRCDIR\game\shared\cstrike\weapon_usp.cpp"
 				$File	"$SRCDIR\game\shared\cstrike\weapon_xm1014.cpp"
+			$File    "cstrike\SkinProcessor.cpp"
+			$File    "cstrike\SkinProcessor.h"
 			}
 
 			$Folder	"vgui"

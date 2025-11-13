@@ -160,4 +160,5 @@
   ../public/networkstringtabledefs.h \
   ../game/shared/cstrike/csgo_playeranimstate.h \
   ../game/shared/cstrike/cs_player_shared.h \
-  ../game/shared/cstrike/cs_loadout.h ../public/haptics/ihaptics.h
+  ../game/shared/cstrike/cs_loadout.h \
+  ../game/client/cstrike/SkinProcessor.h ../public/haptics/ihaptics.h

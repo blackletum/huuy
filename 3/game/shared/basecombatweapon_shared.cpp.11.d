@@ -142,7 +142,8 @@
   ../game/shared/eventlist.h ../public/haptics/haptic_utils.h \
   ../public/haptics/ihaptics.h ../game/client/prediction.h \
   ../public/iprediction.h ../game/client/cdll_bounded_cvars.h \
-  ../public/tier1/convar_serverbounded.h ../game/client/input.h \
+  ../public/tier1/convar_serverbounded.h \
+  ../game/client/cstrike/SkinProcessor.h ../game/client/input.h \
   ../game/client/iinput.h ../game/client/kbutton.h \
   ../public/inputsystem/AnalogCode.h ../public/tier0/vprof.h \
   ../public/tier0/l2cache.h ../public/tier0/vprof_telemetry.h
