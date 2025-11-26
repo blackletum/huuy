@@ -99,7 +99,7 @@ IMaterial* CStudioRender::R_StudioSetupSkinAndLighting( IMatRenderContext *pRend
 		else
 		{
 			materialFlags = 0;
-			pMaterial = m_pRC->m_pForcedMaterial[ 0 ];
+			pMaterial = m_pRC->m_pForcedMaterial;
 			if (m_pRC->m_nForcedMaterialType == OVERRIDE_BUILD_SHADOWS)
 			{
 				// Connect the original material up to the shadow building material

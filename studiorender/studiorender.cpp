@@ -600,172 +600,163 @@ void CStudioRender::DrawModelStaticProp( const DrawModelInfo_t& info,
 
 // UNDONE: Currently no flex supported, no per instance cubemap or other lighting state supported, no eyeballs supported
 // NOTE: This is a fast path for simple models with skeletons but not many other features
-//ATOMIC_REAKTOR: Now this metod can select material slot to override 1 material in materials list (just for skins with many textures)
-void CStudioRender::DrawModelArray(const DrawModelInfo_t &drawInfo, const StudioRenderContext_t &rc, int arrayCount, model_array_instance_t *pInstanceData, int instanceStride, int flags)
+void CStudioRender::DrawModelArray( const DrawModelInfo_t &drawInfo, const StudioRenderContext_t &rc, int arrayCount, model_array_instance_t *pInstanceData, int instanceStride, int flags )
 {
-    tmZone(TELEMETRY_LEVEL0, TMZF_NONE, "%s %d", __FUNCTION__, arrayCount);
+	tmZone( TELEMETRY_LEVEL0, TMZF_NONE, "%s %d", __FUNCTION__, arrayCount );
 
-#ifndef SWDS // no drawing on dedicated server
+#ifndef SWDS												// no drawing on dedicated server
+#if 0
+	FlexWeights_t flex;
+	memset(&flex, 0, sizeof(flex));
+	for ( int i = 0; i < arrayCount; i++ )
+	{
+		DrawModel( drawInfo, rc, &pInstanceData[i].modelToWorld, flex, flags );
+	}
+	return;
+#endif
 
-    m_pRC = const_cast<StudioRenderContext_t*>(&rc);
-    CMatRenderContextPtr pRenderContext(g_pMaterialSystem);
+	m_pRC = const_cast< StudioRenderContext_t* >( &rc );
+	CMatRenderContextPtr pRenderContext( g_pMaterialSystem );
 
-    // Preserve the matrices if we're skinning
-    pRenderContext->MatrixMode(MATERIAL_MODEL);
-    pRenderContext->PushMatrix();
-    pRenderContext->LoadIdentity();
-    pRenderContext->SetNumBoneWeights(0);
+	// Preserve the matrices if we're skinning
+	pRenderContext->MatrixMode( MATERIAL_MODEL );
+	pRenderContext->PushMatrix();
+	pRenderContext->LoadIdentity();
+	pRenderContext->SetNumBoneWeights( 0 );
 
-    // Get the studio mesh data for this LOD
-    studiomeshdata_t *pMeshDataBase = drawInfo.m_pHardwareData->m_pLODs[drawInfo.m_Lod].m_pMeshData;
-    IMaterial **ppMaterials = drawInfo.m_pHardwareData->m_pLODs[drawInfo.m_Lod].ppMaterials;
-    int *pMaterialFlags = drawInfo.m_pHardwareData->m_pLODs[drawInfo.m_Lod].pMaterialFlags;
-    studiohdr_t *pStudioHdr = drawInfo.m_pStudioHdr;
+	// get the studio mesh data for this lod
+	studiomeshdata_t *pMeshDataBase = drawInfo.m_pHardwareData->m_pLODs[drawInfo.m_Lod].m_pMeshData;
+	IMaterial **ppMaterials = drawInfo.m_pHardwareData->m_pLODs[drawInfo.m_Lod].ppMaterials;
+	int *pMaterialFlags = drawInfo.m_pHardwareData->m_pLODs[drawInfo.m_Lod].pMaterialFlags;
+	studiohdr_t *pStudioHdr = drawInfo.m_pStudioHdr;
+	m_bDrawTranslucentSubModels = false;
 
-    m_bDrawTranslucentSubModels = false;
+	int skin = drawInfo.m_Skin;
+	short *pskinref	= pStudioHdr->pSkinref( 0 );
+	if ( skin > 0 && skin < pStudioHdr->numskinfamilies )
+	{
+		pskinref += ( skin * pStudioHdr->numskinref );
+	}
 
-    int skin = drawInfo.m_Skin;
-    short *pskinref = pStudioHdr->pSkinref(0);
-    if (skin > 0 && skin < pStudioHdr->numskinfamilies)
-    {
-        pskinref += (skin * pStudioHdr->numskinref);
-    }
+	for ( int body = 0; body < pStudioHdr->numbodyparts; ++body ) 
+	{
+		mstudiobodyparts_t  *pbodypart = pStudioHdr->pBodypart( body );
 
-    for (int body = 0; body < pStudioHdr->numbodyparts; ++body)
-    {
-        mstudiobodyparts_t *pbodypart = pStudioHdr->pBodypart(body);
-        int index = drawInfo.m_Body / pbodypart->base;
-        index = index % pbodypart->nummodels;
-        mstudiomodel_t *pSubmodel = pbodypart->pModel(index);
+		int index = drawInfo.m_Body / pbodypart->base;
+		index = index % pbodypart->nummodels;
+		mstudiomodel_t *pSubmodel = pbodypart->pModel( index );
 
-        for (int meshIndex = 0; meshIndex < pSubmodel->nummeshes; ++meshIndex)
-        {
-            mstudiomesh_t *pmesh = pSubmodel->pMesh(meshIndex);
-            studiomeshdata_t *pMeshData = &pMeshDataBase[pmesh->meshid];
-            Assert(pMeshData);
 
-            if (!pMeshData->m_NumGroup || !pMaterialFlags)
-                continue;
+		for ( int meshIndex = 0; meshIndex < pSubmodel->nummeshes; ++meshIndex )
+		{
+			mstudiomesh_t *pmesh = pSubmodel->pMesh(meshIndex);
+			studiomeshdata_t *pMeshData = &pMeshDataBase[pmesh->meshid];
+			Assert( pMeshData );
 
-            StudioModelLighting_t lighting = LIGHTING_HARDWARE;
-            int materialFlags = pMaterialFlags[pskinref[pmesh->material]];
+			if ( !pMeshData->m_NumGroup )
+				continue;
 
-            // --------------------------------------------------------
-            // OVERRIDE_SELECTIVE LOGIC
-            // --------------------------------------------------------
-            IMaterial* pMaterial = nullptr;
-            if (rc.m_nForcedMaterialType == OVERRIDE_SELECTIVE && rc.m_pForcedMaterial)
-            {
-                // Проверяем, разрешён ли override для этой mesh
-                bool bUseForced = false;
-                for (int idx = 0; idx < rc.m_nForcedMaterialIndexCount; ++idx)
-                {
-                    if (rc.m_nForcedMaterialIndex[idx] == pmesh->material)
-                    {
-                        bUseForced = true;
-                        break;
-                    }
-                }
+			if ( !pMaterialFlags )
+				continue;
 
-                if (bUseForced)
-                {
-                    IMaterial* pForced = rc.m_pForcedMaterial[pmesh->material];
-                    if (pForced && !IsErrorMaterial(pForced))
-                        pMaterial = pForced;
-                }
-            }
-            // --------------------------------------------------------
+			StudioModelLighting_t lighting = LIGHTING_HARDWARE;
+			int materialFlags = pMaterialFlags[pskinref[pmesh->material]];
 
-            // Если override не применился, используем стандартный материал
-            if (!pMaterial)
-            {
-                pMaterial = R_StudioSetupSkinAndLighting(
-                    pRenderContext,
-                    pskinref[pmesh->material],
-                    ppMaterials,
-                    materialFlags,
-                    drawInfo.m_pClientEntity,
-                    NULL,
-                    lighting
-                );
-            }
+			IMaterial* pMaterial = R_StudioSetupSkinAndLighting( pRenderContext, pskinref[ pmesh->material ], ppMaterials, materialFlags, drawInfo.m_pClientEntity, NULL, lighting );
+			if ( !pMaterial )
+				continue;
 
-            if (!pMaterial)
-                continue;
+			// eyeball! can't do those in array mode yet
+			Assert( pmesh->materialtype != 1 );
+			//R_StudioDrawMesh( pRenderContext, pmesh, pMeshData, lighting, pMaterial, NULL, drawInfo.m_Lod );
+			// Draw all the various mesh groups...
+			for ( int meshGroupIndex = 0; meshGroupIndex < pMeshData->m_NumGroup; ++meshGroupIndex )
+			{
+				studiomeshgroup_t* pGroup = &pMeshData->m_pMeshGroup[meshGroupIndex];
 
-            Assert(pmesh->materialtype != 1);
+				// Older models are merely flexed while new ones are also delta flexed
+				Assert(!(pGroup->m_Flags & MESHGROUP_IS_FLEXED));
+				Assert(!(pGroup->m_Flags & MESHGROUP_IS_DELTA_FLEXED));
+				IMesh *pMesh = pGroup->m_pMesh;
 
-            for (int meshGroupIndex = 0; meshGroupIndex < pMeshData->m_NumGroup; ++meshGroupIndex)
-            {
-                studiomeshgroup_t *pGroup = &pMeshData->m_pMeshGroup[meshGroupIndex];
-                Assert(!(pGroup->m_Flags & MESHGROUP_IS_FLEXED));
-                Assert(!(pGroup->m_Flags & MESHGROUP_IS_DELTA_FLEXED));
+				// Needed when we switch back and forth between hardware + software lighting
+				if ( IsPC() && pGroup->m_MeshNeedsRestore )
+				{
+					VertexCompressionType_t compressionType = CompressionType( pMesh->GetVertexFormat() );
+					switch ( compressionType )
+					{
+					case VERTEX_COMPRESSION_ON:
+						R_StudioRestoreMesh<VERTEX_COMPRESSION_ON>( pmesh, pGroup );
+					case VERTEX_COMPRESSION_NONE:
+					default:
+						R_StudioRestoreMesh<VERTEX_COMPRESSION_NONE>( pmesh, pGroup );
+						break;
+					}
+					pGroup->m_MeshNeedsRestore = false;
+				}
+				pMesh->SetColorMesh( NULL, 0 );
 
-                IMesh *pMesh = pGroup->m_pMesh;
+				MaterialPrimitiveType_t stripType = MATERIAL_TRIANGLES;
+				pMesh->SetPrimitiveType(stripType);
+				if ( pStudioHdr->numbones > 1 )
+				{
+					byte *pData = (byte *)pInstanceData;
+					for ( int i = 0;i < arrayCount; i++, pData += instanceStride )
+					{
+						matrix3x4_t *pBones = &( ((model_array_instance_t *)pData)->modelToWorld );
+						pRenderContext->LoadMatrix( pBones[0] );
+						for (int j = 0; j < pGroup->m_NumStrips; ++j)
+						{
+							OptimizedModel::StripHeader_t* pStrip = &pGroup->m_pStripData[j];
+							// Reset bone state if we're hardware skinning
+							pRenderContext->SetNumBoneWeights( pStrip->numBones );
+							for (int k = 0; k < pStrip->numBoneStateChanges; ++k)
+							{
+								OptimizedModel::BoneStateChangeHeader_t* pStateChange = pStrip->pBoneStateChange(k);
+								if ( pStateChange->newBoneID < 0 )
+									break;
 
-                if (IsPC() && pGroup->m_MeshNeedsRestore)
-                {
-                    VertexCompressionType_t comp = CompressionType(pMesh->GetVertexFormat());
-                    switch (comp)
-                    {
-                    case VERTEX_COMPRESSION_ON:
-                        R_StudioRestoreMesh<VERTEX_COMPRESSION_ON>(pmesh, pGroup);
-                        break;
-                    default:
-                    case VERTEX_COMPRESSION_NONE:
-                        R_StudioRestoreMesh<VERTEX_COMPRESSION_NONE>(pmesh, pGroup);
-                        break;
-                    }
-                    pGroup->m_MeshNeedsRestore = false;
-                }
+								pRenderContext->LoadBoneMatrix( pStateChange->hardwareID, pBones[pStateChange->newBoneID] );
+							}
+							MaterialPrimitiveType_t localStripType = pStrip->flags & OptimizedModel::STRIP_IS_TRISTRIP ? MATERIAL_TRIANGLE_STRIP : MATERIAL_TRIANGLES;
 
-                pMesh->SetColorMesh(NULL, 0);
-                MaterialPrimitiveType_t stripType = MATERIAL_TRIANGLES;
-                pMesh->SetPrimitiveType(stripType);
+							if ( localStripType != stripType )
+							{
+								pMesh->SetPrimitiveType( localStripType );
+								stripType = localStripType;
+							}
+							pMesh->Draw( pStrip->indexOffset, pStrip->numIndices );
+						}
+					}
+					pRenderContext->SetNumBoneWeights( 0 );
+				}
+				else
+				{
+					byte *pData = (byte *)pInstanceData;
+					for ( int i = 0;i < arrayCount; i++, pData += instanceStride )
+					{
+						matrix3x4_t *pBones = &( ((model_array_instance_t *)pData)->modelToWorld );
+						pRenderContext->LoadMatrix( pBones[0] );
+						for (int j = 0; j < pGroup->m_NumStrips; ++j)
+						{
+							OptimizedModel::StripHeader_t* pStrip = &pGroup->m_pStripData[j];
+							MaterialPrimitiveType_t localStripType = pStrip->flags & OptimizedModel::STRIP_IS_TRISTRIP ? MATERIAL_TRIANGLE_STRIP : MATERIAL_TRIANGLES;
 
-                byte *pData = (byte *)pInstanceData;
-                for (int i = 0; i < arrayCount; i++, pData += instanceStride)
-                {
-                    matrix3x4_t *pBones = &(((model_array_instance_t *)pData)->modelToWorld);
-                    pRenderContext->LoadMatrix(pBones[0]);
+							if ( localStripType != stripType )
+							{
+								pMesh->SetPrimitiveType( localStripType );
+								stripType = localStripType;
+							}
+							pMesh->Draw( pStrip->indexOffset, pStrip->numIndices );
+						}
+					}
+				}
+			}
+		}
+	}
 
-                    for (int j = 0; j < pGroup->m_NumStrips; ++j)
-                    {
-                        OptimizedModel::StripHeader_t *pStrip = &pGroup->m_pStripData[j];
-
-                        if (pStudioHdr->numbones > 1)
-                        {
-                            pRenderContext->SetNumBoneWeights(pStrip->numBones);
-                            for (int k = 0; k < pStrip->numBoneStateChanges; ++k)
-                            {
-                                OptimizedModel::BoneStateChangeHeader_t *pState = pStrip->pBoneStateChange(k);
-                                if (pState->newBoneID < 0)
-                                    break;
-                                pRenderContext->LoadBoneMatrix(pState->hardwareID, pBones[pState->newBoneID]);
-                            }
-                        }
-
-                        MaterialPrimitiveType_t localStripType =
-                            (pStrip->flags & OptimizedModel::STRIP_IS_TRISTRIP) ? MATERIAL_TRIANGLE_STRIP : MATERIAL_TRIANGLES;
-
-                        if (localStripType != stripType)
-                        {
-                            pMesh->SetPrimitiveType(localStripType);
-                            stripType = localStripType;
-                        }
-
-                        // Bind material
-                        pRenderContext->Bind(pMaterial);
-                        pMesh->Draw(pStrip->indexOffset, pStrip->numIndices);
-                    }
-                }
-                pRenderContext->SetNumBoneWeights(0);
-            }
-        }
-    }
-
-    pRenderContext->MatrixMode(MATERIAL_MODEL);
-    pRenderContext->PopMatrix();
-
+	pRenderContext->MatrixMode( MATERIAL_MODEL );
+	pRenderContext->PopMatrix();
 #endif
 }
+

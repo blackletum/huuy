@@ -425,7 +425,6 @@ int C_BaseViewModel::DrawModel(int flags)
         ret = pWeapon->DrawOverriddenViewmodel(this, flags);
     else
         ret = BaseClass::DrawModel(flags);
-<<<<<<< HEAD
 
     // Draw addons
     if (flags && vm_draw_addon.GetBool())
@@ -528,49 +527,6 @@ static GloveSkin_t* FindGloveSkinEntryForModelName(const char* pszModelName)
             return &g_GloveSkins[i];
     }
     return nullptr;
-=======
-
-    // Draw addons
-    if (flags && vm_draw_addon.GetBool())
-    {
-        FOR_EACH_VEC(m_vecViewmodelArmModels, i)
-        {
-            if (m_vecViewmodelArmModels[i])
-            {
-                if (m_vecViewmodelArmModels[i]->GetMoveParent() != this)
-                {
-                    m_vecViewmodelArmModels[i]->SetEFlags(EF_BONEMERGE);
-                    m_vecViewmodelArmModels[i]->SetParent(this);
-                }
-                m_vecViewmodelArmModels[i]->DrawModel(flags);
-            }
-        }
-
-        if (m_viewmodelStatTrakAddon)
-            m_viewmodelStatTrakAddon->DrawModel(flags);
-    }
-
-    IMaterial* pSkinMat = g_SkinProcessor.GetSkinMaterial(pWeapon);
-    if (pSkinMat)
-    {
-        modelrender->ForcedMaterialOverride(pSkinMat, OVERRIDE_SELECTIVE, 0);
-        BaseClass::DrawModel(flags);
-        modelrender->ForcedMaterialOverride(nullptr);
-    }
-
-    pRenderContext->CullMode(MATERIAL_CULLMODE_CCW);
-
-    if (flags & STUDIO_RENDER)
-    {
-        if (m_nOldAnimationParity != m_nAnimationParity)
-            m_nOldAnimationParity = m_nAnimationParity;
-
-        if (pWeapon)
-            pWeapon->ViewModelDrawn(this);
-    }
-
-    return ret;
->>>>>>> bc763a6d (OVERRIDE_SELECTIVE_and_some_changes)
 }
 
 //-----------------------------------------------------------------------------
@@ -582,7 +538,6 @@ int C_BaseViewModel::InternalDrawModel( int flags )
     if ( ShouldFlipViewModel() )
         pRenderContext->CullMode( MATERIAL_CULLMODE_CW );
 
-<<<<<<< HEAD
     // --- BEGIN: glove material override logic ---
     IMaterial* pOverrideMat = nullptr;
 
@@ -628,12 +583,6 @@ int C_BaseViewModel::InternalDrawModel( int flags )
 
     pRenderContext->CullMode( MATERIAL_CULLMODE_CCW );
 
-=======
-    int ret = BaseClass::InternalDrawModel( flags );
-
-    pRenderContext->CullMode( MATERIAL_CULLMODE_CCW );
-
->>>>>>> bc763a6d (OVERRIDE_SELECTIVE_and_some_changes)
     return ret;
 }
 
