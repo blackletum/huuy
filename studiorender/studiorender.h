@@ -72,6 +72,7 @@ extern CStudioRender g_StudioRender;
 //-----------------------------------------------------------------------------
 #define MAXLOCALLIGHTS 4
 #define MAXLIGHTCOMPUTE 16
+#define MAX_MAT_OVERRIDES 4
 
 enum StudioModelLighting_t
 {

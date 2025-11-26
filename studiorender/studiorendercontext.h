@@ -67,8 +67,10 @@ struct StudioRenderContext_t
 	int						m_NumLocalLights;
 	float					m_ColorMod[3];
 	float					m_AlphaMod;
-	IMaterial*				m_pForcedMaterial;
+	IMaterial*				m_pForcedMaterial[MAX_MAT_OVERRIDES];
 	OverrideType_t			m_nForcedMaterialType;
+	int						m_nForcedMaterialIndex[MAX_MAT_OVERRIDES];
+	int						m_nForcedMaterialIndexCount;
 };
 
 
@@ -141,7 +143,8 @@ public:
 	virtual void DrawModelStaticProp( const DrawModelInfo_t& info, const matrix3x4_t &modelToWorld, int flags = STUDIORENDER_DRAW_ENTIRE_MODEL );
 	virtual void DrawStaticPropDecals( const DrawModelInfo_t &drawInfo, const matrix3x4_t &modelToWorld );
 	virtual void DrawStaticPropShadows( const DrawModelInfo_t &drawInfo, const matrix3x4_t &modelToWorld, int flags );
-	virtual void ForcedMaterialOverride( IMaterial *newMaterial, OverrideType_t nOverrideType = OVERRIDE_NORMAL );
+		virtual void ForcedMaterialOverride( IMaterial *newMaterial, OverrideType_t nOverrideType = OVERRIDE_NORMAL, int nMaterialIndex = -1 );
+	virtual bool IsForcedMaterialOverride();
 	DELEGATE_TO_OBJECT_1( StudioDecalHandle_t, CreateDecalList, studiohwdata_t *, g_pStudioRenderImp );
 	virtual void DestroyDecalList( StudioDecalHandle_t handle );
 	virtual void AddDecal( StudioDecalHandle_t handle, studiohdr_t *pStudioHdr, matrix3x4_t *pBoneToWorld, const Ray_t & ray, const Vector& decalUp, IMaterial* pDecalMaterial, float radius, int body, bool noPokethru, int maxLODToDecal = ADDDECAL_TO_ALL_LODS );

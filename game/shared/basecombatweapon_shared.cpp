@@ -409,20 +409,39 @@ int CBaseWeaponWorldModel::DrawModel(int flags)
 {
     CMatRenderContextPtr pRenderContext(materials);
     
+<<<<<<< HEAD
     int ret = BaseClass::DrawModel(flags);
     
     CBaseCombatWeapon* pWeapon = m_hCombatWeaponParent.Get();
     if (!pWeapon)
     return ret;
+=======
+    CBaseCombatWeapon* pWeapon = m_hCombatWeaponParent.Get();
+    if (!pWeapon)
+    return BaseClass::DrawModel(flags);
+>>>>>>> bc763a6d (OVERRIDE_SELECTIVE_and_some_changes)
 
     IMaterial* pSkinMat = g_SkinProcessor.GetSkinMaterial(pWeapon);
 
     if (pSkinMat)
+<<<<<<< HEAD
         modelrender->ForcedMaterialOverride(pSkinMat);
     
     return ret;
 }
 
+=======
+{
+    modelrender->ForcedMaterialOverride(pSkinMat);
+    int ret = BaseClass::DrawModel(flags);
+    modelrender->ForcedMaterialOverride(nullptr);
+    return ret;
+}
+
+return BaseClass::DrawModel(flags);
+}
+
+>>>>>>> bc763a6d (OVERRIDE_SELECTIVE_and_some_changes)
 #else
 
 int CBaseWeaponWorldModel::ShouldTransmit( const CCheckTransmitInfo *pInfo )

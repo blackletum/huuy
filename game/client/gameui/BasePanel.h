@@ -304,6 +304,7 @@ public:
 	void OnOpenBenchmarkDialog();
 	void OnOpenOptionsDialog();
 	void OnOpenModOptionsDialog();
+	void OnOpenInventoryDialog();
 	void OnOpenOptionsDialog_Xbox();
 	void OnOpenLoadCommentaryDialog();
 	void OpenLoadSingleplayerCommentaryDialog();
@@ -454,6 +455,7 @@ private:
 	vgui::DHANDLE<vgui::Frame> m_hSaveGameDialog_Xbox;
 	vgui::DHANDLE<vgui::PropertyDialog> m_hOptionsDialog;
 	vgui::DHANDLE<vgui::PropertyDialog> m_hModOptionsDialog;
+	vgui::DHANDLE<vgui::PropertyDialog> m_hInventoryDialog;
 	vgui::DHANDLE<vgui::Frame> m_hOptionsDialog_Xbox;
 	vgui::DHANDLE<vgui::Frame> m_hCreateMultiplayerGameDialog;
 	//vgui::DHANDLE<vgui::Frame> m_hDemoPlayerDialog;

@@ -146,6 +146,7 @@ enum OverrideType_t
 	OVERRIDE_NORMAL = 0,
 	OVERRIDE_BUILD_SHADOWS,
 	OVERRIDE_DEPTH_WRITE,
+	OVERRIDE_SELECTIVE,
 	OVERRIDE_SSAO_DEPTH_WRITE,
 };
 
@@ -335,7 +336,8 @@ public:
 	virtual void DrawStaticPropShadows( const DrawModelInfo_t &drawInfo, const matrix3x4_t &modelToWorld, int flags ) = 0;
 
 	// Causes a material to be used instead of the materials the model was compiled with
-	virtual void ForcedMaterialOverride( IMaterial *newMaterial, OverrideType_t nOverrideType = OVERRIDE_NORMAL ) = 0;
+	virtual void ForcedMaterialOverride( IMaterial *newMaterial, OverrideType_t nOverrideType = OVERRIDE_NORMAL, int nMaterialIndex = -1 ) = 0;
+		virtual bool IsForcedMaterialOverride() = 0;
 
 	// Create, destroy list of decals for a particular model
 	virtual StudioDecalHandle_t CreateDecalList( studiohwdata_t *pHardwareData ) = 0;

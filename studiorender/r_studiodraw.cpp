@@ -475,7 +475,7 @@ void CStudioRender::DrawShadows( const DrawModelInfo_t& info, int flags, int bon
 
 	VPROF("CStudioRender::DrawShadows");
 
-	IMaterial* pForcedMat = m_pRC->m_pForcedMaterial;
+	IMaterial* pForcedMat = m_pRC->m_pForcedMaterial[ 0 ];
 	OverrideType_t nForcedType = m_pRC->m_nForcedMaterialType;
 
 	// Here, we have to redraw the model one time for each flashlight
@@ -507,7 +507,7 @@ void CStudioRender::DrawShadows( const DrawModelInfo_t& info, int flags, int bon
 	{
 		if( m_ShadowState[i].m_pMaterial )
 		{
-			m_pRC->m_pForcedMaterial = m_ShadowState[i].m_pMaterial;
+			m_pRC->m_pForcedMaterial[ 0 ] = m_ShadowState[i].m_pMaterial;
 			m_pRC->m_nForcedMaterialType = OVERRIDE_NORMAL;
 			R_StudioRenderModel( pRenderContext, 0, info.m_Body, 0, m_ShadowState[i].m_pProxyData,
 				NULL, NULL, flags, boneMask, info.m_Lod, NULL );
@@ -515,7 +515,7 @@ void CStudioRender::DrawShadows( const DrawModelInfo_t& info, int flags, int bon
 	}
 
 	// Restore the previous forced material
-	m_pRC->m_pForcedMaterial = pForcedMat;
+	m_pRC->m_pForcedMaterial[ 0 ] = pForcedMat;
 	m_pRC->m_nForcedMaterialType = nForcedType;
 }
 

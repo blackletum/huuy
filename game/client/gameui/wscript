@@ -102,6 +102,14 @@ def build(bld):
 		'ModOptionsSubAgents.cpp',
 		'ModOptionsSubGloves.cpp',
 		'ModOptionsSubHUD.cpp',
+		'InventoryDialog.cpp',
+		'InventorySubKnifes.cpp',
+		'InventorySubPistols.cpp',
+		'InventorySubSMG.cpp',
+		'InventorySubHeavy.cpp',
+		'InventorySubRifles.cpp',
+		'InventorySubSnipers.cpp',
+		'InventorySubLoadout.cpp',
 	]
 
 	if bld.env.DEST_OS == 'win32':
