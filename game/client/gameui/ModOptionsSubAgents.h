@@ -12,15 +12,100 @@
 #endif
 
 #include <vgui_controls/PropertyPage.h>
+#include "PlayerModelPanel.h"
+#include <vgui_controls/Button.h>
+#include "vgui_controls/EditablePanel.h"
+#include "vgui_controls/ScrollableEditablePanel.h"
+#include "VGuiMatSurface/IMatSystemSurface.h"
+#include "vgui/IInput.h"
+#include "vgui_controls/Label.h"
 
 class CLabeledCommandComboBox;
 class CBitmapImagePanel;
 
 class CModOptionsSubAgents;
 
+class ImageButton : public vgui::Button
+{
+    DECLARE_CLASS_SIMPLE( ImageButton, vgui::Button );
+
+public:
+    ImageButton( vgui::Panel *parent, const char *imageName );
+
+    virtual void Paint() override;
+    virtual void OnCommand( const char *cmd ) override;
+
+    void SetImage( const char *imageName );
+
+private:
+    int  m_textureID;
+    bool m_bSelected;
+};
+
 //-----------------------------------------------------------------------------
 // Purpose: crosshair options property page
 //-----------------------------------------------------------------------------
+struct AgentButton
+{
+    ImageButton *button;
+    vgui::Label *label;
+};
+
+class CImageButtonContainer : public vgui::EditablePanel
+{
+    DECLARE_CLASS_SIMPLE( CImageButtonContainer, vgui::EditablePanel );
+
+public:
+    CImageButtonContainer( vgui::Panel *pParent, const char *pName )
+        : BaseClass(pParent, pName), m_nColumns(4), m_nSpacing(5) {}
+        
+        CUtlVector<AgentButton> m_Buttons;
+
+    void AddImageButton(const char *imageName, const char *command, const char *labelText)
+{
+    AgentButton ab;
+
+    ab.button = new ImageButton(this, imageName);
+    ab.button->SetCommand(command);
+
+    ab.label = new vgui::Label(this, "", labelText);
+    ab.label->SetFgColor(Color(255, 255, 255, 255));
+   // ab.label->SetContentAlignment(Label::a_center);
+
+    m_Buttons.AddToTail(ab);
+
+    InvalidateLayout();
+}
+
+    virtual void PerformLayout() override
+{
+    int buttonWide = 192;
+    int buttonTall = 128;
+    int spacingX = 5;
+    int spacingY = buttonTall / 2; 
+    int maxColumns = 4;
+
+    for (int i = 0; i < m_Buttons.Count(); ++i)
+    {
+        int col = i % maxColumns;
+        int row = i / maxColumns;
+
+        int x = spacingX + col * (buttonWide + spacingX);
+        int y = row * int(buttonTall * 1.5);
+        
+        m_Buttons[i].button->SetBounds(x, y, buttonWide, buttonTall);
+
+        int labelTall = buttonTall / 2;
+        m_Buttons[i].label->SetBounds(x, y + buttonTall, buttonWide, labelTall);
+    }
+
+    int numRows = (m_Buttons.Count() + maxColumns - 1) / maxColumns;
+    SetTall(numRows * int(buttonTall * 1.5));
+}
+    int m_nColumns;
+    int m_nSpacing;
+};
+
 class CModOptionsSubAgents: public vgui::PropertyPage
 {
 	DECLARE_CLASS_SIMPLE( CModOptionsSubAgents, vgui::PropertyPage );
@@ -39,14 +124,30 @@ protected:
 	virtual void OnApplyChanges();
 
 private:
+    void                    UpdateAgentModel();
+    void                    UpdateScrollPanel();
+    void                    UpdateAgentImages();
 	void					RemapAgentsImage();
 	CBitmapImagePanel		*m_pAgentImageCT;
 	CBitmapImagePanel		*m_pAgentImageT;
+	
+	CBasePlayerModelPanel* m_pPlayerModel;
+	int m_iCTAgent;
+	int m_iTAgent;
+	int m_iCTGloves;
+	int m_iTGloves;
+	int m_iCTWeapon;
+	int m_iTWeapon;
+	int m_iAgentToUse;
 
 	CLabeledCommandComboBox *m_pLoadoutAgentCTComboBox;
 	CLabeledCommandComboBox *m_pLoadoutAgentTComboBox;
 	CLabeledCommandComboBox *m_pLoadoutMainMenuWeaponCTComboBox;
 	CLabeledCommandComboBox * m_pLoadoutMainMenuWeaponTComboBox;
+	
+	vgui::ScrollableEditablePanel* m_pScrollablePanel;
+    vgui::EditablePanel* m_pScrollableChild;
+    
+    CImageButtonContainer *m_pAgentButtonContainer;
 };
-
 #endif // MODOPTIONSSUBAGENTS_H

@@ -113,7 +113,7 @@ void PropertyDialog::PerformLayout()
 
 	int x, y, wide, tall;
 	GetClientArea(x, y, wide, tall);
-	_propertySheet->SetBounds(x, y, wide, tall - iBottom);
+	_propertySheet->SetBounds(x, y, wide, tall);
 
 	// calc button size and indent for proportionality 
 	int iBtnWide = 72;
