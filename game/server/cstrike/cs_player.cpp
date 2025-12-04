@@ -4672,6 +4672,32 @@ void CCSPlayer::Blind( float holdTime, float fadeTime, float startingAlpha )
 		event->SetInt( "userid", GetUserID() );
 		gameeventmanager->FireEvent( event );
 	}
+	
+        if ( m_bUseNewAnimstate && m_PlayerAnimStateCSGO )
+    {
+        // Magic numbers to reduce the fade time to within 'perceptible' range.
+        // Players can see well enough to shoot back somewhere around 50% white plus burn-in effect.
+        // Varies by player and amount of panic ;)
+        // So this makes raised arm goes down earlier, making it a better representation of actual blindness.
+        float flAdjustedHold = holdTime * 0.45f;
+        float flAdjustedEnd = fadeTime * 0.7f;
+        //DevMsg( "Flashing. Time is: %f. Params: holdTime: %f, fadeTime: %f, alpha: %f\n", gpGlobals->curtime, holdTime, fadeTime, m_flFlashMaxAlpha );
+        m_PlayerAnimStateCSGO->m_flFlashedAmountEaseOutStart = gpGlobals->curtime + flAdjustedHold;
+        m_PlayerAnimStateCSGO->m_flFlashedAmountEaseOutEnd = gpGlobals->curtime + flAdjustedEnd;
+        // This check moves the ease-out start and end to account for a non-255 starting alpha.
+        // However it looks like starting alpha is ALWAYS 255, since no current code path seems to ever pass in less.
+        if ( m_flFlashMaxAlpha < 255 )
+        {
+            float flScaleBack = 1.0f - (( flAdjustedEnd / 255.0f ) * m_flFlashMaxAlpha);
+            m_PlayerAnimStateCSGO->m_flFlashedAmountEaseOutStart -= flScaleBack;
+            m_PlayerAnimStateCSGO->m_flFlashedAmountEaseOutEnd -= flScaleBack;
+        }
+        // when fade out time is very soon, don't pull the arm up all the way. It looks silly and robotic.
+        if ( flAdjustedEnd < 1.5f )
+        {
+            m_PlayerAnimStateCSGO->m_flFlashedAmountEaseOutStart -= 1.0f;
+        }
+    }
 }
 
 void CCSPlayer::Deafen( float flDistance )
