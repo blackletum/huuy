@@ -233,6 +233,8 @@ public:
 		virtual bool	ShouldPredict();
 		virtual void	DrawCrosshair();
 		virtual void	OnDataChanged( DataUpdateType_t type );
+    
+      virtual int DrawModel(int flags);
 
 		float			m_flCrosshairDistance;
 		int				m_iAmmoLastCheck;
@@ -248,8 +250,13 @@ public:
 		virtual bool	KeyValue( const char *szKeyName, const char *szValue );
 
 		virtual bool PhysicsSplash( const Vector &centerPoint, const Vector &normal, float rawSpeed, float scaledSpeed );
-
 	#endif
+	
+	void SetSkinPaintKit(int iPaintKit);
+    int GetSkinPaintKit() const { return m_iPaintKit; }
+    #if defined( SERVER_DLL )
+    void ApplyOwnerSkin();
+    #endif
 
 	bool IsUseable();
 	virtual bool	CanDeploy( void );
@@ -382,6 +389,8 @@ public:
 	void				 UpdateIronSightController( void );
 	CIronSightController *m_IronSightController;
 	CNetworkVar( int, m_iIronSightMode );
+	
+	CNetworkVar(int, m_iPaintKit);
 };
 
 extern ConVar weapon_accuracy_model;

@@ -27,6 +27,8 @@
 	#include "c_te_effect_dispatch.h"
 	#include "c_te_legacytempents.h"
 	#include "weapon_selection.h"
+    #include "materialsystem/imaterial.h"
+	#include "SkinProcessor.h"
 
 	extern IVModelInfoClient* modelinfo;
 
@@ -36,8 +38,10 @@
 	#include "te_effect_dispatch.h"
 	#include "KeyValues.h"
 	#include "cs_ammodef.h"
+	#include "cs_loadout_manager.h"
 
 	extern IVModelInfo* modelinfo;
+	extern CCSLoadoutManager g_CSLoadoutManager;
 
 #endif
 
@@ -177,6 +181,7 @@ SendPropFloat( SENDINFO( m_fAccuracyPenalty ), 0, SPROP_CHANGES_OFTEN ),
 SendPropFloat( SENDINFO( m_fLastShotTime ) ),
 SendPropFloat( SENDINFO( m_flRecoilIndex ) ),
 SendPropBool( SENDINFO( m_bReloadVisuallyComplete ) ),
+SendPropInt(SENDINFO(m_iPaintKit), 16, SPROP_UNSIGNED),
 // world weapon models have no aminations
 SendPropExclude( "DT_AnimTimeMustBeFirst", "m_flAnimTime" ),
 SendPropExclude( "DT_BaseAnimating", "m_nSequence" ),
@@ -202,6 +207,7 @@ RecvPropTime( RECVINFO( m_flDoneSwitchingSilencer ) ),
 RecvPropTime( RECVINFO( m_flPostponeFireReadyTime ) ),
 RecvPropBool( RECVINFO( m_bStatTrak ) ),
 RecvPropInt( RECVINFO( m_nOriginalOwnerIndex ) ),
+RecvPropInt(RECVINFO(m_iPaintKit)),
 RecvPropInt( RECVINFO( m_iIronSightMode ) ),
 #endif
 END_NETWORK_TABLE()
@@ -234,7 +240,8 @@ LINK_ENTITY_TO_CLASS( weapon_cs_base, CWeaponCSBase );
 
 		//DEFINE_FUNCTION( DefaultTouch ),
 		DEFINE_THINKFUNC( FallThink ),
-		DEFINE_THINKFUNC( RemoveUnownedWeaponThink )
+		DEFINE_THINKFUNC( RemoveUnownedWeaponThink ),
+		DEFINE_FIELD(m_iPaintKit, FIELD_INTEGER)
 
 	END_DATADESC()
 
@@ -1761,6 +1768,8 @@ ConVar cl_cam_driver_compensation_scale( "cl_cam_driver_compensation_scale", "0.
 				}
 			}
 		}
+		
+		DevMsg("[Client] Weapon paint kit changed to %d\n", m_iPaintKit);
 
 		BaseClass::OnDataChanged( type );
 
@@ -2464,6 +2473,10 @@ ConVar cl_cam_driver_compensation_scale( "cl_cam_driver_compensation_scale", "0.
 		m_weaponMode = (HasSilencer() > 0) ? Secondary_Mode : Primary_Mode;
 
 		UpdateIronSightController();
+		#if defined( SERVER_DLL )
+        m_iPaintKit = 0;
+        ApplyOwnerSkin();
+        #endif
 
 #ifndef CLIENT_DLL
 		if ( mp_death_drop_gun.GetInt() == 0 && !IsA( WEAPON_C4 ) )
@@ -2541,6 +2554,33 @@ bool CWeaponCSBase::IsUseable()
 	return true;
 }
 
+#if defined( SERVER_DLL )
+
+void CWeaponCSBase::SetSkinPaintKit(int iPaintKit)
+{
+    m_iPaintKit = iPaintKit;
+}
+
+void CWeaponCSBase::ApplyOwnerSkin()
+{
+    CCSPlayer* pPlayer = ToCSPlayer(GetOwner());
+    if (!pPlayer)
+        return;
+    
+    CSWeaponID weaponID = GetCSWeaponID();
+    if (weaponID == WEAPON_NONE)
+        return;
+    
+    int iPaintKit = g_CSLoadoutManager.GetWeaponPaintKit(pPlayer, weaponID);
+    SetSkinPaintKit(iPaintKit);
+    
+    if (iPaintKit > 0)
+    {
+        DevMsg("[Server] Applied paint kit %d to weapon %d\n", 
+               iPaintKit, (int)weaponID);
+    }
+}
+#endif
 
 #if defined( CLIENT_DLL )
 
@@ -2750,6 +2790,27 @@ float CalcViewModelBobHelper( CBasePlayer *player, BobState_t *pBobState, int nV
 	//NOTENOTE: We don't use this return value in our case (need to restructure the calculation function setup!)
 	return 0.0f;
 }
+
+#ifdef CLIENT_DLL
+
+int C_WeaponCSBase::DrawModel(int flags)
+{
+    CMatRenderContextPtr pRenderContext(materials);
+
+CWeaponCSBase *pWeapon;
+if (!pWeapon)
+    return BaseClass::DrawModel(flags);
+    
+IMaterial* pMat = g_SkinProcessor.GetSkinMaterial(pWeapon);
+if (pMat)
+{
+    pWeapon->SetMaterialOverride(pMat); 
+}
+
+    return BaseClass::DrawModel( flags);
+}
+
+#endif
 
 //-----------------------------------------------------------------------------
 // Purpose: Helper function to add head bob
