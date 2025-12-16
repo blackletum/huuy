@@ -42,6 +42,7 @@ IMPLEMENT_CLIENTCLASS_DT(C_CS_PlayerResource, DT_CSPlayerResource, CCSPlayerReso
 	RecvPropArray3( RECVINFO_ARRAY(m_iGunGameProgressiveWeaponIndex), RecvPropInt( RECVINFO(m_iGunGameProgressiveWeaponIndex[0]))),
 	RecvPropArray3( RECVINFO_ARRAY(m_iContributionScore), RecvPropInt( RECVINFO(m_iContributionScore[0]))),
 	RecvPropArray3( RECVINFO_ARRAY(m_nMusicID), RecvPropInt( RECVINFO(m_nMusicID[0]))),
+		RecvPropArray3( RECVINFO_ARRAY( m_iCompTeammateColor ), RecvPropInt( RECVINFO( m_iCompTeammateColor[0] ) ) ),
 	RecvPropArray3( RECVINFO_ARRAY(m_bControllingBot), RecvPropInt( RECVINFO(m_bControllingBot[0]))),
 	RecvPropArray3( RECVINFO_ARRAY(m_iControlledPlayer), RecvPropInt( RECVINFO(m_iControlledPlayer[0]))),
 	RecvPropArray3( RECVINFO_ARRAY(m_iControlledByPlayer), RecvPropInt( RECVINFO(m_iControlledByPlayer[0]))),
@@ -67,6 +68,7 @@ C_CS_PlayerResource::C_CS_PlayerResource()
 	memset( m_iGunGameProgressiveWeaponIndex, 0, sizeof( m_iGunGameProgressiveWeaponIndex ) );
 	memset( m_iContributionScore, 0, sizeof( m_iContributionScore ) );
 	memset( m_nMusicID, 0, sizeof( m_nMusicID ) );
+	memset( m_iCompTeammateColor, 0, sizeof( m_iCompTeammateColor ) );
 }
 
 //-----------------------------------------------------------------------------
@@ -360,3 +362,16 @@ int C_CS_PlayerResource::GetMusicID( int iIndex )
 	return m_nMusicID[ iIndex ];
 }
 
+int C_CS_PlayerResource::GetCompTeammateColor( int iIndex )
+{
+	if ( !IsConnected( iIndex ) || !CSGameRules( ) )
+		return -1;
+
+	if ( !CSGameRules( )->IsPlayingAnyCompetitiveStrictRuleset( ) )
+		return -1;
+
+	if ( IsFakePlayer( iIndex ) )
+		return -2;
+
+	return m_iCompTeammateColor[iIndex];
+}

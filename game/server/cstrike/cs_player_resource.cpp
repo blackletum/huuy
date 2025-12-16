@@ -12,6 +12,7 @@
 #include "weapon_c4.h"
 #include <coordsize.h>
 #include "cs_bot_manager.h"
+#include "cs_bot.h"
 #include "cs_gamerules.h"
 
 extern ConVar mp_teammates_are_enemies;
@@ -40,7 +41,7 @@ IMPLEMENT_SERVERCLASS_ST(CCSPlayerResource, DT_CSPlayerResource)
 	SendPropArray3( SENDINFO_ARRAY3(m_iGunGameProgressiveWeaponIndex), SendPropInt( SENDINFO_ARRAY(m_iGunGameProgressiveWeaponIndex), COORD_INTEGER_BITS+1, SPROP_UNSIGNED ) ),
 	SendPropArray3( SENDINFO_ARRAY3(m_iContributionScore), SendPropInt( SENDINFO_ARRAY(m_iContributionScore), 32) ),
 	SendPropArray3( SENDINFO_ARRAY3(m_nMusicID), SendPropInt( SENDINFO_ARRAY(m_nMusicID), 32) ),
-
+	SendPropArray3( SENDINFO_ARRAY3( m_iCompTeammateColor ), SendPropInt( SENDINFO_ARRAY( m_iCompTeammateColor ), 32 ) ),
 	SendPropArray3( SENDINFO_ARRAY3(m_bControllingBot), SendPropInt( SENDINFO_ARRAY(m_bControllingBot), 1, SPROP_UNSIGNED ) ),
 	SendPropArray3( SENDINFO_ARRAY3(m_iControlledPlayer), SendPropInt( SENDINFO_ARRAY(m_iControlledPlayer), 8, SPROP_UNSIGNED ) ),
 	SendPropArray3( SENDINFO_ARRAY3(m_iControlledByPlayer), SendPropInt( SENDINFO_ARRAY(m_iControlledByPlayer), 8, SPROP_UNSIGNED ) ),
@@ -59,7 +60,9 @@ LINK_ENTITY_TO_CLASS( cs_player_manager, CCSPlayerResource );
 
 CCSPlayerResource::CCSPlayerResource( void )
 {
-	
+	m_bPreferencesAssigned_T = false;
+	m_bPreferencesAssigned_CT = false;
+	memset( m_nAttemptedToGetColor, false, sizeof( m_nAttemptedToGetColor ) );
 }
 
 
@@ -167,12 +170,41 @@ void CCSPlayerResource::UpdatePlayerData( void )
 			m_iGunGameProgressiveWeaponIndex.Set( i, pPlayer->m_iGunGameProgressiveWeaponIndex );
 			m_iContributionScore.Set( i, pPlayer->GetContributionScore() );
 			m_nMusicID.Set( i, pPlayer->m_iLoadoutMusic );
+			
+			if ( pPlayer->IsBot() )
+			{
+				CCSBot* pBot = dynamic_cast< CCSBot* >( pPlayer );
 
+				if ( pBot )
+				{
+					// Retrieve and store the bot's difficulty level
+					const BotProfile* pProfile = pBot->GetProfile();
+
+					if ( pProfile )
+					{
+						botDifficulty = pProfile->GetMaxDifficulty();
+					}
+
+					m_iCompTeammateColor.Set( i, -2 );
+					m_nAttemptedToGetColor[i] = true;
+//					SetPlayerTeammateColor( i, false );
+				
+				}
+			}
+			else
+			{
+				if ( pPlayer->GetTeamNumber() != TEAM_SPECTATOR )
+					nTotalPlayingPlayers++;
+			
+				SetPlayerTeammateColor( i, false );
+			}
 		}
 		else
 		{
 			m_szClan.Set( i, MAKE_STRING( "" ) );
 			m_iMVPs.Set( i, 0 );
+			m_iCompTeammateColor.Set( i, -1 );
+			m_nAttemptedToGetColor[i] = false;
 		}
 	}
 
@@ -360,6 +392,7 @@ void CCSPlayerResource::Spawn( void )
 	m_bombsiteCenterA.Init();
 	m_bombsiteCenterB.Init();
 	m_foundGoalPositions = false;
+	memset( m_nAttemptedToGetColor, false, sizeof( m_nAttemptedToGetColor ) );
 
 	for ( int i=0; i < MAX_HOSTAGES; i++ )
 	{
@@ -387,7 +420,185 @@ void CCSPlayerResource::Spawn( void )
 		m_iGunGameProgressiveWeaponIndex.Set( i, 0 );
 		m_iContributionScore.Set( i, 0 );
 		m_nMusicID.Set( i, -1 );
+		m_iCompTeammateColor.Set( i, -1 );
 	}
 
 	BaseClass::Spawn();
+}
+
+int CCSPlayerResource::GetCompTeammateColor( int iIndex )
+{
+	CCSPlayer *pPlayer = ( CCSPlayer* )UTIL_PlayerByIndex( iIndex );
+	if ( !pPlayer )
+		return -1;
+
+	if ( pPlayer->IsBot() )
+		return -2;
+
+	return m_iCompTeammateColor[iIndex];
+}
+
+void CCSPlayerResource::ResetPlayerTeammateColor( int index )
+{
+	CCSPlayer *pPlayer = ( CCSPlayer* )UTIL_PlayerByIndex( index );
+	if ( !pPlayer )
+		return;
+		
+	if ( CSGameRules() && CSGameRules()->IsPlayingAnyCompetitiveStrictRuleset() )
+		return;
+
+	int nTeamNum = pPlayer->GetTeamNumber();
+	if ( nTeamNum > TEAM_SPECTATOR )
+	{
+		SetPlayerTeammateColor( index, true );
+		return;
+	}
+
+	m_iCompTeammateColor.Set( index, -1 );
+}
+
+void CCSPlayerResource::ForcePlayersPickColors()
+{
+	m_bPreferencesAssigned_CT = true;
+	m_bPreferencesAssigned_T = true;
+	for ( int i = 1; i <= gpGlobals->maxClients; i++ )
+		m_nAttemptedToGetColor[i] = true;
+}
+
+void CCSPlayerResource::SetPlayerTeammateColor( int index, bool bReset )
+{
+	CCSPlayer *pPlayer = ( CCSPlayer* )UTIL_PlayerByIndex( index );
+	if ( !pPlayer )
+		return;
+
+	m_nAttemptedToGetColor[index] = true;
+
+	if ( !CSGameRules() || !CSGameRules()->IsPlayingAnyCompetitiveStrictRuleset() )
+	{
+		m_iCompTeammateColor.Set( index, -1 );
+		return;
+	}
+
+ 	if ( pPlayer->IsBot() )
+ 	{
+ 		m_iCompTeammateColor.Set( index, -2 );
+ 		return;
+ 	}
+
+	int nTeamNum = pPlayer->GetTeamNumber();
+	if ( nTeamNum > TEAM_SPECTATOR )
+	{
+		if ( CSGameRules() && CSGameRules()->IsPlayingAnyCompetitiveStrictRuleset() )
+		{
+			// check to see if we have a color already
+			int idxThisPlayer = -1;
+
+			// don't use the QMM code
+			/*
+			if ( CSGameRules()->IsQueuedMatchmaking() )
+			{
+				CCSPlayer *pThisPlayer = ( CCSPlayer* )UTIL_PlayerByIndex( index );
+				CSteamID steamID;
+				pThisPlayer->GetSteamID( &steamID );
+				int numTotalPlayers = 0;		
+				static ConVarRef sv_mmqueue_reservation( "sv_mmqueue_reservation" );
+				for ( char const *pszPrev = sv_mmqueue_reservation.GetString(), *pszNext = pszPrev;
+					  ( pszNext = strchr( pszPrev, '[' ) ) != NULL; pszPrev = pszNext + 1 )
+				{
+					uint32 uiAccountId = 0;
+					sscanf( pszNext, "[%x]", &uiAccountId );
+					if ( uiAccountId && ( steamID.GetAccountID() == uiAccountId ) )
+					{
+						idxThisPlayer = numTotalPlayers;
+					}
+					++numTotalPlayers;
+				}
+			}
+			*/
+
+			// let all players have at least one crack at getting their prefered color before we start assigning loser colors
+			if ( (nTeamNum == TEAM_TERRORIST && m_bPreferencesAssigned_T == false) ||
+				 (nTeamNum == TEAM_CT && m_bPreferencesAssigned_CT == false) )
+			{
+				int nNumAttemptedToGetColor = 0;
+				for ( int i = 1; i <= gpGlobals->maxClients; i++ )
+				{
+					CCSPlayer *pOtherPlayer = ( CCSPlayer* )UTIL_PlayerByIndex( i );
+					if ( pOtherPlayer && pOtherPlayer->GetTeamNumber() == pPlayer->GetTeamNumber() )
+					{
+						if ( m_nAttemptedToGetColor[i] == true )
+							nNumAttemptedToGetColor++;
+
+						if ( nNumAttemptedToGetColor >= 5 )
+						{
+							if ( nTeamNum == TEAM_TERRORIST )
+								m_bPreferencesAssigned_T = true;
+							else
+								m_bPreferencesAssigned_CT = true;
+
+							break;
+						}
+					}
+				}
+			}
+
+			// Valve MM gives us the player index - does this work?
+			if ( idxThisPlayer > -1 )
+			{
+				m_iCompTeammateColor.Set( index, ( idxThisPlayer % 5 ) );
+			}
+			else if ( m_iCompTeammateColor[index] == -1 || bReset )//otherwise we have to do it ourselves
+			{
+				int nPreferredColor = pPlayer->GetTeammatePreferredColor( );
+				if ( nPreferredColor == -1 )
+				{
+					pPlayer->InitTeammatePreferredColor( );
+					nPreferredColor = pPlayer->GetTeammatePreferredColor( );
+				}	
+
+				// we didn't initialize, so try again another time
+				if ( nPreferredColor == -1 )
+					return;
+
+				int nAssignedColor = m_iCompTeammateColor[index] > -1 ? m_iCompTeammateColor[index] : nPreferredColor;
+				bool bColorInUse = false;
+				for ( int ii = 0; ii < 5; ii++ )
+				{
+					nAssignedColor = nAssignedColor % 5;
+
+					bColorInUse = false;
+					for ( int j = 1; j <= gpGlobals->maxClients; j++ )
+					{
+						CCSPlayer *pOtherPlayer = ( CCSPlayer* )UTIL_PlayerByIndex( j );
+						if ( pOtherPlayer && pOtherPlayer->GetTeamNumber( ) == pPlayer->GetTeamNumber( ) )
+						{
+							if ( nAssignedColor == m_iCompTeammateColor[j] && pOtherPlayer != pPlayer )
+							{
+								// All players should get a crack at getting their prefered color before a 
+								// previously connected player crawls up the color scale and nabs it first
+								if ( ( nTeamNum == TEAM_TERRORIST && m_bPreferencesAssigned_T == false) ||
+									 ( nTeamNum == TEAM_CT && m_bPreferencesAssigned_CT == false ) )
+									return;
+
+								bColorInUse = true;
+								nAssignedColor++;
+								break;
+							}
+						}
+					}
+
+					if ( bColorInUse == false )
+						break;
+				}
+
+				// somehow this failed
+				AssertMsg( !bColorInUse, "Trying to assign a color to a teammate, but all colors are already in use!" );
+
+				nAssignedColor = bColorInUse == false ? nAssignedColor : -1;
+				m_iCompTeammateColor.Set( index, nAssignedColor );
+			}
+		}
+		else
+			m_iCompTeammateColor.Set( index, -1 );
+	}
 }

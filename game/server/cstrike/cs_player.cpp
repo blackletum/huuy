@@ -66,6 +66,7 @@
 #include "weapon_decoy.h"
 #include "molotov_projectile.h"
 #include "cs_loadout.h"
+#include "cs_player_resource.h"
 #include "item_healthshot.h"
 #include "game.h"
 #include "weapon_basecsgloves.h"
@@ -538,6 +539,8 @@ CCSPlayer::CCSPlayer()
 	m_iLastWeaponFireUsercmd = 0;
 	m_iAddonBits = 0;
 	m_iAccount = 0;
+	
+		m_iTeammatePreferredColor = -1;
 
 	m_iClass = (int)CS_CLASS_NONE;
 	m_iSkin = 0;
@@ -2042,6 +2045,33 @@ void CCSPlayer::SetClanName( const char *pName )
 	{
 		Q_strncpy( m_szClanName, pName, sizeof( m_szClanName ) );
 	}
+}
+
+void CCSPlayer::InitTeammatePreferredColor()
+{
+	const char *pColor = engine->GetClientConVarValue( entindex(), "cl_color" );
+	int nColor = atoi( pColor ); // convar.cpp code parses strings wierdly and cannot enforce range on a value e.g. " 4343" with leading space
+	// so we have to just assume that whatever string user supplied would parse as zero
+
+	if ( nColor >= 0 && nColor <= 4 )
+	{
+		SetTeammatePreferredColor( nColor );
+	}
+	else
+	{
+		SetTeammatePreferredColor( 0 );
+	}
+}
+
+void CCSPlayer::SetTeammatePreferredColor( int nColor )
+{
+	if ( nColor < 0 || nColor > 4 )
+	{
+		AssertMsg( nColor >= 0 && nColor <= 4, "SetTeammatePreferredColor called with an invalid color (outside the range of 0 and 4)" );
+		return;
+	}
+
+	m_iTeammatePreferredColor = nColor;
 }
 
 void CCSPlayer::CreateRagdollEntity()
@@ -9757,6 +9787,17 @@ void CCSPlayer::ChangeTeam( int iTeamNum )
 	// Initialize the player counts now that a player has switched teams
 	int NumDeadCT, NumDeadTerrorist, NumAliveTerrorist, NumAliveCT;
 	CSGameRules()->InitializePlayerCounts( NumAliveTerrorist, NumAliveCT, NumDeadTerrorist, NumDeadCT );
+	
+		CCSPlayerResource *pResource = dynamic_cast< CCSPlayerResource * >( g_pPlayerResource );
+	if ( /*iTeamNum <= TEAM_SPECTATOR && */pResource )
+	{
+		for ( int i = 1; i <= gpGlobals->maxClients; i++ )
+		{
+			CCSPlayer* pPlayer = ( CCSPlayer* )UTIL_PlayerByIndex( i );
+			if ( pPlayer && pPlayer == this )
+				pResource->ResetPlayerTeammateColor( i );
+		}
+	}
 }
 
 //-----------------------------------------------------------------------------

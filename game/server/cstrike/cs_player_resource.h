@@ -11,6 +11,8 @@
 #pragma once
 #endif
 
+#include "player_resource.h"
+
 class CCSPlayerResource : public CPlayerResource
 {
 	DECLARE_CLASS( CCSPlayerResource, CPlayerResource );
@@ -23,6 +25,15 @@ public:
 
 	virtual void UpdatePlayerData( void );
 	virtual void Spawn( void );
+	int				GetCompTeammateColor( int iIndex );
+	void			ResetPlayerTeammateColor( int index );
+	void			ForcePlayersPickColors( void );
+	void			SetPlayerTeammateColor( int index, bool bReset );
+	int botDifficulty; 
+    int nTotalPlayingPlayers;
+    bool m_bPreferencesAssigned_CT;
+    bool m_bPreferencesAssigned_T;
+	
 protected:
 
 	CNetworkVar( int, m_iPlayerC4 );  // entity index of C4 carrier or 0
@@ -51,10 +62,13 @@ protected:
 	CNetworkArray( int, m_iGunGameProgressiveWeaponIndex, MAX_PLAYERS + 1);
 	CNetworkArray( int, m_iContributionScore, MAX_PLAYERS + 1 );
 	CNetworkArray( int, m_nMusicID, MAX_PLAYERS + 1 );
+	CNetworkArray( int, m_iCompTeammateColor, MAX_PLAYERS + 1 );
 
 	CNetworkArray( int, m_bControllingBot, MAX_PLAYERS + 1 );
 	CNetworkArray( int, m_iControlledPlayer, MAX_PLAYERS + 1 );
 	CNetworkArray( int, m_iControlledByPlayer, MAX_PLAYERS + 1 );
+	
+	bool m_nAttemptedToGetColor[MAX_PLAYERS + 1];
 
 private:
 	bool m_foundGoalPositions;
