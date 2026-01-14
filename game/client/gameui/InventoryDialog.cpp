@@ -20,12 +20,6 @@
 #include "vgui/IVGui.h"
 
 #include "KeyValues.h"
-#include "InventorySubPistols.h"
-#include "InventorySubSMG.h"
-#include "InventorySubHeavy.h"
-#include "InventorySubRifles.h"
-#include "InventorySubSnipers.h"
-#include "InventorySubKnifes.h"
 #include "InventorySubLoadout.h"
 #include "ModInfo.h"
 
@@ -55,12 +49,12 @@ CInventoryDialog::CInventoryDialog(vgui::Panel *parent) : PropertyDialog(parent,
 
 	SetTitle("#GameUI_Inventory_Dialog", true);
 
-	AddPage(new CInventorySubKnifes(this), "#GameUI_Knifes");
+/*	AddPage(new CInventorySubKnifes(this), "#GameUI_Knifes");
 	AddPage(new CInventorySubPistols(this), "#GameUI_Pistols");
 	AddPage(new CInventorySubSMG(this), "#GameUI_SMG");
 	AddPage(new CInventorySubHeavy(this), "#GameUI_Heavy");
 	AddPage(new CInventorySubRifles(this), "#GameUI_Rifles");
-	AddPage(new CInventorySubSnipers(this), "#GameUI_Snipers");
+	AddPage(new CInventorySubSnipers(this), "#GameUI_Snipers");*/
 	AddPage(new CInventorySubLoadout(this), "#GameUI_Loadout");
 
 	SetApplyButtonVisible(true);

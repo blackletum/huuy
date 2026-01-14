@@ -10,6 +10,7 @@
 //
 #include "cbase.h"
 #include "iclientmode.h"
+#include "cdll_client_int.h"
 
 #include <vgui/ISurface.h>
 #include <vgui/ISystem.h>
@@ -162,12 +163,16 @@ class CHudHealthArmor : public CHudElement, public EditablePanel
 
 public:
 	CHudHealthArmor( const char *pElementName );
+	~CHudHealthArmor();
 	virtual void Init( void );
 	virtual void ApplySettings( KeyValues *inResourceData );
 	virtual void Reset( void );
 	virtual void OnThink();
 	virtual void OnScreenSizeChanged( int iOldWide, int iOldTall );
 	virtual bool ShouldDraw();
+
+	void UpdateSafeZonePosition();
+	static void SafeZoneCallback();
 
 private:
 	int		m_iHealth;
@@ -200,7 +205,13 @@ private:
 
 	int m_iOriginalWide;
 	int m_iOriginalTall;
+	int m_iBaseXPos;
+	int m_iBaseYPos;
+
+	static CHudHealthArmor *s_pInstance;
 };
+
+CHudHealthArmor *CHudHealthArmor::s_pInstance = NULL;
 
 DECLARE_HUDELEMENT( CHudHealthArmor );
 
@@ -209,6 +220,8 @@ DECLARE_HUDELEMENT( CHudHealthArmor );
 //-----------------------------------------------------------------------------
 CHudHealthArmor::CHudHealthArmor( const char *pElementName ) : CHudElement( pElementName ), EditablePanel(NULL, "HudHealthArmor")
 {
+	s_pInstance = this;
+
 	vgui::Panel *pParent = g_pClientMode->GetViewport();
 	SetParent( pParent );
 
@@ -216,6 +229,8 @@ CHudHealthArmor::CHudHealthArmor( const char *pElementName ) : CHudElement( pEle
 
 	m_iOriginalWide = 0;
 	m_iOriginalTall = 0;
+	m_iBaseXPos = 0;
+	m_iBaseYPos = 0;
 
 	m_pHealthIcon = new VectorImagePanel( this, "HealthIcon" );
 	m_pArmorIcon = new VectorImagePanel( this, "ArmorIcon" );
@@ -229,6 +244,22 @@ CHudHealthArmor::CHudHealthArmor( const char *pElementName ) : CHudElement( pEle
 	m_pArmorProgress = new ContinuousProgressBarWithBorder( this, "ArmorProgress" );
 
 	LoadControlSettings( "resource/hud/healtharmor.res" );
+
+	RegisterSafeZoneCallback( SafeZoneCallback );
+}
+
+CHudHealthArmor::~CHudHealthArmor()
+{
+	UnregisterSafeZoneCallback( SafeZoneCallback );
+	s_pInstance = NULL;
+}
+
+void CHudHealthArmor::SafeZoneCallback()
+{
+	if ( s_pInstance )
+	{
+		s_pInstance->UpdateSafeZonePosition();
+	}
 }
 
 void CHudHealthArmor::OnScreenSizeChanged( int iOldWide, int iOldTall )
@@ -242,6 +273,21 @@ void CHudHealthArmor::OnScreenSizeChanged( int iOldWide, int iOldTall )
 	m_iStyle = -1;
 	m_iHealth = -1;
 	m_iArmor = -1;
+
+	// Store base position from .res file
+	GetPos( m_iBaseXPos, m_iBaseYPos );
+	GetSize( m_iOriginalWide, m_iOriginalTall );
+
+	UpdateSafeZonePosition();
+}
+
+void CHudHealthArmor::UpdateSafeZonePosition()
+{
+	// Apply safezone offset - anchored to bottom-left
+	int left, top, right, bottom;
+	GetSafeZoneMargins( left, top, right, bottom );
+
+	SetPos( m_iBaseXPos + left, ScreenHeight() - bottom - GetTall() );
 }
 
 //-----------------------------------------------------------------------------
@@ -257,7 +303,11 @@ void CHudHealthArmor::ApplySettings( KeyValues *inResourceData )
 {
 	BaseClass::ApplySettings( inResourceData );
 
+	// Store base position from .res file
+	GetPos( m_iBaseXPos, m_iBaseYPos );
 	GetSize( m_iOriginalWide, m_iOriginalTall );
+
+	UpdateSafeZonePosition();
 }
 
 //-----------------------------------------------------------------------------

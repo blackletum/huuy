@@ -104,6 +104,10 @@ public:
 #endif
 	bool GetRawMouseAccumulators( int& accumX, int& accumY );
 	virtual bool GetTouchAccumulators( int fingerId, float &dx, float &dy );
+	virtual bool GetGyroAccumulators( float &pitch, float &yaw, float &roll );
+	void InitializeGyro( void );
+	void ShutdownGyro( void );
+	void GyroEvent( float pitchRate, float yawRate, float rollRate );
 
 	virtual void SetConsoleTextMode( bool bConsoleTextMode );
 
@@ -461,6 +465,10 @@ public:
 	int	 m_mouseRawAccumX, m_mouseRawAccumY;
 
 	float m_touchAccumX[TOUCH_FINGER_MAX_COUNT], m_touchAccumY[TOUCH_FINGER_MAX_COUNT];
+	
+	bool m_bGyroInitialized;
+    float m_gyroAccumPitch, m_gyroAccumYaw, m_gyroAccumRoll;
+    void *m_pGyroSensor;  // Really an SDL_Sensor*, NULL if not present
 
 	// For the 'SleepUntilInput' feature
 	HANDLE m_hEvent;

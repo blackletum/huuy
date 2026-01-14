@@ -48,8 +48,8 @@ public:
 	float	m_flMaxBodyYawDegrees;
 	
 	float	m_flMaxBodyYawDegreesCorrectionAmount;
-	//float	m_flIdleFootPlantMaxYaw;
-	//float	m_flIdleFootPlantFootLiftDelta;
+	float	m_flIdleFootPlantMaxYaw;
+	float	m_flIdleFootPlantFootLiftDelta;
 	
 	// How do the legs animate?
 	LegAnimType_t m_LegAnimType;
@@ -235,11 +235,11 @@ protected:
 	QAngle				m_angRender;
 
 	Vector2D			m_vLastMovePose;
-	/*
+	
 	bool				m_bInFootPlantIdleTurn;
 	float				m_flFootPlantIdleTurnCycle;
 	bool				m_bFootPlantIdleNeedToLiftFeet;
-	*/
+	
 	float				m_flPoseParamTargetDampenedScaleIdeal;
 
 private:

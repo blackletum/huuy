@@ -36,6 +36,7 @@
 #include "fx_cs_blood.h"
 #include "c_cs_playerresource.h"
 #include "c_team.h"
+#include "flashlighteffect.h"
 #include "c_cs_hostage.h"
 #include "prediction.h"
 #include "weapon_basecsgloves.h"
@@ -78,6 +79,8 @@
 static Vector WALL_MIN(-WALL_OFFSET,-WALL_OFFSET,-WALL_OFFSET);
 static Vector WALL_MAX(WALL_OFFSET,WALL_OFFSET,WALL_OFFSET);
 
+#define GLOWUPDATE_DEFAULT_THINK_INTERVAL		0.2f
+
 extern ConVar	spec_freeze_time;
 extern ConVar	spec_freeze_traveltime;
 extern ConVar	spec_freeze_traveltime_long;
@@ -95,6 +98,28 @@ ConVar spec_freeze_cinematiclight_scale( "spec_freeze_cinematiclight_scale", "2.
 ConVar cl_crosshair_sniper_width( "cl_crosshair_sniper_width", "1", FCVAR_CLIENTDLL | FCVAR_ARCHIVE, "If >1 sniper scope cross lines gain extra width (1 for single-pixel hairline)" );
 ConVar cl_ragdoll_physics_enable( "cl_ragdoll_physics_enable", "1", 0, "Enable/disable ragdoll physics." );
 ConVar cl_disable_shooting_effects( "cl_disable_shooting_effects", "1", FCVAR_ARCHIVE );
+
+ConVar spec_glow_silent_factor( "spec_glow_silent_factor", "0.6", FCVAR_CLIENTDLL, "Lurking player xray glow scaling.", true, 0.0f, true, 1.0f );
+ConVar spec_glow_spike_factor( "spec_glow_spike_factor", "1.2", FCVAR_CLIENTDLL, "Noisy player xray glow scaling (pop when noise is made).  Make >1 to add a 'spike' to noise-making players", true, 1.0f, true, 3.0f );
+
+ConVar spec_glow_full_time( "spec_glow_full_time", "1.0", FCVAR_CLIENTDLL, "Noisy players stay at full brightness for this long.", true, 0.0f, false, 0.0f );
+ConVar spec_glow_decay_time( "spec_glow_decay_time", "2.0", FCVAR_CLIENTDLL, "Time to decay glow from 1.0 to spec_glow_silent_factor after spec_glow_full_time.", true, 0.0f, false, 0.0f );
+ConVar spec_glow_spike_time( "spec_glow_spike_time", "0.0", FCVAR_CLIENTDLL, "Time for noisy player glow 'spike' to show that they made noise very recently.", true, 0.0f, false, 0.0f );
+
+static void Spec_Show_Xray_Callback( IConVar *pConVar, const char *pOldString, float flOldValue )
+{
+	C_CSPlayer *pLocalPlayer = C_CSPlayer::GetLocalCSPlayer();
+	if ( pLocalPlayer )
+		pLocalPlayer->UpdateGlowsForAllPlayers();
+}
+
+ConVar spec_show_xray("spec_show_xray", "0", FCVAR_ARCHIVE, "If set to 1, you can see player outlines and name IDs through walls - who you can see depends on your team and mode", Spec_Show_Xray_Callback );
+
+ConVar cl_teammate_colors_show( "cl_teammate_colors_show", "1", FCVAR_CLIENTDLL, "In competitive, 1 = show teammates as separate colors in the radar, scoreboard, etc., 2 = show colors and letters" );
+
+ConVar spec_replay_outline( "spec_replay_outline", "1", FCVAR_CLIENTDLL, "Enable outline selecting victim in hltv replay: 0 - none; 1 - ouline YOU; 2 - outline YOU, with red ragdoll outline; 3 - normal spectator outlines" );
+
+ConVar cl_hud_radar_scale( "cl_hud_radar_scale", "1", FCVAR_CLIENTDLL, "", true, 0.8, true, 1.3 );
 
 ConVar fov_cs_debug( "fov_cs_debug", "0", FCVAR_CHEAT, "Sets the view fov if cheats are on." );
 
@@ -330,7 +355,7 @@ public:
 
 private:
 
-	C_CSRagdoll( const C_CSRagdoll & ) {}
+	C_CSRagdoll( const C_CSRagdoll & ) :m_nGlowObjectHandle( -1) { }
 
 	void Interp_Copy( C_BaseAnimatingOverlay *pSourceEntity );
 
@@ -340,6 +365,8 @@ private:
 	void CreateGlovesModel( void );
 
 private:
+
+    void DestroyGlowObject();
 
 	EHANDLE	m_hPlayer;
 	EHANDLE	m_hControlledPlayer;
@@ -353,6 +380,7 @@ private:
 	bool m_bInitialized;
 	bool m_bCreatedWhilePlaybackSkipping;
 	C_BaseCSGloves* m_pGloves;
+	int m_nGlowObjectHandle;
 };
 
 
@@ -374,7 +402,8 @@ IMPLEMENT_CLIENTCLASS_DT_NOBASE( C_CSRagdoll, DT_CSRagdoll, CCSRagdoll )
 END_RECV_TABLE()
 
 
-C_CSRagdoll::C_CSRagdoll()
+C_CSRagdoll::C_CSRagdoll():
+	m_nGlowObjectHandle(-1)
 {
 	m_flRagdollSinkStart = -1;
 	m_bInitialized = false;
@@ -384,6 +413,8 @@ C_CSRagdoll::C_CSRagdoll()
 
 C_CSRagdoll::~C_CSRagdoll()
 {
+	DestroyGlowObject();
+	
 	PhysCleanupFrictionSounds( this );
 
 	if ( m_pGloves )
@@ -391,6 +422,15 @@ C_CSRagdoll::~C_CSRagdoll()
 		m_pGloves->Remove();
 		m_pGloves = NULL;
 	}
+}
+
+void C_CSRagdoll::DestroyGlowObject()
+{
+	/*if ( m_nGlowObjectHandle >= 0 )
+	{
+		g_GlowObjectManager.UnregisterGlowObject( m_nGlowObjectHandle );
+		m_nGlowObjectHandle = -1;
+	}*/
 }
 
 void C_CSRagdoll::GetRagdollInitBoneArrays( matrix3x4_t *pDeltaBones0, matrix3x4_t *pDeltaBones1, matrix3x4_t *pCurrentBones, float boneDt )
@@ -640,6 +680,16 @@ void C_CSRagdoll::CreateCSRagdoll()
 
 	// mark this to prevent model changes from overwriting the death sequence with the server sequence
 	SetReceivedSequence();
+	
+		// if we're playing a replay, only add a glow to ourselves
+	DestroyGlowObject();
+	
+	if ( pPlayer && engine && spec_replay_outline.GetInt() )
+	{
+			/*float gb = ( spec_replay_outline.GetInt() == 2 ) ? 0.375f : 1.0f;
+			m_nGlowObjectHandle = g_GlowObjectManager.RegisterGlowObject( this, Vector( 1, gb, gb ), 0.8f, true, false, GLOW_FOR_ALL_SPLIT_SCREEN_SLOTS );
+			SetRenderColor( 255, 0, 0 );*/
+	}
 
 	if ( pPlayer && !pPlayer->IsDormant() )
 	{
@@ -1115,8 +1165,9 @@ END_RECV_TABLE()
 
 bool C_CSPlayer::s_bPlayingFreezeCamSound = false;
 
-C_CSPlayer::C_CSPlayer() :
-	m_iv_angEyeAngles( "C_CSPlayer::m_iv_angEyeAngles" )
+C_CSPlayer::C_CSPlayer() : 
+	m_iv_angEyeAngles( "C_CSPlayer::m_iv_angEyeAngles" ),
+	m_GlowObject( this, Vector( 1.0f, 1.0f, 1.0f ), 0.0f, false, false )
 {
 	m_bMaintainSequenceTransitions = false; // disabled for perf - animstate takes care of carefully blending only the layers that need it
 
@@ -1147,11 +1198,21 @@ C_CSPlayer::C_CSPlayer() :
 	m_iOldIDEntIndex = 0;
 	m_holdTargetIDTimer.Reset();
 	m_iDirection = 0;
+	
+	m_bIsBuyMenuOpen = false;
 
 	m_Activity = ACT_IDLE;
-
+	m_fNextGlowCheckUpdate = 0.0f;
 	m_pFlashlightBeam = NULL;
 	m_fNextThinkPushAway = 0.0f;
+	
+	m_fNextGlowCheckInterval = GLOWUPDATE_DEFAULT_THINK_INTERVAL;
+
+	m_fGlowAlpha = 1.0f;
+	m_fGlowAlphaTarget = 1.0f;
+	m_fGlowAlphaUpdateTime = -1.0f;
+	m_fGlowAlphaTargetTime = -1.0f;
+	
 
 	m_serverIntendedCycle = -1.0f;
 
@@ -1173,6 +1234,8 @@ C_CSPlayer::C_CSPlayer() :
 	m_nextTaserShakeTime = 0.0f;
 	m_firstTaserShakeTime = 0.0f;
 	m_bKilledByTaser = false;
+    
+    m_bFreezeCamFlashlightActive = false;
 
 	m_bShouldAutobuyDMWeapons = false;
 
@@ -1254,8 +1317,15 @@ C_CSPlayer::~C_CSPlayer()
 			pViewModel->RemoveViewmodelStatTrak();
 		}
 	}
+    m_freezeCamSpotLightTexture.Shutdown();
 }
 
+void C_CSPlayer::UpdateOnRemove( void )
+{
+	CancelFreezeCamFlashlightEffect();
+
+	BaseClass::UpdateOnRemove();
+}
 
 class CTraceFilterOmitPlayers : public CTraceFilterSimple
 {
@@ -2240,6 +2310,16 @@ void C_CSPlayer::UpdateAddonModels( bool bForce )
 	m_bAddonModelsAreOutOfDate = false;
 }
 
+void C_CSPlayer::SetBuyMenuOpen( bool bOpen ) 
+{ 
+	m_bIsBuyMenuOpen = bOpen;
+	
+	if ( bOpen == true )
+		engine->ClientCmd( "open_buymenu" );
+	else
+		engine->ClientCmd( "close_buymenu" );
+} 
+
 
 void C_CSPlayer::RemoveAddonModels()
 {
@@ -2308,6 +2388,7 @@ void C_CSPlayer::FireGameEvent( IGameEvent *event )
 	{
 		if ( IsLocalPlayer() && CSGameRules() && CSGameRules()->IsPlayingGunGameDeathmatch() )
 			m_bShouldAutobuyDMWeapons = true;
+			UpdateGlowsForAllPlayers();
 	}
 	else if ( Q_strcmp( name, "cs_pre_restart" ) == 0 )
 	{
@@ -2355,6 +2436,7 @@ void C_CSPlayer::FireGameEvent( IGameEvent *event )
 					m_iOldIDEntIndex = 0;
 					m_holdTargetIDTimer.Reset();
 					m_iTargetedWeaponEntIndex = 0;
+					UpdateGlowsForAllPlayers();
 
 					if ( CSGameRules()->IsPlayingAnyCompetitiveStrictRuleset() )
 					{
@@ -2383,8 +2465,11 @@ void C_CSPlayer::FireGameEvent( IGameEvent *event )
 			m_nLastKillerHitsGiven = 0;
 
 			UpdateAddonModels( true );
+			UpdateGlowsForAllPlayers();
 
 			m_flLastSpawnTimeIndex = gpGlobals->curtime;
+            
+            CancelFreezeCamFlashlightEffect();
 
 			if ( IsLocalPlayer() && CSGameRules() && CSGameRules()->IsPlayingGunGameDeathmatch() )
 				m_bShouldAutobuyDMWeapons = true;
@@ -2561,11 +2646,309 @@ void C_CSPlayer::ToggleRandomWeapons( void )
 	EmitSound( filter, GetSoundSourceIndex(), "BuyPreset.Updated" );
 }
 
+void C_CSPlayer::CreateViewmodelLight()
+{
+    if (m_hViewmodelLight.Get())
+    {
+        UTIL_Remove(m_hViewmodelLight.Get());
+        m_hViewmodelLight = NULL;
+    }
+    
+    C_EnvProjectedTexture *pLight = (C_EnvProjectedTexture*)CreateEntityByName("env_projectedtexture");
+    
+    if (pLight)
+    {
+        pLight->KeyValue("lightfov", "45");
+        pLight->KeyValue("lightcolor", "255 240 200 255");
+        pLight->KeyValue("lightworld", "1");
+        pLight->KeyValue("lightmodels", "1");
+        pLight->KeyValue("nearz", "1");
+        pLight->KeyValue("farz", "512");
+        pLight->KeyValue("enableshadows", "1"); 
+        pLight->KeyValue("brightness", "2");
+        
+        pLight->Spawn();
+        pLight->Activate();
+        
+        m_hViewmodelLight = pLight;
+    }
+}
+
+void C_CSPlayer::UpdateViewmodelLight()
+{
+    C_EnvProjectedTexture *pLight = m_hViewmodelLight.Get();
+    
+    if (!pLight)
+        return;
+    
+    CBaseViewModel *pViewModel = GetViewModel();
+    if (!pViewModel)
+        return;
+    
+    Vector vecViewmodelOrigin = pViewModel->GetAbsOrigin();
+    QAngle angViewModel = pViewModel->GetAbsAngles();
+    
+    int iAttachment = pViewModel->LookupAttachment("muzzle");
+    if (iAttachment > 0)
+    {
+        pViewModel->GetAttachment(iAttachment, vecViewmodelOrigin, angViewModel);
+    }
+    
+    Vector vecSunOffset(200.0f, 150.0f, 200.0f); 
+    Vector vecForward, vecRight, vecUp;
+    AngleVectors(EyeAngles(), &vecForward, &vecRight, &vecUp);
+    
+    Vector vecSunPos = EyePosition() + vecForward * vecSunOffset.x + vecRight * vecSunOffset.y + vecUp * vecSunOffset.z;
+    
+    Vector vecLightDir = vecViewmodelOrigin - vecSunPos;
+    VectorNormalize(vecLightDir);
+    
+    QAngle angLight;
+    VectorAngles(vecLightDir, angLight);
+    
+    pLight->SetAbsOrigin(vecViewmodelOrigin);
+    pLight->SetAbsAngles(angLight);
+}
+
+bool C_CSPlayer::ShouldShowTeamPlayerColors( int nOtherTeamNum )
+{
+	ConVarRef cl_teammate_colors_show( "cl_teammate_colors_show" );
+	if ( cl_teammate_colors_show.GetBool( ) == false || engine->IsHLTV( ) )
+		return false;
+
+	if ( nOtherTeamNum != TEAM_CT && nOtherTeamNum != TEAM_TERRORIST )
+		return false;
+
+	int nMaxPlayers = CCSGameRules::GetMaxPlayers();
+	
+	bool bShowColor = (nMaxPlayers <= 10) && CSGameRules() && CSGameRules()->IsPlayingAnyCompetitiveStrictRuleset() && (nOtherTeamNum == GetTeamNumber());
+
+	return bShowColor;
+}
+
+bool C_CSPlayer::ShouldShowTeamPlayerColorLetters( void )
+{
+	ConVarRef cl_teammate_colors_show( "cl_teammate_colors_show" );
+	if ( cl_teammate_colors_show.GetInt() == 2 && engine->IsHLTV() == false )
+		return true;
+
+	return false;
+}
+
+void C_CSPlayer::UpdateGlowsForAllPlayers( void )
+{
+	for ( int i = 1; i <= MAX_PLAYERS; i++ )
+	{
+		C_CSPlayer *pPlayer = ToCSPlayer( UTIL_PlayerByIndex( i ) );
+		if ( pPlayer )
+		{
+			pPlayer->UpdateGlows();
+		}
+	}
+}
+
+static bool GlowEffectSpectator( C_CSPlayer* thisPlayer, C_CSPlayer* pLocalPlayer, GlowRenderStyle_t& glowStyle, Vector& glowColor, float& alphaStart, float& alpha, float& timeStart, float& timeTarget, bool& animate )
+{
+	// Spectator rendering
+	if ( !pLocalPlayer )
+		return false;
+
+	C_CS_PlayerResource *cs_PR = dynamic_cast< C_CS_PlayerResource * >( g_PR );
+	if ( cs_PR )
+	{
+		if ( cs_PR->GetTeam( thisPlayer->entindex() ) != thisPlayer->GetTeamNumber() )
+		{
+			//Msg( "Player resource disagrees on player team: %s\n", GetPlayerName() );
+			return false;
+		}
+	}
+
+	bool bRenderForSpectator = ( spec_show_xray.GetInt() );
+
+	if ( !bRenderForSpectator && ( pLocalPlayer->IsAlive() || ( pLocalPlayer->GetObserverMode() <= OBS_MODE_FREEZECAM ) ) )
+		return false;
+
+	bool bRender = false;
+	if ( mp_teammates_are_enemies.GetBool() && thisPlayer->IsOtherEnemy( pLocalPlayer->entindex() ) )  // if everyone is an enemy
+	{
+		// red
+		glowColor.x = ( 242.0f / 255.0f );
+		glowColor.y = ( 117.0f / 255.0f );
+		glowColor.z = ( 117.0f / 255.0f );
+		bRender = true;
+	}
+	else if ( ( thisPlayer->GetTeamNumber() == TEAM_CT ) )
+	{
+		// blue
+		glowColor.x = ( 114.0f / 255.0f );
+		glowColor.y = ( 155.0f / 255.0f );
+		glowColor.z = ( 221.0f / 255.0f );
+		bRender = true;
+	}
+	else if ( ( thisPlayer->GetTeamNumber() == TEAM_TERRORIST ) )
+	{
+		// yellow
+		glowColor.x = ( 224.0f / 255.0f );
+		glowColor.y = ( 175.0f / 255.0f );
+		glowColor.z = ( 86.0f / 255.0f );
+		bRender = true;
+	}
+
+	// Check for xray highlight of currently selected player
+	int nTargetSpec = ( pLocalPlayer->GetObserverTarget() ? pLocalPlayer->GetObserverTarget()->entindex() : -1 );
+	if ( nTargetSpec == thisPlayer->entindex() )
+	{
+		bool bShowSelected =
+			// we must alraedy be eligible to xray this player to highlight them as selected
+			bRender &&
+			// $$$REI I think this is a proxy for "is this a competitive mode game"
+			( CCSGameRules::GetMaxPlayers() <= 10 ) &&
+			// no selection highlight in dm/armsrace ($$$REI Why?)
+			!( CSGameRules()->IsPlayingGunGameDeathmatch() || CSGameRules()->IsPlayingGunGameProgressive() ) &&
+			// must be in 'free' observer mode otherwise we are already tethered to the selected player
+			( pLocalPlayer->GetObserverMode() == OBS_MODE_FIXED || pLocalPlayer->GetObserverMode() == OBS_MODE_ROAMING );
+
+		// always highlight the selected player when we are interpolating to them
+		if ( pLocalPlayer->IsInObserverInterpolation() )
+			bShowSelected = true;
+
+		if ( bShowSelected )
+		{
+			glowColor.x = ( 255.0f / 255.0f );
+			glowColor.y = ( 255.0f / 255.0f );
+			glowColor.z = ( 255.0f / 255.0f );
+			bRender = true;
+		}
+	}
+
+	if ( !bRender )
+		return false;
+
+	// turn down spectator xray if player is quiet
+	float fSpecGlowSilentFactor = spec_glow_silent_factor.GetFloat();
+	float fSpecGlowSpikeFactor = spec_glow_spike_factor.GetFloat();
+	float fSpecGlowFullTime = spec_glow_full_time.GetFloat();
+	float fSpecGlowDecayTime = spec_glow_decay_time.GetFloat();
+	float fSpecGlowSpikeTime = spec_glow_spike_time.GetFloat();
+	
+	// drop values (remnant of legacy glow code that 1.0 really means 0.6)
+	alpha *= 0.6f;
+	alphaStart *= 0.6f;
+
+	return true;
+}
+
+
+typedef bool( *tGetGlowFunc )( C_CSPlayer* thisPlayer, C_CSPlayer* localPlayer, GlowRenderStyle_t& glowStyle, Vector& glowColor, float& alphaStart, float& alpha, float& timeStart, float& timeTarget, bool& animate );
+
+void C_CSPlayer::UpdateGlows( void )
+{
+	C_CSPlayer *pLocalPlayer = C_CSPlayer::GetLocalCSPlayer();
+
+	//////////////////////////////////////////////////////////////////////////
+	// First handle screen effects
+	// TODO: Doesn't really belong in UpdateGlow(), but right now they update
+	//       at the same time as glow effects
+
+	// in order of priority
+	static const tGetGlowFunc kGlowFuncs[] =
+	{
+		GlowEffectSpectator,
+		nullptr
+	};
+
+	m_fNextGlowCheckInterval = GLOWUPDATE_DEFAULT_THINK_INTERVAL;
+
+	bool bRender = false;
+	Vector glowColor = vec3_origin;
+	GlowRenderStyle_t glowStyle = GLOWRENDERSTYLE_DEFAULT;
+	//	bool bRenderInside = false;
+	float flAlphaStart = m_fGlowAlpha;
+	float flAlpha = 1.0f;
+	float flAlphaStartTime = gpGlobals->curtime;
+	float flAlphaTargetTime = gpGlobals->curtime;
+	bool animate = false;
+
+	for ( const tGetGlowFunc* pGlowFunc = kGlowFuncs; *pGlowFunc != nullptr; ++pGlowFunc )
+	{
+		if ( ( *pGlowFunc )( this, pLocalPlayer, glowStyle, glowColor, flAlphaStart, flAlpha, flAlphaStartTime, flAlphaTargetTime, animate ) )
+		{
+			bRender = true;
+			break;
+		}
+	}
+
+	m_GlowObject.SetRenderFlags( bRender, true );
+	//m_GlowObject.SetRenderFlags( !bRenderInside, bRender, bRenderInside );
+	m_GlowObject.SetRenderStyle( glowStyle );
+	m_GlowObject.SetColor( glowColor );
+
+	if( bRender && animate )
+	{
+		// set up animation
+		if(flAlphaTargetTime > flAlphaStartTime && flAlphaTargetTime > gpGlobals->curtime )
+		{
+			m_fGlowAlpha = Lerp( ( gpGlobals->curtime - flAlphaStartTime ) / ( flAlphaTargetTime - flAlphaStartTime ), flAlphaStart, flAlpha );
+			m_fGlowAlphaTarget = flAlpha;
+			m_fGlowAlphaTargetTime = flAlphaTargetTime;
+		}
+		else
+		{
+			m_fGlowAlphaTargetTime = -1.0f;
+			m_fGlowAlpha = m_fGlowAlphaTarget = flAlpha;
+		}
+	}
+	else
+	{
+		m_fGlowAlphaTargetTime = -1.0f;
+		m_fGlowAlpha = m_fGlowAlphaTarget = flAlpha;
+	}
+	m_fGlowAlphaUpdateTime = gpGlobals->curtime;
+
+	m_GlowObject.SetAlpha( bRender ? m_fGlowAlpha : 0.0f );
+}
+
+void C_CSPlayer::AnimateGlows( void )
+{
+	// Lerp towards the target
+	float totalTimeRemaining = m_fGlowAlphaTargetTime - m_fGlowAlphaUpdateTime;
+	float timeUsed = gpGlobals->curtime - m_fGlowAlphaUpdateTime;
+	float percent;
+	
+	if ( timeUsed < totalTimeRemaining && totalTimeRemaining > 0 )
+	{
+		percent = timeUsed / totalTimeRemaining;
+	}
+	else
+	{
+		percent = 1.0f;
+	}
+
+	if ( percent < 1.0f )
+	{
+		// animate
+		float newAlpha = Lerp( percent, m_fGlowAlpha, m_fGlowAlphaTarget );
+		m_fGlowAlpha = newAlpha;
+		m_fGlowAlphaUpdateTime = gpGlobals->curtime;
+		m_GlowObject.SetAlpha( newAlpha );
+	}
+	else
+	{
+		// otherwise we are done with the animation, finish it and check if there is a new state
+		m_fGlowAlpha = m_fGlowAlphaTarget;
+		m_fGlowAlphaUpdateTime = m_fGlowAlphaTargetTime;
+		m_fGlowAlphaTargetTime = -1.0f;
+		m_GlowObject.SetAlpha( m_fGlowAlphaTarget );
+		UpdateGlows();
+	}
+}
+
 void C_CSPlayer::Spawn( void )
 {
 	m_flLastSpawnTimeIndex = gpGlobals->curtime;
 
 	BaseClass::Spawn();
+	CreateViewmodelLight();
 
 	if ( m_bUseNewAnimstate && m_PlayerAnimStateCSGO )
 	{
@@ -2650,6 +3033,7 @@ void C_CSPlayer::ClientThink()
 	UpdateAddonModels( m_bAddonModelsAreOutOfDate );
 
 	UpdateHostageCarryModels();
+	UpdateViewmodelLight();
 
 	// don't show IDs in chase spec mode
 	bool inSpecMode = ( GetObserverMode() == OBS_MODE_CHASE || GetObserverMode() == OBS_MODE_DEATHCAM );
@@ -2857,6 +3241,8 @@ void C_CSPlayer::ClientThink()
 		else
 		{
 			m_bPlayingFreezeCamSound = false;
+            
+            CancelFreezeCamFlashlightEffect();
 		}
 	}
 }
@@ -2869,6 +3255,8 @@ void C_CSPlayer::OnDataChanged( DataUpdateType_t type )
 	if ( type == DATA_UPDATE_CREATED )
 	{
 		SetNextClientThink( CLIENT_THINK_ALWAYS );
+        
+        m_freezeCamSpotLightTexture.Init( "effects/flashlight_freezecam", TEXTURE_GROUP_OTHER, true );
 	}
 
 	if ( m_bPlayingHostageCarrySound == false && m_hCarriedHostage )
@@ -2945,7 +3333,7 @@ void C_CSPlayer::PostDataUpdate( DataUpdateType_t updateType )
 		if ( m_bUseNewAnimstate && m_PlayerAnimStateCSGO )
 		{
 			m_PlayerAnimStateCSGO->Reset();
-			//m_PlayerAnimStateCSGO->Update( EyeAngles()[YAW], EyeAngles()[PITCH] );
+			m_PlayerAnimStateCSGO->Update( EyeAngles()[YAW], EyeAngles()[PITCH] );
 		}
 	}
 }
@@ -3345,25 +3733,39 @@ void C_CSPlayer::HandleTaserAnimation()
 
 void C_CSPlayer::UpdateClientSideAnimation()
 {
-	if ( m_bUseNewAnimstate )
-	{
-		m_PlayerAnimStateCSGO->Update( EyeAngles()[YAW], EyeAngles()[PITCH] );
-	}
+    if ( m_PlayerAnimStateCSGO )
+    {
+        float eyeYaw = EyeAngles()[YAW];
+        float eyePitch = EyeAngles()[PITCH];
+        
+        if ( IsLocalPlayer() )
+        {
+          /*  Msg("=== LOCAL PLAYER ANGLES ===\n");
+            Msg("EyeAngles: %.2f %.2f\n", eyeYaw, eyePitch);
+            Msg("GetLocalAngles: %.2f %.2f\n", GetLocalAngles()[YAW], GetLocalAngles()[PITCH]);
+            Msg("GetAbsAngles: %.2f %.2f\n", GetAbsAngles()[YAW], GetAbsAngles()[PITCH]);
+            Msg("GetRenderAngles: %.2f %.2f\n", GetRenderAngles()[YAW], GetRenderAngles()[PITCH]);
+            Msg("m_angEyeAngles: %.2f %.2f\n", m_angEyeAngles[YAW], m_angEyeAngles[PITCH]);
+            Msg("pl.v_angle: %.2f %.2f\n", pl.v_angle[YAW], pl.v_angle[PITCH]);*/
+        }
+        
+        m_PlayerAnimStateCSGO->Update( eyeYaw, eyePitch );
+    }
 	else
 	{
+
 		// We do this in a different order than the base class.
-		// We need our cycle to be valid for when we call the playeranimstate update code,
+		// We need our cycle to be valid for when we call the playeranimstate update code, 
 		// or else it'll synchronize the upper body anims with the wrong cycle.
+		
 		if ( GetSequence() != -1 )
 		{
 			// move frame forward
 			FrameAdvance( 0.0f ); // 0 means to use the time we last advanced instead of a constant
 		}
 
-		// Update the animation data. It does the local check here so this works when using
-		// a third-person camera (and we don't have valid player angles).
-		if ( this == C_CSPlayer::GetLocalCSPlayer() )
-			m_PlayerAnimState->Update( EyeAngles()[YAW], EyeAngles()[PITCH] );
+		if ( C_BasePlayer::IsLocalPlayer( this ) )
+			m_PlayerAnimState->Update( LocalEyeAngles()[YAW], LocalEyeAngles()[PITCH] );
 		else
 			m_PlayerAnimState->Update( m_angEyeAngles[YAW], m_angEyeAngles[PITCH] );
 	}
@@ -4551,6 +4953,8 @@ float C_CSPlayer::GetFOV( void )
 //-----------------------------------------------------------------------------
 void C_CSPlayer::CalcObserverView( Vector& eyeOrigin, QAngle& eyeAngles, float& fov )
 {
+    CancelFreezeCamFlashlightEffect();
+    
 	/**
 	 * TODO: Fix this!
 	// CS:S standing eyeheight is above the collision volume, so we need to pull it
@@ -4894,7 +5298,7 @@ float C_CSPlayer::GetFreezeFrameInterpolant( void )
 	float fCurTime = gpGlobals->curtime - m_flFreezeFrameStartTime;
 	float fTravelTime = !m_bFreezeFrameCloseOnKiller ? spec_freeze_traveltime.GetFloat() : spec_freeze_traveltime_long.GetFloat();
 	float fInterpolant = clamp( fCurTime / fTravelTime, 0.0f, 1.0f );
-
+    
 	return Interpolators::SmoothStepEnd( fInterpolant );
 }
 
@@ -5083,6 +5487,16 @@ void C_CSPlayer::CalcFreezeCamView( Vector& eyeOrigin, QAngle& eyeAngles, float&
 
 	float fCurTime = gpGlobals->curtime - m_flFreezeFrameStartTime;
 	float fTravelTime = !m_bFreezeFrameCloseOnKiller ? spec_freeze_traveltime.GetFloat() : spec_freeze_traveltime_long.GetFloat();
+    
+    // cancel the light shortly after the freeze frame was taken
+	if ( m_bSentFreezeFrame && fCurTime >= (fTravelTime + 0.25f ) )
+	{
+		CancelFreezeCamFlashlightEffect();
+	}
+	else
+	{
+		UpdateFreezeCamFlashlightEffect( pTarget, fInterpolant );
+	}
 
 	// [jason] check that our target position does not fall within the render extents of the target we're looking at;
 	//	this can happen if our killer is in a tight spot and the camera is trying to avoid clipping geometry
@@ -5141,6 +5555,110 @@ void C_CSPlayer::CalcFreezeCamView( Vector& eyeOrigin, QAngle& eyeAngles, float&
 
 		m_bSentFreezeFrame = true;
 		view->FreezeFrame( spec_freeze_time.GetFloat() );
+	}
+}
+
+void C_CSPlayer::UpdateFreezeCamFlashlightEffect( C_BaseEntity *pTarget, float flAmount )
+{
+	if ( !pTarget )
+	{
+		CancelFreezeCamFlashlightEffect();
+		return;
+	}
+
+	Vector brightness( spec_freeze_cinematiclight_r.GetFloat(), spec_freeze_cinematiclight_g.GetFloat(), spec_freeze_cinematiclight_b.GetFloat() );
+	Vector dimWhite( 0.3f, 0.3f, 0.3f );
+
+	if ( !m_bFreezeCamFlashlightActive )
+	{
+		//m_fFlashlightEffectStartTonemapScale = GetCurrentTonemapScale();
+		m_bFreezeCamFlashlightActive = true;
+		//m_fFlashlightEffectStartTime = gpGlobals->curtime;
+		//m_flashLightFadeTimer.Start( 3.0f );
+	}
+
+	Vector vecFlashlightOrigin;
+	Vector vecFlashlightForward( 0.0f, 0.0f, -1.0f );
+	Vector vecFlashlightRight( 1.0f, 0.0f, 0.0f );
+	Vector vecFlashlightUp( 0.0f, 1.0f, 0.0f );
+	float fFOV = 0.0f;
+
+	float invScale = 1.0f;
+	//if ( m_fFlashlightEffectStartTonemapScale != 0.0f )
+	//{
+	//	invScale = 1.0f / m_fFlashlightEffectStartTonemapScale;
+	//}
+	brightness = (brightness * invScale * spec_freeze_cinematiclight_scale.GetFloat() ) * flAmount;
+
+	//if ( isDying )
+	{
+		Vector targetOrig = pTarget->GetRenderOrigin();
+		targetOrig.z += 32;
+		Vector vToTarget = targetOrig - EyePosition();
+		VectorNormalize( vToTarget );
+		Vector forward, right, up;
+		QAngle angTemp;
+        VectorAngles( vToTarget, angTemp );
+		AngleVectors (angTemp, &forward, &right, &up );
+
+		if ( m_nFreezeFrameShiftSideDist > 0 )
+			vecFlashlightOrigin = targetOrig + ( right * 80 );
+		else
+			vecFlashlightOrigin = targetOrig - ( right * 80 );
+		vecFlashlightOrigin -= ( forward * 50 );
+		vecFlashlightOrigin.z += 100.f;
+
+		float flFOVExtra = 0;
+
+		trace_t trace;
+		UTIL_TraceLine( targetOrig, vecFlashlightOrigin, MASK_OPAQUE, pTarget, COLLISION_GROUP_DEBRIS, &trace );
+		if ( trace.fraction >= 0.8 )
+		{
+			vecFlashlightOrigin = trace.endpos;
+		}
+		else
+		{
+			// just go the other way
+			if ( m_nFreezeFrameShiftSideDist > 0 )
+				vecFlashlightOrigin = targetOrig - ( right * 60 );
+			else
+				vecFlashlightOrigin = targetOrig + ( right * 60 );
+			vecFlashlightOrigin -= ( forward * 40 );
+			vecFlashlightOrigin.z += 80.f;
+			UTIL_TraceLine( targetOrig, vecFlashlightOrigin, MASK_OPAQUE, pTarget, COLLISION_GROUP_DEBRIS, &trace );
+			vecFlashlightOrigin = trace.endpos;
+
+			flFOVExtra = (1 - trace.fraction ) * 20; 
+			targetOrig.z += flFOVExtra;
+		}
+        
+        Vector vToTarget2 = targetOrig - vecFlashlightOrigin;
+		VectorNormalize( vToTarget2 );
+		QAngle angTemp2;
+		VectorAngles( vToTarget2, angTemp2 );
+		AngleVectors (angTemp2, &vecFlashlightForward, &vecFlashlightRight, &vecFlashlightUp );
+
+		fFOV = 50.f + flFOVExtra;
+	}
+
+	MDLCACHE_CRITICAL_SECTION();
+	FlashlightEffectManager().EnableFlashlightOverride( true );
+	FlashlightEffectManager().UpdateFlashlightOverride( true, vecFlashlightOrigin, vecFlashlightForward, vecFlashlightRight,
+		vecFlashlightUp, fFOV, true, m_freezeCamSpotLightTexture, brightness );
+
+	// force tonemapping down
+	//if ( m_bOverrideTonemapping )
+	//{
+	//	SetOverrideTonemapScale( true, fTonemapScale );
+	//}
+}
+
+void C_CSPlayer::CancelFreezeCamFlashlightEffect()
+{
+	if( m_bFreezeCamFlashlightActive )
+	{
+		FlashlightEffectManager().EnableFlashlightOverride( false );
+		m_bFreezeCamFlashlightActive = false;
 	}
 }
 

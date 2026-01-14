@@ -15,6 +15,11 @@
 
 #include "ivrenderview.h"
 
+#define MAX_DEPTH_TEXTURE_SHADOWS 1
+#define MAX_DEPTH_TEXTURE_HIGHRES_SHADOWS 0
+
+#define MAX_DEPTH_TEXTURE_SHADOWS_TOOLS 8
+#define MAX_DEPTH_TEXTURE_HIGHRES_SHADOWS_TOOLS 0
 
 // These are set as it draws reflections, refractions, etc, so certain effects can avoid 
 // drawing themselves in reflections.
@@ -48,7 +53,6 @@ enum DrawFlags_t
 
 	DF_SHADOW_DEPTH_MAP		= 0x100000	// Currently rendering a shadow depth map
 };
-
 
 //-----------------------------------------------------------------------------
 // Purpose: View setup and rendering

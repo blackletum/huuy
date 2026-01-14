@@ -21,8 +21,8 @@
 	#include "prediction.h"
 	#include "npcevent.h"
 	#include "eventlist.h"
-	#include "c_baseviewmodel.h"
-    #include "weapon_csbase.h"
+	#include "SkinProcessor.h"
+	#include "cs_weapon_parse.h"
 #endif
 // NVNT end extra includes
 
@@ -122,84 +122,6 @@ void RecvProxy_WeaponWorldmodel( const CRecvProxyData *pData, void *pStruct, voi
 	}
 }
 
-int CBaseWeaponWorldModel::DrawModel(int flags)
-{
-    if (IsEffectActive(EF_NODRAW) || !ShouldDraw())
-        return 0;
-
-#ifdef CLIENT_DLL
-    C_BasePlayer* pLocal = C_BasePlayer::GetLocalPlayer();
-    if (!pLocal)
-        return BaseClass::DrawModel(flags);
-
-    C_BaseCombatWeapon* pWeapon = m_hWeapon.Get();
-    if (!pWeapon)
-        return BaseClass::DrawModel(flags);
-
-    C_BasePlayer* pOwner = ToBasePlayer(pWeapon->GetOwner());
-    if (!pOwner || pOwner != C_BasePlayer::GetLocalPlayer())
-    {
-    
-        return BaseClass::DrawModel(flags);
-    }
-
-    IMaterial* pSkinMat = nullptr;
-    const char* pszClass = pWeapon->GetClassname();
-    if (!pszClass)
-        return BaseClass::DrawModel(flags);
-
-    for (auto& ws : g_WeaponSkins)
-    {
-        if (Q_stricmp(pszClass, ws.pszWeaponClass) != 0)
-            continue;
-
-        const char* skinPath = ws.pSkinConVar->GetString();
-        if (!skinPath || !skinPath[0])
-            break;
-
-        if (!ws.pMaterial || ws.sLastSkin != skinPath)
-        {
-            ws.sLastSkin = skinPath;
-            ws.pMaterial = materials->FindMaterial(skinPath, TEXTURE_GROUP_MODEL, true);
-
-            if (!ws.pMaterial || IsErrorMaterial(ws.pMaterial))
-            {
-                Warning("Failed to load skin: %s for weapon: %s\n", skinPath, pszClass);
-                ws.pMaterial = nullptr;
-                break;
-            }
-
-            ws.pMaterial->IncrementReferenceCount();
-
-            MaterialLock_t hLock = materials->Lock();
-            ws.pMaterial->RefreshPreservingMaterialVars();
-            materials->Unlock(hLock);
-        }
-
-        if (ws.pMaterial && !ws.pMaterial->IsPrecached())
-        {
-            MaterialLock_t hLock = materials->Lock();
-            ws.pMaterial->Refresh();
-            materials->Unlock(hLock);
-        }
-
-        pSkinMat = ws.pMaterial;
-        break;
-    }
-
-    if (!pSkinMat)
-        return BaseClass::DrawModel(flags);
-
-    modelrender->ForcedMaterialOverride(pSkinMat);
-    int ret = BaseClass::DrawModel(flags);
-    modelrender->ForcedMaterialOverride(nullptr);
-
-    return ret;
-#else
-    return BaseClass::DrawModel(flags);
-#endif
-}
-
 void CBaseWeaponWorldModel::OnDataChanged( DataUpdateType_t type )
 {
 	if ( type == DATA_UPDATE_CREATED )
@@ -210,6 +132,11 @@ void CBaseWeaponWorldModel::OnDataChanged( DataUpdateType_t type )
 	BaseClass::OnDataChanged( type );
 
 	ValidateParent();
+	
+	if ( IsVisible() )
+		{
+		//	ApplyCustomMaterialsAndStickers();
+		}
 
 	UpdateVisibility();
 }
@@ -479,6 +406,19 @@ bool CBaseWeaponWorldModel::ShouldDraw( void )
 	return true;
 }
 
+int CBaseWeaponWorldModel::DrawModel(int flags)
+{
+	C_BaseCombatWeapon* pWeapon;
+    
+    int ret = BaseClass::DrawModel(flags);
+    
+    IMaterial* pSkinMat = g_SkinProcessor.GetSkinMaterial(pWeapon);
+    if (pSkinMat)
+        modelrender->ForcedMaterialOverride(pSkinMat);
+    
+    return ret;
+}
+
 #else
 
 int CBaseWeaponWorldModel::ShouldTransmit( const CCheckTransmitInfo *pInfo )
@@ -533,6 +473,7 @@ CBaseWeaponWorldModel* CBaseCombatWeapon::CreateWeaponWorldModel( void )
 
 		pWorldModel->SetOwningWeapon( this );
 		m_hWeaponWorldModel.Set( pWorldModel );
+	//	pWorldModel->ApplyCustomMaterials();
 
 		return pWorldModel;
 	}
@@ -550,6 +491,7 @@ void CBaseCombatWeapon::UpdateVisibility( void )
 	if ( pWeaponWorldModel )
 	{
 		pWeaponWorldModel->UpdateVisibility();
+	//	pWeaponWorldModel->ApplyCustomMaterials();
 	}
 	BaseClass::UpdateVisibility();
 }
@@ -1183,7 +1125,6 @@ bool CBaseCombatWeapon::CanBeSelected( void )
 
 	return HasAmmo();
 }
-
 //-----------------------------------------------------------------------------
 // Purpose: Return true if this weapon has some ammo
 //-----------------------------------------------------------------------------

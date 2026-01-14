@@ -8,7 +8,7 @@
 #include "utlmap.h"
 #include "utlstring.h"
 #include "cs_skin_shareddefs.h"
-#include "cs_weapon_parse.h"  // Для CSWeaponID
+#include "cs_weapon_parse.h"
 
 class IMaterial;
 class ITexture;

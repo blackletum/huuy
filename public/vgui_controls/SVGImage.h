@@ -42,7 +42,8 @@ public:
 	virtual HTexture GetID();
 	virtual void SetRotation( int iRotation ) {}
 
-	bool SetTexture( const char* pszFilePath );
+	bool SetTexture( const char* pszFilePath, bool bBlurEdges = false, int blurRadius = 8, Color glowColor = Color(255, 255, 255, 255) );
+	
 	void SetMirroredX( bool bState );
 	void SetMirroredY( bool bState );
 

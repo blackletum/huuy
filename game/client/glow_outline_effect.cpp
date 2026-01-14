@@ -138,7 +138,7 @@ void CGlowObjectManager::RenderGlowModels( const CViewSetup *pSetup, int nSplitS
 
 	if ( g_bDumpRenderTargets )
 	{
-		DumpTGAofRenderTarget( pSetup->width, pSetup->height, "GlowModels" );
+		DumpTGAofRenderTarget( 0, 0, pSetup->width, pSetup->height, "GlowModels" );
 	}
 
 	g_pStudioRender->ForcedMaterialOverride( NULL );
@@ -312,10 +312,10 @@ void CGlowObjectManager::ApplyEntityGlowEffects( const CViewSetup *pSetup, int n
 
 void CGlowObjectManager::GlowObjectDefinition_t::DrawModel()
 {
-	if ( m_hEntity.Get() )
+	if ( m_pEntity )
 	{
-		m_hEntity->DrawModel( STUDIO_RENDER );
-		C_BaseEntity *pAttachment = m_hEntity->FirstMoveChild();
+		m_pEntity->DrawModel( STUDIO_RENDER );
+		C_BaseEntity *pAttachment = m_pEntity->FirstMoveChild();
 
 		while ( pAttachment != NULL )
 		{

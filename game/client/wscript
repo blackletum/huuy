@@ -54,6 +54,7 @@ def build(bld):
 		'dmxloader',
 		'vgui_controls',
 		'lunasvg',
+		'stdshader_dx9',
 		'matsys_controls',
 		'tier1',
 		'tier2',
@@ -68,7 +69,8 @@ def build(bld):
 		'ZLIB',
 		'SDL2',
 		'JPEG',
-		'PNG'
+		'PNG',
+		'CURL'
 	]
 
 	install_path = bld.env.PREFIX

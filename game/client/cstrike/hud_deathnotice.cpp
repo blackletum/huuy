@@ -9,6 +9,7 @@
 #include "hud_macros.h"
 #include "c_playerresource.h"
 #include "iclientmode.h"
+#include "cdll_client_int.h"
 #include <vgui_controls/Controls.h>
 #include <vgui_controls/Panel.h>
 #include <vgui/ISurface.h>
@@ -67,6 +68,7 @@ class CHudDeathNotice : public CHudElement, public vgui::Panel
 	DECLARE_CLASS_SIMPLE( CHudDeathNotice, vgui::Panel );
 public:
 	CHudDeathNotice( const char *pElementName );
+	~CHudDeathNotice();
 
 	void Init( void );
 	void VidInit( void );
@@ -118,6 +120,26 @@ private:
 
 using namespace vgui;
 
+// Safezone support for death notice
+static CHudDeathNotice *s_pDeathNoticeInstance = NULL;
+static int s_nDeathNoticeBaseXPos = 0;
+static int s_nDeathNoticeBaseYPos = 0;
+
+static void DeathNoticeSafeZoneCallback()
+{
+	if ( s_pDeathNoticeInstance )
+	{
+		int left, top, right, bottom;
+		GetSafeZoneMargins( left, top, right, bottom );
+		
+		int wide, tall;
+		s_pDeathNoticeInstance->GetSize( wide, tall );
+		
+		// Death notice is anchored to top-right
+		s_pDeathNoticeInstance->SetPos( ScreenWidth() - wide - right, s_nDeathNoticeBaseYPos + top );
+	}
+}
+
 DECLARE_HUDELEMENT( CHudDeathNotice );
 
 //-----------------------------------------------------------------------------
@@ -126,6 +148,8 @@ DECLARE_HUDELEMENT( CHudDeathNotice );
 CHudDeathNotice::CHudDeathNotice( const char *pElementName ) :
 	CHudElement( pElementName ), BaseClass( NULL, "HudDeathNotice" )
 {
+	s_pDeathNoticeInstance = this;
+
 	vgui::Panel *pParent = g_pClientMode->GetViewport();
 	SetParent( pParent );
 
@@ -139,6 +163,14 @@ CHudDeathNotice::CHudDeathNotice( const char *pElementName ) :
 	m_iconD_thrusmoke = NULL;
 
 	SetHiddenBits( HIDEHUD_MISCSTATUS );
+
+	RegisterSafeZoneCallback( DeathNoticeSafeZoneCallback );
+}
+
+CHudDeathNotice::~CHudDeathNotice()
+{
+	UnregisterSafeZoneCallback( DeathNoticeSafeZoneCallback );
+	s_pDeathNoticeInstance = NULL;
 }
 
 
@@ -164,6 +196,16 @@ void CHudDeathNotice::ApplySchemeSettings( IScheme *scheme )
 	memset(m_teamColors, 0, sizeof(m_teamColors));
 	m_teamColors[TEAM_CT] = m_clrCTText;
 	m_teamColors[TEAM_TERRORIST] = m_clrTerroristText;
+
+	// Store base position and apply safezone - anchored to top-right
+	GetPos( s_nDeathNoticeBaseXPos, s_nDeathNoticeBaseYPos );
+
+	int left, top, right, bottom;
+	GetSafeZoneMargins( left, top, right, bottom );
+
+	int wide, tall;
+	GetSize( wide, tall );
+	SetPos( ScreenWidth() - wide - right, s_nDeathNoticeBaseYPos + top );
 }
 
 //-----------------------------------------------------------------------------

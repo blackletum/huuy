@@ -22,6 +22,7 @@
 #include "tier2/camerautils.h"
 #include "tier3/mdlutils.h"
 #include "materialsystem/MaterialSystemUtil.h"
+#include "rss_feed_panel.h"
 
 #include "ixboxsystem.h"
 
@@ -304,6 +305,7 @@ public:
 	void OnOpenBenchmarkDialog();
 	void OnOpenOptionsDialog();
 	void OnOpenModOptionsDialog();
+	void OnOpenInventoryDialog();
 	void OnOpenOptionsDialog_Xbox();
 	void OnOpenLoadCommentaryDialog();
 	void OpenLoadSingleplayerCommentaryDialog();
@@ -454,6 +456,7 @@ private:
 	vgui::DHANDLE<vgui::Frame> m_hSaveGameDialog_Xbox;
 	vgui::DHANDLE<vgui::PropertyDialog> m_hOptionsDialog;
 	vgui::DHANDLE<vgui::PropertyDialog> m_hModOptionsDialog;
+	vgui::DHANDLE<vgui::PropertyDialog> m_hInventoryDialog;
 	vgui::DHANDLE<vgui::Frame> m_hOptionsDialog_Xbox;
 	vgui::DHANDLE<vgui::Frame> m_hCreateMultiplayerGameDialog;
 	//vgui::DHANDLE<vgui::Frame> m_hDemoPlayerDialog;
@@ -462,6 +465,9 @@ private:
 	vgui::DHANDLE<vgui::Frame> m_hBenchmarkDialog;
 	vgui::DHANDLE<vgui::Frame> m_hLoadCommentaryDialog;
 	vgui::DHANDLE<vgui::Frame> m_hAchievementsDialog;
+	
+	//RSS Info Panel
+	RSSFeedPanel *m_pRSSFeedPanel;
 
 	// Xbox 360
 	vgui::DHANDLE<vgui::Frame> m_hMatchmakingBasePanel;

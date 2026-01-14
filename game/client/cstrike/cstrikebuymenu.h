@@ -145,10 +145,13 @@ public:
 
 	void ParseLightInfo( KeyValues* inResourceData );
 	void SetPlayerModel( const char* pszModel );
-	void SetWeaponModel( const char* pszModel );
+	void SetWeaponModel( const char* pszModel, CSWeaponID weaponID = WEAPON_NONE );
 	void SetGlovesModel( const char* pszModel );
 	void SetSequence( const char* pszSequence );
 	void ResetRotation();
+	
+    void ApplyWeaponSkin( CSWeaponID weaponID );
+    
 
 	bool DoesModelSupportGloves( const char* pszGlovesViewModelName, const char* pszDefaultViewModelName );
 
@@ -239,7 +242,8 @@ public:
 
 	void ShowCategory( KeyValues* kvCategory );
 	void HideCategory();
-	void SetPlayerImageWeapon( const char* pszWeaponModel, const char* pszWeaponSequence );
+	void SetPlayerImageWeapon( const char* pszWeaponModel, const char* pszWeaponSequence, CSWeaponID weaponID = WEAPON_NONE );
+	
 	void SetItemNameAndDescription( const char* pszName, const char* pszDescription );
 	void ResetWeapon();
 	void ShowSpecialMessage( const char* pszText, BuyMenuSpecialMessageType_t nMessageType );

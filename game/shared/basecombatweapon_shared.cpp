@@ -22,6 +22,7 @@
 	#include "npcevent.h"
 	#include "eventlist.h"
 	#include "SkinProcessor.h"
+	#include "cs_weapon_parse.h"
 #endif
 // NVNT end extra includes
 
@@ -351,6 +352,24 @@ void CBaseWeaponWorldModel::HandleAnimEvent( animevent_t *pEvent )
 
 #ifdef CLIENT_DLL
 
+int CBaseWeaponWorldModel::DrawModel(int flags)
+{
+	CBaseWeaponWorldModel *pWeaponWorldModel;
+	
+	CBaseCombatWeapon* pWeapon;
+    
+    int ret = BaseClass::DrawModel(flags);
+
+    if ( pWeapon )
+  {
+    IMaterial* pSkinMat = g_SkinProcessor.GetSkinMaterial(pWeapon);
+    if (pSkinMat)
+        pWeaponWorldModel->SetMaterialOverride(pSkinMat);
+   }
+    
+    return ret;
+}
+
 void CBaseWeaponWorldModel::FireEvent( const Vector& origin, const QAngle& angles, int event, const char *options )
 {
 	if ( event == AE_CL_EJECT_MAG )
@@ -403,24 +422,6 @@ bool CBaseWeaponWorldModel::ShouldDraw( void )
 	}
 	
 	return true;
-}
-
-int CBaseWeaponWorldModel::DrawModel(int flags)
-{
-    CMatRenderContextPtr pRenderContext(materials);
-    
-    int ret = BaseClass::DrawModel(flags);
-    
-    CBaseCombatWeapon* pWeapon = m_hCombatWeaponParent.Get();
-    if (!pWeapon)
-    return ret;
-
-    IMaterial* pSkinMat = g_SkinProcessor.GetSkinMaterial(pWeapon);
-
-    if (pSkinMat)
-        modelrender->ForcedMaterialOverride(pSkinMat);
-    
-    return ret;
 }
 
 #else
@@ -1129,7 +1130,6 @@ bool CBaseCombatWeapon::CanBeSelected( void )
 
 	return HasAmmo();
 }
-
 //-----------------------------------------------------------------------------
 // Purpose: Return true if this weapon has some ammo
 //-----------------------------------------------------------------------------

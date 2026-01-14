@@ -42,10 +42,12 @@ const int kChatFilterVersion = 1;
 
 Color g_ColorBlue( 153, 204, 255, 255 );
 Color g_ColorRed( 255, 63, 63, 255 );
+Color g_ColorTer(255, 180, 100, 255);
 Color g_ColorGreen( 153, 255, 153, 255 );
 Color g_ColorDarkGreen( 64, 255, 64, 255 );
 Color g_ColorYellow( 255, 178, 0, 255 );
 Color g_ColorGrey( 204, 204, 204, 255 );
+Color g_ColorWhite(255, 255, 255, 255); 
 
 
 // removes all color markup characters, so Msg can deal with the string properly
@@ -610,10 +612,7 @@ void CHudChatFilterButton::DoClick( void )
 CHudChatHistory::CHudChatHistory( vgui::Panel *pParent, const char *panelName ) : BaseClass( pParent, "HudChatHistory" )
 {
 	vgui::HScheme scheme;
-
-	if( IsAndroid() && !CommandLine()->FindParm( "-nocustomchat" ) )
-		scheme = vgui::scheme()->LoadSchemeFromFileEx( enginevgui->GetPanel( PANEL_CLIENTDLL ), "resource/customchatscheme.res", "ChatScheme");
-	else
+	
 		scheme = vgui::scheme()->LoadSchemeFromFileEx( enginevgui->GetPanel( PANEL_CLIENTDLL ), "resource/ChatScheme.res", "ChatScheme");
 
 	SetScheme(scheme);
@@ -631,6 +630,21 @@ void CHudChatHistory::ApplySchemeSettings( vgui::IScheme *pScheme )
 		SetFont( pScheme->GetFont( "ChatFont" ) );
 
 	SetAlpha( 255 );
+}
+
+void CHudChatHistory::PaintBackground()
+{
+    int iWide, iTall;
+    GetSize(iWide, iTall);
+
+    vgui::surface()->DrawSetColor(Color(0, 0, 0, 150));
+    
+    vgui::surface()->DrawFilledRect(0, 0, iWide, iTall);
+
+    vgui::surface()->DrawSetColor(Color(60, 60, 60, 200));
+    vgui::surface()->DrawOutlinedRect(0, 0, iWide, iTall);
+
+    BaseClass::PaintBackground();
 }
 
 int CBaseHudChat::m_nLineCounter = 1;
@@ -721,9 +735,6 @@ CHudChatFilterPanel *CBaseHudChat::GetChatFilterPanel( void )
 		{
 			vgui::HScheme scheme;
 
-			if( IsAndroid() && !CommandLine()->FindParm( "-nocustomchat" ) )
-				scheme = vgui::scheme()->LoadSchemeFromFileEx( enginevgui->GetPanel( PANEL_CLIENTDLL ), "resource/customchatscheme.res", "ChatScheme");
-			else
 				scheme = vgui::scheme()->LoadSchemeFromFileEx( enginevgui->GetPanel( PANEL_CLIENTDLL ), "resource/ChatScheme.res", "ChatScheme");
 
 			m_pFilterPanel->SetScheme( scheme );
@@ -740,9 +751,6 @@ CHudChatFilterPanel *CBaseHudChat::GetChatFilterPanel( void )
 
 void CBaseHudChat::ApplySchemeSettings( vgui::IScheme *pScheme )
 {
-	if( IsAndroid() && !CommandLine()->FindParm( "-nocustomchat" ) )
-		LoadControlSettings( "resource/UI/customchat.res" );
-	else
 		LoadControlSettings( "resource/UI/BaseChat.res" );
 
 	BaseClass::ApplySchemeSettings( pScheme );
@@ -764,6 +772,8 @@ void CBaseHudChat::ApplySchemeSettings( vgui::IScheme *pScheme )
 	SetBgColor( Color ( cColor.r(), cColor.g(), cColor.b(), CHAT_HISTORY_ALPHA ) );
 
 	GetChatHistory()->SetVerticalScrollbar( false );
+	GetChatHistory()->SetPaintBackgroundEnabled(true);
+	GetChatHistory()->SetBgColor( Color( 0, 0, 0, 0 ) );
 }
 
 void CBaseHudChat::Reset( void )
@@ -1135,7 +1145,7 @@ int CBaseHudChat::GetChatInputOffset( void )
 //-----------------------------------------------------------------------------
 void CBaseHudChat::OnTick( void )
 {
-#ifndef _XBOX
+
 	m_nVisibleHeight = 0;
 
 	CBaseHudChatLine *line = m_ChatLine;
@@ -1167,7 +1177,7 @@ void CBaseHudChat::OnTick( void )
 
 	FadeChatHistory();
 
-#endif
+
 }
 
 //-----------------------------------------------------------------------------
@@ -1248,7 +1258,6 @@ void CBaseHudChat::Printf( int iFilter, const char *fmt, ... )
 //-----------------------------------------------------------------------------
 void CBaseHudChat::StartMessageMode( int iMessageModeType )
 {
-#ifndef _XBOX
 	m_nMessageMode = iMessageModeType;
 
 	m_pChatInput->ClearEntry();
@@ -1276,7 +1285,7 @@ void CBaseHudChat::StartMessageMode( int iMessageModeType )
 		GetChatHistory()->SetKeyBoardInputEnabled( false );
 		GetChatHistory()->SetVerticalScrollbar( true );
 		GetChatHistory()->ResetAllFades( true );
-		GetChatHistory()->SetPaintBorderEnabled( true );
+		GetChatHistory()->SetPaintBorderEnabled( false );
 		GetChatHistory()->SetVisible( true );
 	}
 
@@ -1299,8 +1308,6 @@ void CBaseHudChat::StartMessageMode( int iMessageModeType )
 	m_pFilterPanel->SetVisible( false );
 
 	engine->ClientCmd_Unrestricted( "gameui_preventescapetoshow\n" );
-		
-#endif
 }
 
 //-----------------------------------------------------------------------------
@@ -1308,7 +1315,6 @@ void CBaseHudChat::StartMessageMode( int iMessageModeType )
 //-----------------------------------------------------------------------------
 void CBaseHudChat::StopMessageMode( void )
 {
-#ifndef _XBOX
 
 	engine->ClientCmd_Unrestricted( "gameui_allowescapetoshow\n" );
 
@@ -1317,7 +1323,7 @@ void CBaseHudChat::StopMessageMode( void )
 
 	if ( GetChatHistory() )
 	{
-		GetChatHistory()->SetPaintBorderEnabled( false );
+		GetChatHistory()->SetPaintBorderEnabled( true );
 		GetChatHistory()->GotoTextEnd();
 		GetChatHistory()->SetMouseInputEnabled( false );
 		GetChatHistory()->SetVerticalScrollbar( false );
@@ -1334,7 +1340,6 @@ void CBaseHudChat::StopMessageMode( void )
 	m_flHistoryFadeTime = gpGlobals->curtime + CHAT_HISTORY_FADE_TIME;
 
 	m_nMessageMode = MM_NONE;
-#endif
 }
 
 //-----------------------------------------------------------------------------

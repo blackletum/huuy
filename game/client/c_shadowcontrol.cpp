@@ -52,7 +52,7 @@ void C_ShadowControl::OnDataChanged(DataUpdateType_t updateType)
 	// Set the color, direction, distance...
 	g_pClientShadowMgr->SetShadowDirection( m_shadowDirection );
 	g_pClientShadowMgr->SetShadowColor( m_shadowColor.r, m_shadowColor.g, m_shadowColor.b );
-	g_pClientShadowMgr->SetShadowDistance( m_flShadowMaxDist );
+	g_pClientShadowMgr->SetShadowDistance( 999999999.0f );
 	g_pClientShadowMgr->SetShadowsDisabled( m_bDisableShadows );
 }
 

@@ -15,6 +15,7 @@
 #include "tier1/KeyValues.h"
 #include "toolframework/itoolframework.h"
 #include "toolframework_client.h"
+#include "SkinProcessor.h"
 
 // memdbgon must be the last include file in a .cpp file!!!
 #include "tier0/memdbgon.h"
@@ -472,6 +473,12 @@ int C_BaseCombatWeapon::DrawModel( int flags )
 			localplayer->GetObserverInterpState() != C_BasePlayer::OBSERVER_INTERP_TRAVELING ) 
 			return true;
 	}
+	
+	C_BaseCombatWeapon* pWeapon;
+    
+     IMaterial* pSkinMat = g_SkinProcessor.GetSkinMaterial(this);
+     if (pSkinMat)
+         pWeapon->SetMaterialOverride(pSkinMat);
 
 	return BaseClass::DrawModel( flags );
 }

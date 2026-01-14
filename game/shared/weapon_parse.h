@@ -12,6 +12,12 @@
 #endif
 
 #include "shareddefs.h"
+#ifdef CLIENT_DLL
+    struct SkinDefinition_t;
+    class CCSkinDatabase;
+    class IMaterial;
+    class ITexture;
+#endif
 
 class IFileSystem;
 
@@ -83,6 +89,10 @@ public:
 // SHARED
 	char					szClassName[MAX_WEAPON_STRING];
 	char					szPrintName[MAX_WEAPON_STRING];			// Name for showing in HUD, etc.
+	
+	#ifdef CLIENT_DLL
+    char szPaintKitConVar[64];
+    #endif
 
 	char					szViewModel[MAX_WEAPON_STRING];			// View model of this weapon
 	char					szWorldModel[MAX_WEAPON_STRING];		// Model of this weapon seen carried by the player

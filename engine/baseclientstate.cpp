@@ -181,6 +181,7 @@ ConVar	cl_name		( "name","unnamed", FCVAR_ARCHIVE | FCVAR_USERINFO | FCVAR_PRINT
 ConVar	password	( "password", "", FCVAR_ARCHIVE | FCVAR_SERVER_CANNOT_QUERY | FCVAR_DONTRECORD, "Current server access password" );
 ConVar  cl_interpolate( "cl_interpolate", "1.0", FCVAR_USERINFO | FCVAR_DEVELOPMENTONLY | FCVAR_NOT_CONNECTED, "Interpolate entities on the client." );
 ConVar  cl_clanid( "cl_clanid", "0", FCVAR_ARCHIVE | FCVAR_USERINFO | FCVAR_HIDDEN, "Current clan ID for name decoration", CL_ClanIdChanged );
+ConVar  cl_color( "cl_color", "0", FCVAR_ARCHIVE | FCVAR_USERINFO, "Preferred teammate color", true, 0, true, 4 );
 ConVar  cl_show_connectionless_packet_warnings( "cl_show_connectionless_packet_warnings", "0", FCVAR_NONE, "Show console messages about ignored connectionless packets on the client." );
 
 // ---------------------------------------------------------------------------------------- //

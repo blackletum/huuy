@@ -3892,10 +3892,10 @@ static void DrawOpaqueRenderables_DrawStaticProps( CClientRenderablesList::CEntr
 	float one[4] = { 1.0f, 1.0f, 1.0f, 1.0f };
 	render->SetColorModulation(	one );
 	render->SetBlend( 1.0f );
-	
+
 	const int MAX_STATICS_PER_BATCH = 512;
 	IClientRenderable *pStatics[ MAX_STATICS_PER_BATCH ];
-	
+
 	int numScheduled = 0, numAvailable = MAX_STATICS_PER_BATCH;
 
 	for( CClientRenderablesList::CEntry *itEntity = pEntitiesBegin; itEntity < pEntitiesEnd; ++ itEntity )
@@ -3905,7 +3905,7 @@ static void DrawOpaqueRenderables_DrawStaticProps( CClientRenderablesList::CEntr
 		else
 			continue;
 
-		if ( g_pStudioStatsEntity != NULL && g_CurrentViewID == VIEW_MAIN && itEntity->m_pRenderable == g_pStudioStatsEntity )
+		if ( g_pStudioStatsEntity != NULL && ( g_CurrentViewID == VIEW_MAIN || g_CurrentViewID == VIEW_DEFERRED_GBUFFER ) && itEntity->m_pRenderable == g_pStudioStatsEntity )
 		{
 			DrawOpaqueRenderable( itEntity->m_pRenderable, false, DepthMode, STUDIO_GENERATE_STATS );
 			continue;
@@ -3914,12 +3914,12 @@ static void DrawOpaqueRenderables_DrawStaticProps( CClientRenderablesList::CEntr
 		pStatics[ numScheduled ++ ] = itEntity->m_pRenderable;
 		if ( -- numAvailable > 0 )
 			continue; // place a hint for compiler to predict more common case in the loop
-		
+
 		staticpropmgr->DrawStaticProps( pStatics, numScheduled, DepthMode, vcollide_wireframe.GetBool() );
 		numScheduled = 0;
 		numAvailable = MAX_STATICS_PER_BATCH;
 	}
-	
+
 	if ( numScheduled )
 		staticpropmgr->DrawStaticProps( pStatics, numScheduled, DepthMode, vcollide_wireframe.GetBool() );
 }

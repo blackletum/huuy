@@ -14,7 +14,13 @@
 #include <vgui/ILocalize.h>
 #include <vgui_controls/AnimationController.h>
 
+// Skin system includes
+#include "cs_skin_database.h"
+#include "SkinProcessor.h"
+
 ConVar cl_showloadout( "cl_showloadout", "1", FCVAR_ARCHIVE, "Toggles display of current loadout." );
+ConVar cl_weapon_icon_blur( "cl_weapon_icon_blur", "1", FCVAR_ARCHIVE, "Enable edge blur and rarity coloring on weapon icons" );
+ConVar cl_weapon_icon_blur_radius( "cl_weapon_icon_blur_radius", "8", FCVAR_ARCHIVE, "Blur radius for weapon icons (6-12)" );
 extern ConVar cl_hud_color;
 extern ConVar cl_draw_only_deathnotices;
 
@@ -41,6 +47,8 @@ CCSHudWeaponSelection::CCSHudWeaponSelection( const char* pElementName ) : CHudE
 	{
 		m_pSlotLabels[i] = NULL;
 	}
+	
+	m_pWeaponNameLabel = NULL;
 
 	ListenForGameEvent( "round_prestart" );
 	ListenForGameEvent( "round_start" );
@@ -121,6 +129,142 @@ void CCSHudWeaponSelection::LevelShutdown( void )
 	V_memset( m_weaponPanels, 0, sizeof( m_weaponPanels ) );
 }
 
+void CCSHudWeaponSelection::UpdateSelectedWeaponName()
+{
+	// Create label if it doesn't exist
+	if ( !m_pWeaponNameLabel )
+	{
+		m_pWeaponNameLabel = new Label( this, "WeaponNameLabel", "" );
+		m_pWeaponNameLabel->SetFont( m_hNameLabelFont );
+		m_pWeaponNameLabel->SetContentAlignment( Label::a_east ); // Right-aligned like original
+		m_pWeaponNameLabel->SetWide( 600 ); // Increased width for long skin names
+		m_pWeaponNameLabel->SetTall( 30 ); // Increased height
+		m_pWeaponNameLabel->SetAutoResize( PIN_TOPLEFT, AUTORESIZE_NO, 0, 0, 0, 0 );
+		m_pWeaponNameLabel->SetPaintBackgroundEnabled( false ); // No background
+		m_pWeaponNameLabel->SetTextInset( 0, 0 ); // No text inset
+		DevMsg( "[WeaponSelection] Created weapon name label\n" );
+	}
+	
+	C_BaseCombatWeapon *pWeapon = dynamic_cast<C_BaseCombatWeapon*>( m_hSelectedWeapon.Get() );
+	if ( !pWeapon )
+	{
+		m_pWeaponNameLabel->SetVisible( false );
+		return;
+	}
+
+	CWeaponCSBase *pCSWeapon = dynamic_cast<CWeaponCSBase*>( pWeapon );
+	if ( !pCSWeapon )
+	{
+		m_pWeaponNameLabel->SetVisible( false );
+		return;
+	}
+
+	CSWeaponID weaponID = pCSWeapon->GetCSWeaponID();
+	
+	// Debug output
+	DevMsg( "[WeaponSelection] UpdateSelectedWeaponName: weapon=%s weaponID=%d\n", 
+		pCSWeapon->GetClassname(), weaponID );
+	
+	// Get paint kit from ConVar
+	WeaponSkinCache_t* pSkinCache = g_SkinProcessor.FindSkinEntry( pCSWeapon->GetClassname() );
+	int iPaintKit = 0;
+	
+	if ( pSkinCache && pSkinCache->pSkinConVar )
+	{
+		iPaintKit = pSkinCache->pSkinConVar->GetInt();
+		DevMsg( "[WeaponSelection] Found ConVar: %s = %d\n", 
+			pSkinCache->pSkinConVar->GetName(), iPaintKit );
+	}
+	else
+	{
+		DevMsg( "[WeaponSelection] No ConVar found for weapon %s\n", pCSWeapon->GetClassname() );
+	}
+	
+	// Get skin definition from database
+	const SkinDefinition_t* pSkinDef = NULL;
+	if ( iPaintKit > 0 )
+	{
+		pSkinDef = g_SkinDatabase.FindSkinByPaintKit( iPaintKit );
+		if ( pSkinDef )
+		{
+			DevMsg( "[WeaponSelection] Found skin: paintkit=%d name='%s' rarity=%d\n", 
+				iPaintKit, pSkinDef->szName, pSkinDef->rarity );
+		}
+		else
+		{
+			DevMsg( "[WeaponSelection] Skin not found in database for paintkit=%d\n", iPaintKit );
+		}
+	}
+	
+	// Update name label with skin info
+	if ( pSkinDef && pSkinDef->szName[0] != '\0' )
+	{
+		// Format: "Weapon | Skin Name"
+		wchar_t wszFinal[512];
+		wszFinal[0] = L'\0';
+		
+		// Get weapon name (already localized)
+		const wchar_t* pwszWeaponName = g_pVGuiLocalize->Find( pCSWeapon->GetPrintName() );
+		if ( pwszWeaponName )
+		{
+			wcscat( wszFinal, pwszWeaponName );
+		}
+		else
+		{
+			// Fallback: convert from ANSI
+			wchar_t wszTemp[128];
+			g_pVGuiLocalize->ConvertANSIToUnicode( pCSWeapon->GetPrintName(), wszTemp, sizeof(wszTemp) );
+			wcscat( wszFinal, wszTemp );
+		}
+		
+		// Add separator
+		wcscat( wszFinal, L" | " );
+		
+		// Convert skin name to unicode and append
+		wchar_t wszSkinName[256];
+		g_pVGuiLocalize->ConvertANSIToUnicode( pSkinDef->szName, wszSkinName, sizeof(wszSkinName) );
+		wcscat( wszFinal, wszSkinName );
+		
+		DevMsg( "[WeaponSelection] Setting text (with skin): '%ls' (length=%d)\n", wszFinal, wcslen(wszFinal) );
+		
+		m_pWeaponNameLabel->SetText( wszFinal );
+		
+		// Set color based on rarity
+		Color rarityColor = GetRarityColor( pSkinDef->rarity );
+		DevMsg( "[WeaponSelection] Setting rarity color: r=%d g=%d b=%d\n", 
+			rarityColor.r(), rarityColor.g(), rarityColor.b() );
+		m_pWeaponNameLabel->SetFgColor( rarityColor );
+	}
+	else
+	{
+		// No skin or default skin - show weapon name only
+		DevMsg( "[WeaponSelection] No skin found, showing weapon name only\n" );
+		
+		if ( pCSWeapon->HasStatTrak() )
+		{
+			wchar_t wszLocalized[256];
+			g_pVGuiLocalize->ConstructString( wszLocalized, sizeof( wszLocalized ), 
+				g_pVGuiLocalize->Find( "#Cstrike_WPNHUD_StatTrak" ), 1, 
+				g_pVGuiLocalize->Find( pCSWeapon->GetPrintName() ) );
+			m_pWeaponNameLabel->SetText( wszLocalized );
+		}
+		else
+		{
+			m_pWeaponNameLabel->SetText( pCSWeapon->GetPrintName() );
+		}
+		
+		// Use default selected color
+		m_pWeaponNameLabel->SetFgColor( m_clrSelected );
+	}
+	
+	m_pWeaponNameLabel->SetVisible( true );
+	
+	// Debug: check label size and position
+	int nLabelX, nLabelY, nLabelW, nLabelH;
+	m_pWeaponNameLabel->GetBounds( nLabelX, nLabelY, nLabelW, nLabelH );
+	DevMsg( "[WeaponSelection] Label bounds: x=%d y=%d w=%d h=%d\n", nLabelX, nLabelY, nLabelW, nLabelH );
+}
+
 void CCSHudWeaponSelection::AddWeapon( C_BaseCombatWeapon *pWeapon, bool bSelected )
 {
 	if ( !pWeapon || !C_CSPlayer::GetLocalCSPlayer() )
@@ -146,20 +290,73 @@ void CCSHudWeaponSelection::AddWeapon( C_BaseCombatWeapon *pWeapon, bool bSelect
 		m_weaponPanels[nWepSlot][nWepPos].bSelected = bSelected;
 	}
 	m_weaponPanels[nWepSlot][nWepPos].pSVGPanel->SetRenderSize( weapon_icon_wide, weapon_icon_tall );
-	m_weaponPanels[nWepSlot][nWepPos].pSVGPanel->SetTexture( UTIL_VarArgs( "materials/vgui/weapons/svg/%s.svg", pCSWeapon->GetClassname() + 7 ) );
-
-	if ( pCSWeapon->HasStatTrak() )
+	
+	// ========== ПРИМЕНЯЕМ РАЗМЫТИЕ ТОЛЬКО ДЛЯ ВЫБРАННОГО ОРУЖИЯ ==========
+	
+	// Проверяем: включено ли свечение И выбрано ли это оружие
+	bool bApplyGlow = cl_weapon_icon_blur.GetBool() && bSelected;
+	int glowRadius = cl_weapon_icon_blur_radius.GetInt();
+	
+	// Белый цвет по умолчанию (если нет скина)
+	Color glowColor = Color( 255, 255, 255, 255 );
+	
+	if ( bApplyGlow )
 	{
-		wchar_t wszLocalized[256];
-		g_pVGuiLocalize->ConstructString( wszLocalized, sizeof( wszLocalized ), g_pVGuiLocalize->Find( "#Cstrike_WPNHUD_StatTrak" ), 1, g_pVGuiLocalize->Find( pCSWeapon->GetPrintName() ) );
-		m_weaponPanels[nWepSlot][nWepPos].pNameLabel->SetText( wszLocalized );
+		// Получаем информацию о скине оружия
+		WeaponSkinCache_t* pSkinCache = g_SkinProcessor.FindSkinEntry( pCSWeapon->GetClassname() );
+		int iPaintKit = 0;
+		
+		if ( pSkinCache && pSkinCache->pSkinConVar )
+		{
+			iPaintKit = pSkinCache->pSkinConVar->GetInt();
+		}
+		
+		// Ищем определение скина в базе данных
+		const SkinDefinition_t* pSkinDef = NULL;
+		if ( iPaintKit > 0 )
+		{
+			pSkinDef = g_SkinDatabase.FindSkinByPaintKit( iPaintKit );
+		}
+		
+		// Если скин найден - используем его цвет редкости для свечения
+		if ( pSkinDef )
+		{
+			glowColor = GetRarityColor( pSkinDef->rarity );
+			
+			DevMsg( "[WeaponSelection] SELECTED weapon: %s | PaintKit: %d | Skin: %s | Rarity: %d | GlowColor: RGB(%d,%d,%d)\n",
+				pCSWeapon->GetClassname(), 
+				iPaintKit, 
+				pSkinDef->szName, 
+				pSkinDef->rarity,
+				glowColor.r(), glowColor.g(), glowColor.b() );
+		}
+		else
+		{
+			DevMsg( "[WeaponSelection] SELECTED weapon: %s | No skin found, using white glow\n", 
+				pCSWeapon->GetClassname() );
+		}
+	}
+	else if ( bSelected )
+	{
+		DevMsg( "[WeaponSelection] SELECTED weapon: %s | Glow disabled by ConVar\n", 
+			pCSWeapon->GetClassname() );
 	}
 	else
 	{
-		m_weaponPanels[nWepSlot][nWepPos].pNameLabel->SetText( pCSWeapon->GetPrintName() );
+		DevMsg( "[WeaponSelection] NOT selected weapon: %s | No glow applied\n", 
+			pCSWeapon->GetClassname() );
 	}
+	
+	// Загружаем текстуру с применением эффектов (только для выбранного)
+	m_weaponPanels[nWepSlot][nWepPos].pSVGPanel->SetTexture( 
+		UTIL_VarArgs( "materials/vgui/weapons/svg/%s.svg", pCSWeapon->GetClassname() + 7 ), 
+		bApplyGlow,          // Применять свечение ТОЛЬКО если выбрано
+		glowRadius,          // Радиус свечения
+		glowColor            // Цвет свечения (редкость или белый)
+	);
+	
+	// =====================================================================
 
-	m_weaponPanels[nWepSlot][nWepPos].pNameLabel->SizeToContents();
 	UpdateCountLabels();
 	UpdateSlotLabels();
 
@@ -183,12 +380,6 @@ void CCSHudWeaponSelection::RemoveWeapon( int nSlot, int nPos )
 		{
 			m_weaponPanels[nSlot][nPos].pCountLabel->DeletePanel();
 			m_weaponPanels[nSlot][nPos].pCountLabel = NULL;
-		}
-		if ( m_weaponPanels[nSlot][nPos].pNameLabel )
-		{
-
-			m_weaponPanels[nSlot][nPos].pNameLabel->DeletePanel();
-			m_weaponPanels[nSlot][nPos].pNameLabel = NULL;
 		}
 		m_weaponPanels[nSlot][nPos].bShowCountNumber = false;
 		m_weaponPanels[nSlot][nPos].hWeapon = NULL;
@@ -236,20 +427,6 @@ WeaponSelectPanel CCSHudWeaponSelection::CreateNewPanel( int nSlot, int nPos, C_
 	}
 	newPanel.pSVGPanel = pSVGPanel;
 
-	const char *szNameLabelName = UTIL_VarArgs( "WeaponSelectPanel_NameLabel_%d_%d", nSlot, nPos );
-	Label *pNameLabel = dynamic_cast<Label*>(FindChildByName( szNameLabelName )); // the panel might already exist
-	if ( !pNameLabel )
-		pNameLabel = new Label( this, szNameLabelName, "" ); // create one if it doesn't exist
-	if ( pNameLabel )
-	{
-		pNameLabel->ClearSchemeUpdateFlag(); // I will not even risk with it after last time
-		pNameLabel->SetFont( m_hNameLabelFont );
-		pNameLabel->SetFgColor( m_clrSelected );
-		pNameLabel->SetContentAlignment( Label::a_east );
-		pNameLabel->SetVisible( bSelected );
-	}
-	newPanel.pNameLabel = pNameLabel;
-
 	CWeaponCSBase *pCSWeapon = (CWeaponCSBase*) pWeapon;
 	if ( nSlot == 3 || (pCSWeapon && nSlot == 4 && pCSWeapon->IsKindOf( WEAPONTYPE_STACKABLEITEM )) )
 	{
@@ -261,10 +438,16 @@ WeaponSelectPanel CCSHudWeaponSelection::CreateNewPanel( int nSlot, int nPos, C_
 		{
 			pCountLabel->ClearSchemeUpdateFlag(); // I will not even risk with it after last time
 			pCountLabel->SetFont( m_hCountLabelFont );
+			pCountLabel->SetFgColor( m_clrSelected );
+			pCountLabel->SetContentAlignment( Label::a_west );
 		}
-
 		newPanel.pCountLabel = pCountLabel;
 		newPanel.bShowCountNumber = true;
+	}
+	else
+	{
+		newPanel.pCountLabel = NULL;
+		newPanel.bShowCountNumber = false;
 	}
 
 	newPanel.hWeapon = pWeapon;
@@ -479,8 +662,6 @@ void CCSHudWeaponSelection::UpdatePanelPositions( void )
 				int nSlot = pPanelWeapon->GetSlot();
 				bool bShowCountNumber = m_weaponPanels[i][j].bShowCountNumber;
 				bool bSelected = m_weaponPanels[i][j].bSelected;
-				int nNameLabelWide, nNameLabelTall;
-				m_weaponPanels[i][j].pNameLabel->GetSize( nNameLabelWide, nNameLabelTall );
 
 				if ( bFirstTime )
 				{
@@ -524,8 +705,20 @@ void CCSHudWeaponSelection::UpdatePanelPositions( void )
 				}
 
 				m_weaponPanels[i][j].pSVGPanel->SetPos( nXPos, nYPos );
-				m_weaponPanels[i][j].pNameLabel->SetPos( nXPos + nIconWide - nNameLabelWide + name_label_xpos, nYPos + name_label_ypos );
-				m_weaponPanels[i][j].pNameLabel->SetVisible( bSelected );
+				
+				// Store position of selected weapon for label positioning
+				if ( bSelected && m_pWeaponNameLabel )
+				{
+					int nNameLabelWide, nNameLabelTall;
+					m_pWeaponNameLabel->GetSize( nNameLabelWide, nNameLabelTall );
+					// Position label aligned to the right of the icon (original behavior)
+					int nLabelX = nXPos + nIconWide - nNameLabelWide + name_label_xpos;
+					int nLabelY = nYPos + name_label_ypos;
+					m_pWeaponNameLabel->SetPos( nLabelX, nLabelY );
+					DevMsg( "[WeaponSelection] Positioning label: iconX=%d iconW=%d labelX=%d labelY=%d labelW=%d\n", 
+						nXPos, nIconWide, nLabelX, nLabelY, nNameLabelWide );
+				}
+				
 				if ( bShowCountNumber )
 					m_weaponPanels[i][j].pCountLabel->SetPos( nXPos + count_label_xpos, nYPos + count_label_ypos );
 
@@ -545,7 +738,7 @@ void CCSHudWeaponSelection::UpdateIconColors()
 			if ( m_weaponPanels[nSlot][nPos].bInitialized )
 			{
 				m_weaponPanels[nSlot][nPos].pSVGPanel->SetFgColor( bSelected ? m_clrSelected : m_clrNotSelected );
-				m_weaponPanels[nSlot][nPos].pNameLabel->SetFgColor( m_clrSelected );
+				
 				if ( m_weaponPanels[nSlot][nPos].bShowCountNumber )
 				{
 					Color clrCountNotSelected( m_clrSelected.r()*0.5f, m_clrSelected.g()*0.5f, m_clrSelected.b()*0.5f, m_clrSelected.a() );
@@ -554,6 +747,9 @@ void CCSHudWeaponSelection::UpdateIconColors()
 			}
 		}
 	}
+	
+	// Update the single weapon name label
+	UpdateSelectedWeaponName();
 }
 
 void CCSHudWeaponSelection::UpdateCountLabels()

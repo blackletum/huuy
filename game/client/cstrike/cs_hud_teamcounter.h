@@ -18,6 +18,7 @@
 #include <vgui_controls/ImagePanel.h>
 #include <vgui_controls/VectorImagePanel.h>
 #include <vgui/ILocalize.h>
+#include <vgui/ISurface.h>
 #include "utlvector.h"
 #include "vgui_avatarimage_nonsteam.h"
 
@@ -38,10 +39,18 @@ struct MiniStatus
     int nPoints;
     int nGunGameLevel;
     int nGGProgressiveRank;
+    int nTeammateColor;
+    int nTeam;
     bool bIsCT;
     bool bIsLocalPlayer;
     bool bDead;
     bool bTeamLeader;
+    bool bDominated;
+    bool bDominating;
+    bool bSpeaking;
+    bool bPlayerBot;
+    bool bSpectated;
+    float flLastRefresh;
 
     MiniStatus() { Reset(); }
 
@@ -54,17 +63,31 @@ struct MiniStatus
         nPoints = 0;
         nGunGameLevel = -1;
         nGGProgressiveRank = -1;
+        nTeammateColor = -1;
+        nTeam = 0;
         bIsCT = false;
         bIsLocalPlayer = false;
         bDead = true;
         bTeamLeader = false;
+        bDominated = false;
+        bDominating = false;
+        bSpeaking = false;
+        bPlayerBot = false;
+        bSpectated = false;
+        flLastRefresh = -1;
     }
 
-    bool Update(int idx, int entIdx, int health, int armor, bool isCT, bool isLocal, bool dead, bool leader, int points, int ggLevel, int team)
+    bool Update(int idx, int entIdx, int health, int armor, bool isCT, bool isLocal, bool dead, 
+                bool leader, int points, int ggLevel, int team, bool dominated, bool dominating,
+                bool speaking, bool playerBot, bool spectated, int teammateColor, float curtime)
     {
         bool bChanged = (nPlayerIdx != idx || nEntIdx != entIdx || nHealth != health || nArmor != armor ||
                          bIsCT != isCT || bIsLocalPlayer != isLocal || bDead != dead || bTeamLeader != leader ||
-                         nPoints != points || nGunGameLevel != ggLevel);
+                         nPoints != points || nGunGameLevel != ggLevel || nTeam != team ||
+                         bDominated != dominated || bDominating != dominating || bSpeaking != speaking ||
+                         bPlayerBot != playerBot || bSpectated != spectated || nTeammateColor != teammateColor ||
+                         (curtime > flLastRefresh + 3.0f)); // Force refresh every 3 seconds
+        
         nPlayerIdx = idx;
         nEntIdx = entIdx;
         nHealth = health;
@@ -75,6 +98,17 @@ struct MiniStatus
         bTeamLeader = leader;
         nPoints = points;
         nGunGameLevel = ggLevel;
+        nTeam = team;
+        bDominated = dominated;
+        bDominating = dominating;
+        bSpeaking = speaking;
+        bPlayerBot = playerBot;
+        bSpectated = spectated;
+        nTeammateColor = teammateColor;
+        
+        if (bChanged)
+            flLastRefresh = curtime;
+        
         return bChanged;
     }
 };
@@ -94,7 +128,18 @@ public:
     virtual void Reset();
     virtual bool ShouldDraw();
     virtual void OnThink();
+    virtual void PerformLayout();
     virtual void FireGameEvent(IGameEvent *event);
+
+    // Spectator functions
+    int FindNextObserverTargetIndex(bool reverse);
+    int GetSpectatorTargetFromSlot(int idx);
+    int GetPlayerEntIndexInSlot(int nIndex);
+    int GetPlayerSlotIndex(int playerEntIndex);
+    const MiniStatus* GetPlayerStatus(int index);
+    
+    // Public для wrapper функции
+    static int PlayerSortFunc(const MiniStatus *a, const MiniStatus *b);
 
 protected:
     void UpdateTimer();
@@ -102,6 +147,13 @@ protected:
     void UpdateMiniScoreboard();
     void SetViewMode(VIEW_MODE mode);
     void ResetLeader();
+    void UpdatePlayerSlot(int slotIdx, const MiniStatus* ms, bool bIsCT);
+    void SortPlayers();
+    void LayoutPlayerAvatars();
+    void CalculateAvatarPosition(int slotIdx, int totalPlayers, bool bIsCT, int &x, int &y, int &row);
+    
+    static int GGProgSortFunction(MiniStatus* const* entry1, MiniStatus* const* entry2);
+    static int DMSortFunction(MiniStatus* const* entry1, MiniStatus* const* entry2);
     
     static const int MAX_TEAM_SIZE = 16;
     static const int MAX_GGPROG_PLAYERS = 24;
@@ -123,8 +175,12 @@ private:
     C_CSPlayer *pPlayer;
 
     CAvatarImagePanel *m_CTPlayerIcons[MAX_TEAM_SIZE];
-CAvatarImagePanel *m_TPlayerIcons[MAX_TEAM_SIZE];
+    CAvatarImagePanel *m_TPlayerIcons[MAX_TEAM_SIZE];
+    vgui::Panel *m_CTPlayerIconFrames[MAX_TEAM_SIZE];
+    vgui::Panel *m_TPlayerIconFrames[MAX_TEAM_SIZE];
     vgui::ImagePanel *m_CTSkulls[MAX_TEAM_SIZE];
+    vgui::ImagePanel *m_CTMicIcons[MAX_TEAM_SIZE];
+    vgui::ImagePanel *m_TMicIcons[MAX_TEAM_SIZE];
     vgui::Label *m_CTPlayerNames[MAX_TEAM_SIZE];
     vgui::Label *m_CTPlayerStatus[MAX_TEAM_SIZE];
     vgui::ImagePanel *m_TSkulls[MAX_TEAM_SIZE];
@@ -150,8 +206,22 @@ CAvatarImagePanel *m_TPlayerIcons[MAX_TEAM_SIZE];
     int m_nPreviousGGProgressiveTotalPlayers;
     int m_iOriginalXPos;
     int m_iOriginalYPos;
+    int m_iTimerXPos;
+    int m_iTimerYPos;
+    int m_iTimerWide;
+    int m_iTimerTall;
     float m_flPlayingTeamFadeoutTime;
+    float m_flLastSpecListUpdate;
     bool m_bActive;
+    
+    // Avatar layout parameters from .res
+    int m_iAvatarXMargin;
+    int m_iAvatarYMargin;
+    int m_iAvatarWide;
+    int m_iAvatarTall;
+    int m_iAvatarXMax;
+    int m_iAvatarYMax;
+    int m_iAvatarBorderSize;
 
     Color m_clrC4Planted;
     Color m_clrC4Defused;

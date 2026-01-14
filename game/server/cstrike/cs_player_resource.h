@@ -29,6 +29,10 @@ public:
 	void			ResetPlayerTeammateColor( int index );
 	void			ForcePlayersPickColors( void );
 	void			SetPlayerTeammateColor( int index, bool bReset );
+	const Vector GetHostageRescuePosition( int iIndex );
+	const Vector	GetBombsiteAPosition();
+	const Vector	GetBombsiteBPosition();
+	
 	int botDifficulty; 
     int nTotalPlayingPlayers;
     bool m_bPreferencesAssigned_CT;

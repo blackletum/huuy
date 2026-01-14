@@ -7,6 +7,7 @@
 
 #include "cbase.h"
 #include "cstrikespectatorgui.h"
+#include "cdll_client_int.h"
 #include "hud.h"
 #include "cs_shareddefs.h"
 
@@ -36,6 +37,19 @@ using namespace vgui;
 DECLARE_HUDELEMENT( CCSMapOverview )
 DECLARE_HUD_MESSAGE( CCSMapOverview, UpdateRadar );
 
+// Safezone support for radar
+static CCSMapOverview *s_pRadarInstance = NULL;
+static int s_nRadarBaseXPos = 0;
+static int s_nRadarBaseYPos = 0;
+
+static void RadarSafeZoneCallback()
+{
+	if ( s_pRadarInstance )
+	{
+		s_pRadarInstance->UpdateSizeAndPosition();
+	}
+}
+
 CUtlVector<CPlayerRadarFlash> g_RadarFlashes;
 
 void Radar_FlashPlayer( int iPlayer )
@@ -61,6 +75,7 @@ extern ConVar overview_names;
 extern ConVar overview_tracks;
 extern ConVar overview_locked;
 extern ConVar overview_alpha;
+extern ConVar cl_hud_radar_scale;
 extern ConVar cl_draw_only_deathnotices;
 ConVar cl_radar_square( "cl_radar_square", "2", FCVAR_ARCHIVE, "0 - round radar, 1 - square radar, 2 - square when scoreboard is visible", true, 0, true, 2 );
 ConVar cl_radaralpha( "cl_radaralpha", "200", FCVAR_CLIENTDLL | FCVAR_ARCHIVE, NULL, true, 0, true, 255 );
@@ -630,81 +645,113 @@ static int AdjustValue( int curValue, int targetValue, int amount )
 
 void CCSMapOverview::InitTeamColorsAndIcons()
 {
-	BaseClass::InitTeamColorsAndIcons();
+    BaseClass::InitTeamColorsAndIcons();
 
-	Q_memset( m_TeamIconsSelf, 0, sizeof(m_TeamIconsSelf) );
-	Q_memset( m_TeamIconsDead, 0, sizeof(m_TeamIconsDead) );
-	Q_memset( m_TeamIconsOffscreen, 0, sizeof(m_TeamIconsOffscreen) );
-	Q_memset( m_TeamIconsGhost, 0, sizeof( m_TeamIconsGhost ) );
-	Q_memset( m_TeamIconsBomb, 0, sizeof( m_TeamIconsBomb ) );
+    Q_memset(m_TeamIconsSelf, 0, sizeof(m_TeamIconsSelf));
+    Q_memset(m_TeamIconsDead, 0, sizeof(m_TeamIconsDead));
+    Q_memset(m_TeamIconsOffscreen, 0, sizeof(m_TeamIconsOffscreen));
+    Q_memset(m_TeamIconsGhost, 0, sizeof(m_TeamIconsGhost));
+    Q_memset(m_TeamIconsBomb, 0, sizeof(m_TeamIconsBomb));
+    
+    Q_memset(m_TeammateColorIcons, 0, sizeof(m_TeammateColorIcons));
+    Q_memset(m_TeammateColorIconsSelf, 0, sizeof(m_TeammateColorIconsSelf));
+    Q_memset(m_TeammateColorIconsDead, 0, sizeof(m_TeammateColorIconsDead));
+    Q_memset(m_TeammateColorIconsOffscreen, 0, sizeof(m_TeammateColorIconsOffscreen));
+    Q_memset(m_TeammateColorIconsGhost, 0, sizeof(m_TeammateColorIconsGhost));
+    Q_memset(m_TeammateColorIconsBomb, 0, sizeof(m_TeammateColorIconsBomb));
 
-	m_bombRingPlanted = -1;
-	m_bombRingDropped = -1;
-	m_radioFlash = -1;
-	m_radioFlashOffscreen = -1;
-	m_radarTint = -1;
-	m_hostageFollowing = -1;
-	m_hostageFollowingOffscreen = -1;
-	m_playerFacing = -1;
-	m_cameraIconFirst = -1;
-	m_cameraIconThird = -1;
-	m_cameraIconFree = -1;
-	m_hostageRescueIcon = -1;
-	m_bombSiteIconA = -1;
-	m_bombSiteIconB = -1;
+    m_bombRingPlanted = -1;
+    m_bombRingDropped = -1;
+    m_radioFlash = -1;
+    m_radioFlashOffscreen = -1;
+    m_radarTint = -1;
+    m_hostageFollowing = -1;
+    m_hostageFollowingOffscreen = -1;
+    m_playerFacing = -1;
+    m_cameraIconFirst = -1;
+    m_cameraIconThird = -1;
+    m_cameraIconFree = -1;
+    m_hostageRescueIcon = -1;
+    m_bombSiteIconA = -1;
+    m_bombSiteIconB = -1;
 
+    // T's
+    m_TeamColors[MAP_ICON_T] = COLOR_YELLOW;
+    m_TeamIcons[MAP_ICON_T] = AddIconTexture("sprites/player_yellow_small");
+    m_TeamIconsSelf[MAP_ICON_T] = AddIconTexture("sprites/player_yellow_self");
+    m_TeamIconsDead[MAP_ICON_T] = AddIconTexture("sprites/player_yellow_dead");
+    m_TeamIconsOffscreen[MAP_ICON_T] = AddIconTexture("sprites/player_yellow_offscreen");
+    m_TeamIconsGhost[MAP_ICON_T] = AddIconTexture("sprites/player_yellow_ghost");
+    m_TeamIconsBomb[MAP_ICON_T] = AddIconTexture("sprites/player_yellow_bomb");
 
-	//setup team red
-	m_TeamColors[MAP_ICON_T] = COLOR_RED;
-	m_TeamIcons[MAP_ICON_T] = AddIconTexture( "sprites/player_red_small" );
-	m_TeamIconsSelf[MAP_ICON_T] = AddIconTexture( "sprites/player_red_self" );
-	m_TeamIconsDead[MAP_ICON_T] = AddIconTexture( "sprites/player_red_dead" );
-	m_TeamIconsOffscreen[MAP_ICON_T] = AddIconTexture( "sprites/player_red_offscreen" );
-	m_TeamIconsGhost[MAP_ICON_T] = AddIconTexture( "sprites/player_red_ghost" );
-	m_TeamIconsBomb[MAP_ICON_T] = AddIconTexture( "sprites/player_red_bomb" );
+    // CST's
+    m_TeamColors[MAP_ICON_CT] = COLOR_BLUE;
+    m_TeamIcons[MAP_ICON_CT] = AddIconTexture("sprites/player_blue_small");
+    m_TeamIconsSelf[MAP_ICON_CT] = AddIconTexture("sprites/player_blue_self");
+    m_TeamIconsDead[MAP_ICON_CT] = AddIconTexture("sprites/player_blue_dead");
+    m_TeamIconsOffscreen[MAP_ICON_CT] = AddIconTexture("sprites/player_blue_offscreen");
+    m_TeamIconsGhost[MAP_ICON_CT] = AddIconTexture("sprites/player_blue_ghost");
+    m_TeamIconsBomb[MAP_ICON_CT] = AddIconTexture("sprites/player_blue_bomb");
 
-	// setup team blue
-	m_TeamColors[MAP_ICON_CT] = COLOR_BLUE;
-	m_TeamIcons[MAP_ICON_CT] = AddIconTexture( "sprites/player_blue_small" );
-	m_TeamIconsSelf[MAP_ICON_CT] = AddIconTexture( "sprites/player_blue_self" );
-	m_TeamIconsDead[MAP_ICON_CT] = AddIconTexture( "sprites/player_blue_dead" );
-	m_TeamIconsOffscreen[MAP_ICON_CT] = AddIconTexture( "sprites/player_blue_offscreen" );
-	m_TeamIconsGhost[MAP_ICON_CT] = AddIconTexture( "sprites/player_blue_ghost" );
-	m_TeamIconsBomb[MAP_ICON_CT] = AddIconTexture( "sprites/player_blue_bomb" );
+    // Hostages
+    m_TeamColors[MAP_ICON_HOSTAGE] = COLOR_GREY;
+    m_TeamIcons[MAP_ICON_HOSTAGE] = AddIconTexture("sprites/player_hostage_small");
+    m_TeamIconsSelf[MAP_ICON_HOSTAGE] = -1;
+    m_TeamIconsDead[MAP_ICON_HOSTAGE] = AddIconTexture("sprites/player_hostage_dead");
+    m_TeamIconsOffscreen[MAP_ICON_HOSTAGE] = AddIconTexture("sprites/player_hostage_offscreen");
+    m_TeamIconsGhost[MAP_ICON_HOSTAGE] = AddIconTexture("sprites/player_hostage_ghost");
+    m_TeamIconsBomb[MAP_ICON_HOSTAGE] = -1;
 
-	// setup team other
-	m_TeamColors[MAP_ICON_HOSTAGE] = COLOR_GREY;
-	m_TeamIcons[MAP_ICON_HOSTAGE] = AddIconTexture( "sprites/player_hostage_small" );
-	m_TeamIconsSelf[MAP_ICON_HOSTAGE] = -1;
-	m_TeamIconsDead[MAP_ICON_HOSTAGE] = AddIconTexture( "sprites/player_hostage_dead" );
-	m_TeamIconsOffscreen[MAP_ICON_HOSTAGE] = AddIconTexture( "sprites/player_hostage_offscreen" );
-	m_TeamIconsGhost[MAP_ICON_HOSTAGE] = AddIconTexture( "sprites/player_hostage_ghost" );
-	m_TeamIconsBomb[MAP_ICON_HOSTAGE] = -1;
+    // TEAMMATE COLORS 
+    const char* colorNames[5] = {"yellow", "purple", "green", "blue", "orange"};
+    
+    for (int i = 0; i < 5; i++)
+    {
+        char textureName[64];
+        
+        Q_snprintf(textureName, sizeof(textureName), "sprites/player_%s_small", colorNames[i]);
+        m_TeammateColorIcons[i] = AddIconTexture(textureName);
+        
+        Q_snprintf(textureName, sizeof(textureName), "sprites/player_%s_self", colorNames[i]);
+        m_TeammateColorIconsSelf[i] = AddIconTexture(textureName);
+        
+        Q_snprintf(textureName, sizeof(textureName), "sprites/player_%s_dead", colorNames[i]);
+        m_TeammateColorIconsDead[i] = AddIconTexture(textureName);
+        
+        Q_snprintf(textureName, sizeof(textureName), "sprites/player_%s_offscreen", colorNames[i]);
+        m_TeammateColorIconsOffscreen[i] = AddIconTexture(textureName);
+        
+        Q_snprintf(textureName, sizeof(textureName), "sprites/player_%s_ghost", colorNames[i]);
+        m_TeammateColorIconsGhost[i] = AddIconTexture(textureName);
+        
+        Q_snprintf(textureName, sizeof(textureName), "sprites/player_%s_bomb", colorNames[i]);
+        m_TeammateColorIconsBomb[i] = AddIconTexture(textureName);
+    }
 
-	m_bombRingPlanted = AddIconTexture( "sprites/bomb_planted_ring" );
-	m_bombRingDropped = AddIconTexture( "sprites/bomb_dropped_ring" );
+    m_bombRingPlanted = AddIconTexture("sprites/bomb_planted_ring");
+    m_bombRingDropped = AddIconTexture("sprites/bomb_dropped_ring");
 
-	m_hostageFollowing = AddIconTexture( "sprites/hostage_following" );
-	m_hostageFollowingOffscreen = AddIconTexture( "sprites/hostage_following_offscreen" );
-	m_playerFacing = AddIconTexture( "sprites/player_tick" );
-	m_cameraIconFirst = AddIconTexture( "sprites/spectator_eye" );
-	m_cameraIconThird = AddIconTexture( "sprites/spectator_3rdcam" );
-	m_cameraIconFree = AddIconTexture( "sprites/spectator_freecam" );
-	m_hostageRescueIcon = AddIconTexture( "sprites/objective_rescue" );;
-	m_bombSiteIconA = AddIconTexture( "sprites/objective_site_a" );;
-	m_bombSiteIconB = AddIconTexture( "sprites/objective_site_b" );;
+    m_hostageFollowing = AddIconTexture("sprites/hostage_following");
+    m_hostageFollowingOffscreen = AddIconTexture("sprites/hostage_following_offscreen");
+    m_playerFacing = AddIconTexture("sprites/player_tick");
+    m_cameraIconFirst = AddIconTexture("sprites/spectator_eye");
+    m_cameraIconThird = AddIconTexture("sprites/spectator_3rdcam");
+    m_cameraIconFree = AddIconTexture("sprites/spectator_freecam");
+    m_hostageRescueIcon = AddIconTexture("sprites/objective_rescue");
+    m_bombSiteIconA = AddIconTexture("sprites/objective_site_a");
+    m_bombSiteIconB = AddIconTexture("sprites/objective_site_b");
 
-	m_radioFlash = AddIconTexture("sprites/player_radio_ring");
-	m_radioFlashOffscreen = AddIconTexture("sprites/player_radio_ring_offscreen");
+    m_radioFlash = AddIconTexture("sprites/player_radio_ring");
+    m_radioFlashOffscreen = AddIconTexture("sprites/player_radio_ring_offscreen");
 
-	m_radarTint = AddIconTexture("sprites/radar_trans");
+    m_radarTint = AddIconTexture("sprites/radar_trans");
 
-	m_enemyIcon = AddIconTexture( "sprites/player_enemy_small" );
-	m_enemyIconDead = AddIconTexture( "sprites/player_enemy_dead" );
-	m_enemyIconOffscreen = AddIconTexture( "sprites/player_enemy_offscreen" );
-	m_enemyIconGhost = AddIconTexture( "sprites/player_enemy_ghost" );
-	m_enemyIconBomb = AddIconTexture( "sprites/player_enemy_bomb" );
-
+    // enemy's 
+    m_enemyIcon = AddIconTexture("sprites/player_enemy_small");
+    m_enemyIconDead = AddIconTexture("sprites/player_enemy_dead");
+    m_enemyIconOffscreen = AddIconTexture("sprites/player_enemy_offscreen");
+    m_enemyIconGhost = AddIconTexture("sprites/player_enemy_ghost");
+    m_enemyIconBomb = AddIconTexture("sprites/player_enemy_bomb");
 }
 
 //-----------------------------------------------------------------------------
@@ -723,6 +770,13 @@ void CCSMapOverview::ApplySettings(KeyValues *inResourceData)
 	g_pMatSystemSurface->OverrideProportionalBase( m_iBaseResolutionOverride[0], m_iBaseResolutionOverride[1] );
 	m_nBorderSize = scheme()->GetProportionalScaledValue( inResourceData->GetInt( "transparent_border_size" ) );
 	g_pMatSystemSurface->RestoreProportionalBase();
+
+	// Store base position from .res file and apply safezone
+	GetPos( s_nRadarBaseXPos, s_nRadarBaseYPos );
+
+	int left, top, right, bottom;
+	GetSafeZoneMargins( left, top, right, bottom );
+	SetPos( s_nRadarBaseXPos + left, s_nRadarBaseYPos + top );
 }
 
 //-----------------------------------------------------------------------------
@@ -930,6 +984,8 @@ bool CCSMapOverview::CanHostageBeSeen( MapPlayer_t *hostage )
 
 CCSMapOverview::CCSMapOverview( const char *pElementName ) : BaseClass( pElementName )
 {
+	s_pRadarInstance = this;
+
 	m_nRadarMapTextureID = -1;
 	m_nCircleBackgroundTextureID = -1;
 	m_nCircleOverlayTextureID = -1;
@@ -946,6 +1002,8 @@ CCSMapOverview::CCSMapOverview( const char *pElementName ) : BaseClass( pElement
 	m_vecRadarVerticalSections.RemoveAll();
 
 	m_bRoundRadar = true;
+
+	RegisterSafeZoneCallback( RadarSafeZoneCallback );
 }
 
 void CCSMapOverview::Init( void )
@@ -986,6 +1044,8 @@ void CCSMapOverview::Init( void )
 
 CCSMapOverview::~CCSMapOverview()
 {
+	UnregisterSafeZoneCallback( RadarSafeZoneCallback );
+	s_pRadarInstance = NULL;
 	g_pMapOverview = NULL;
 
 	//TODO release Textures ? clear lists
@@ -1030,13 +1090,11 @@ void CCSMapOverview::UpdateFollowEntity()
 
 void CCSMapOverview::UpdatePlayers()
 {
-	if( !m_goalIconsLoaded )
+	if ( !m_goalIconsLoaded )
 		UpdateGoalIcons();
 
-	UpdateHostages();// Update before players so players can spot them
-
-	UpdateBomb();// Before players so player can properly spot where it is in this update
-
+	UpdateHostages();
+	UpdateBomb();
 	UpdateFlashes();
 
 	C_CS_PlayerResource *pCSPR = (C_CS_PlayerResource*)GameResources();
@@ -1046,29 +1104,28 @@ void CCSMapOverview::UpdatePlayers()
 	float now = gpGlobals->curtime;
 
 	C_CSPlayer *localPlayer = C_CSPlayer::GetLocalCSPlayer();
-	if( localPlayer == NULL )
+	if ( !localPlayer )
 		return;
 
-	MapPlayer_t *localMapPlayer = GetPlayerByUserID(localPlayer->GetUserID());
-	if( localMapPlayer == NULL )
+	MapPlayer_t *localMapPlayer = GetPlayerByUserID( localPlayer->GetUserID() );
+	if ( !localMapPlayer )
 		return;
 
-	for ( int i = 1; i<= gpGlobals->maxClients; i++)
+	for ( int i = 1; i <= gpGlobals->maxClients; i++ )
 	{
-		MapPlayer_t *player = &m_Players[i-1];
-		CSMapPlayer_t *playerCS = GetCSInfoForPlayerIndex(i-1);
+		MapPlayer_t *player = &m_Players[i - 1];
+		CSMapPlayer_t *playerCS = GetCSInfoForPlayerIndex( i - 1 );
 
 		if ( !playerCS )
 			continue;
 
 		// update from global player resources
-		if ( pCSPR->IsConnected(i) )
+		if ( pCSPR->IsConnected( i ) )
 		{
 			player->health = pCSPR->GetHealth( i );
 
 			if ( !pCSPR->IsAlive( i ) )
 			{
-				// Safety actually happens after a TKPunish.
 				player->health = 0;
 				playerCS->isDead = true;
 			}
@@ -1077,25 +1134,40 @@ void CCSMapOverview::UpdatePlayers()
 			{
 				player->team = pCSPR->GetTeam( i );
 
-				if( player == localMapPlayer )
-					player->icon = m_TeamIconsSelf[ GetIconNumberFromTeamNumber(player->team) ];
-				else
-					player->icon = m_TeamIcons[ GetIconNumberFromTeamNumber(player->team) ];
+				int teammateColor = pCSPR->GetCompTeammateColor( i );
 
-				player->color = m_TeamColors[ GetIconNumberFromTeamNumber(player->team) ];
+				if ( teammateColor >= 0 && teammateColor < 5 &&
+					 player->team == localPlayer->GetTeamNumber() )
+				{
+					if ( player == localMapPlayer )
+						player->icon = m_TeammateColorIconsSelf[ teammateColor ];
+					else
+						player->icon = m_TeammateColorIcons[ teammateColor ];
+				}
+				else
+				{
+					if ( player == localMapPlayer )
+						player->icon = m_TeamIconsSelf[
+							GetIconNumberFromTeamNumber( player->team ) ];
+					else
+						player->icon = m_TeamIcons[
+							GetIconNumberFromTeamNumber( player->team ) ];
+				}
+
+				player->color =
+					m_TeamColors[ GetIconNumberFromTeamNumber( player->team ) ];
 			}
-		}
+		} 
 
 		Vector position = player->position;
 		QAngle angles = player->angle;
 		C_BasePlayer *pPlayer = UTIL_PlayerByIndex( i );
+
 		if ( pPlayer && !pPlayer->IsDormant() )
 		{
-			// update position of active players in our PVS
 			position = pPlayer->EyePosition();
 			angles = pPlayer->EyeAngles();
-
-			SetPlayerPositions( i-1, position, angles );
+			SetPlayerPositions( i - 1, position, angles );
 		}
 	}
 
@@ -1919,108 +1991,126 @@ void CCSMapOverview::DrawIconCS( int textureID, int offscreenTextureID, Vector p
 
 void CCSMapOverview::DrawMapPlayers()
 {
-	DrawGoalIcons();
+    DrawGoalIcons();
 
-	C_CS_PlayerResource *pCSPR = (C_CS_PlayerResource*)GameResources();
-	surface()->DrawSetTextFont( m_hIconFont );
+    C_CS_PlayerResource *pCSPR = (C_CS_PlayerResource*)GameResources();
+    surface()->DrawSetTextFont(m_hIconFont);
 
-	Color colorGreen( 0, 255, 0, 255 );	// health bar color
-	C_CSPlayer *localPlayer = C_CSPlayer::GetLocalCSPlayer();
+    Color colorGreen(0, 255, 0, 255);	// health bar color
+    C_CSPlayer *localPlayer = C_CSPlayer::GetLocalCSPlayer();
 
-	for (int i=0; i < MAX_PLAYERS; i++)
-	{
-		int alpha = 255;
-		MapPlayer_t *player = &m_Players[i];
-		CSMapPlayer_t *playerCS = GetCSInfoForPlayerIndex(i);
+    for (int i = 0; i < MAX_PLAYERS; i++)
+    {
+        int alpha = 255;
+        MapPlayer_t *player = &m_Players[i];
+        CSMapPlayer_t *playerCS = GetCSInfoForPlayerIndex(i);
 
-		if ( !playerCS )
-			continue;
+        if (!playerCS)
+            continue;
 
-		if ( !CanPlayerBeSeen( player ) )
-			continue;
+        if (!CanPlayerBeSeen(player))
+            continue;
 
-		float status = -1;
-		const char *name = NULL;
+        float status = -1;
+        const char *name = NULL;
 
-		bool bIsTeammate = (!IsOtherEnemy( localPlayer->entindex(), player->index+1 ));
-		if ( m_bShowNames && CanPlayerNameBeSeen( player ) )
-			name = player->name;
+        bool bIsTeammate = (!IsOtherEnemy(localPlayer->entindex(), player->index + 1));
+        if (m_bShowNames && CanPlayerNameBeSeen(player))
+            name = player->name;
 
-		if ( m_bShowHealth && CanPlayerHealthBeSeen( player ) )
-			status = player->health/100.0f;
+        if (m_bShowHealth && CanPlayerHealthBeSeen(player))
+            status = player->health / 100.0f;
 
-		// Now draw them
-		if( playerCS->overrideExpirationTime > gpGlobals->curtime )// If dead, an X, if alive, an alpha'd normal icon
-		{
-			int alphaToUse = alpha;
-			if( playerCS->overrideFadeTime != -1 && playerCS->overrideFadeTime <= gpGlobals->curtime )
-			{
-				// Fade linearly from fade start to disappear
-				alphaToUse *= 1 - (float)(gpGlobals->curtime - playerCS->overrideFadeTime) / (float)(playerCS->overrideExpirationTime - playerCS->overrideFadeTime);
-			}
+        // Now draw them
+        if (playerCS->overrideExpirationTime > gpGlobals->curtime)// If dead, an X, if alive, an alpha'd normal icon
+        {
+            int alphaToUse = alpha;
+            if (playerCS->overrideFadeTime != -1 && playerCS->overrideFadeTime <= gpGlobals->curtime)
+            {
+                // Fade linearly from fade start to disappear
+                alphaToUse *= 1 - (float)(gpGlobals->curtime - playerCS->overrideFadeTime) / (float)(playerCS->overrideExpirationTime - playerCS->overrideFadeTime);
+            }
 
-			DrawIconCS( playerCS->overrideIcon, playerCS->overrideIconOffscreen, playerCS->overridePosition, m_flIconSize * 1.1f, GetViewAngle(), alphaToUse, true, name, &player->color, -1, &colorGreen );
-			if( player->health > 0 && bIsTeammate )
-				DrawIconCS( m_playerFacing, -1, playerCS->overridePosition, m_flIconSize * 1.1f, playerCS->overrideAngle[YAW], alphaToUse, true, name, &player->color, status, &colorGreen );
-		}
-		else
-		{
-			float sizeForRing = m_flIconSize * 1.4f;
-			float sizeForPlayer = m_flIconSize * 1.1f; // The 1.1 is because the player dots are shrunken a little, so their facing pip can have some space to live
+            DrawIconCS(playerCS->overrideIcon, playerCS->overrideIconOffscreen, playerCS->overridePosition, m_flIconSize * 1.1f, GetViewAngle(), alphaToUse, true, name, &player->color, -1, &colorGreen);
+            if (player->health > 0 && bIsTeammate)
+                DrawIconCS(m_playerFacing, -1, playerCS->overridePosition, m_flIconSize * 1.1f, playerCS->overrideAngle[YAW], alphaToUse, true, name, &player->color, status, &colorGreen);
+        }
+        else
+        {
+            float sizeForRing = m_flIconSize * 1.4f;
+            float sizeForPlayer = m_flIconSize * 1.1f; // The 1.1 is because the player dots are shrunken a little, so their facing pip can have some space to live
 
-			bool showTalkRing = localPlayer && (localPlayer->GetTeamNumber() == player->team || localPlayer->GetTeamNumber() == TEAM_SPECTATOR);
+            bool showTalkRing = localPlayer && (localPlayer->GetTeamNumber() == player->team || localPlayer->GetTeamNumber() == TEAM_SPECTATOR);
 
-			if( showTalkRing && playerCS->currentFlashAlpha > 0 )// Flash type
-			{
-				// Make them flash a halo
-				DrawIconCS(m_radioFlash, m_radioFlashOffscreen, player->position, sizeForRing, player->angle[YAW], playerCS->currentFlashAlpha);
-			}
-			else if( showTalkRing && pCSPR->IsAlive( i + 1 ) && GetClientVoiceMgr()->IsPlayerSpeaking( i + 1) ) // Or solid on type
-			{
-				// Make them show a halo
-				DrawIconCS(m_radioFlash, m_radioFlashOffscreen, player->position, sizeForRing, player->angle[YAW], 255);
-			}
-			
-			bool doingLocalPlayer = localPlayer->GetUserID() == player->userid;
-			bool doingBomb = (m_bomb.state == CSMapBomb_t::BOMB_CARRIED && m_bomb.carrierIndex == player->index);
-			float angleForPlayer = GetViewAngle();
+            if (showTalkRing && playerCS->currentFlashAlpha > 0)// Flash type
+            {
+                // Make them flash a halo
+                DrawIconCS(m_radioFlash, m_radioFlashOffscreen, player->position, sizeForRing, player->angle[YAW], playerCS->currentFlashAlpha);
+            }
+            else if (showTalkRing && pCSPR->IsAlive(i + 1) && GetClientVoiceMgr()->IsPlayerSpeaking(i + 1)) // Or solid on type
+            {
+                // Make them show a halo
+                DrawIconCS(m_radioFlash, m_radioFlashOffscreen, player->position, sizeForRing, player->angle[YAW], 255);
+            }
 
-			if( doingLocalPlayer )
-			{
-				sizeForPlayer *= 16.0f; // The self icon is really big since it has a camera view cone attached.
-				angleForPlayer = player->angle[YAW];// And, the self icon now rotates, natch.
-			}
+            bool doingLocalPlayer = localPlayer->GetUserID() == player->userid;
+            bool doingBomb = (m_bomb.state == CSMapBomb_t::BOMB_CARRIED && m_bomb.carrierIndex == player->index);
+            bool isEnemy = IsOtherEnemy(localPlayer->entindex(), player->index + 1);
+            float angleForPlayer = GetViewAngle();
 
-			int icon = player->icon;
-			if ( doingBomb && !doingLocalPlayer )
-			{
-				if ( IsOtherEnemy( localPlayer->entindex(), player->index + 1 ) )
-					icon = m_enemyIconBomb;
-				else
-					icon = m_TeamIconsBomb[GetIconNumberFromTeamNumber( player->team )];
-			}
-			else
-			{
-				if ( IsOtherEnemy( localPlayer->entindex(), player->index + 1 ) )
-					icon = m_enemyIcon;
-			}
+            if (doingLocalPlayer)
+            {
+                sizeForPlayer *= 16.0f; // The self icon is really big since it has a camera view cone attached.
+                angleForPlayer = player->angle[YAW];// And, the self icon now rotates, natch.
+            }
+            
+            int icon = player->icon;
+            int offscreenIcon = m_TeamIconsOffscreen[GetIconNumberFromTeamNumber(player->team)];
+            
+            if (!isEnemy && !doingLocalPlayer && pCSPR)
+            {
+                int teammateColor = pCSPR->GetCompTeammateColor(i + 1);
+                
+                if (teammateColor >= 0 && teammateColor < 5)
+                {
+                    if (doingBomb)
+                        icon = m_TeammateColorIconsBomb[teammateColor];
+                    else
+                        icon = m_TeammateColorIcons[teammateColor];
+                    
+                    offscreenIcon = m_TeammateColorIconsOffscreen[teammateColor];
+                }
+                else
+                {
+                    if (doingBomb)
+                        icon = m_TeamIconsBomb[GetIconNumberFromTeamNumber(player->team)];
+                }
+            }
+            else if (doingBomb && !doingLocalPlayer)
+            {
+                if (isEnemy)
+                    icon = m_enemyIconBomb;
+                else
+                    icon = m_TeamIconsBomb[GetIconNumberFromTeamNumber(player->team)];
+            }
+            else if (isEnemy)
+            {
+                icon = m_enemyIcon;
+                offscreenIcon = m_enemyIconOffscreen;
+            }
 
-			int offscreenIcon = m_TeamIconsOffscreen[GetIconNumberFromTeamNumber(player->team)];
-			if ( IsOtherEnemy( localPlayer->entindex(), player->index + 1 ) )
-				offscreenIcon = m_enemyIconOffscreen;
+            DrawIconCS(icon, offscreenIcon, player->position, sizeForPlayer, angleForPlayer, alpha, true, name, &player->color, status, &colorGreen);
+            if (!doingLocalPlayer && player->health > 0 && !doingBomb && bIsTeammate)
+            {
+                // Draw the facing for teammates only.
+                DrawIconCS(m_playerFacing, -1, player->position, sizeForPlayer, player->angle[YAW], alpha, true, name, &player->color, status, &colorGreen);
+            }
+        }
+    }
 
-			DrawIconCS( icon, offscreenIcon, player->position, sizeForPlayer, angleForPlayer, alpha, true, name, &player->color, status, &colorGreen );
-			if( !doingLocalPlayer && player->health > 0 && !doingBomb && bIsTeammate )
-			{
-				// Draw the facing for teammates only.
-				DrawIconCS( m_playerFacing, -1, player->position, sizeForPlayer, player->angle[YAW], alpha, true, name, &player->color, status, &colorGreen );
-			}
-		}
-	}
-
-	// After players so it can draw on top
-	DrawHostages();
-	DrawBomb();
+    // After players so it can draw on top
+    DrawHostages();
+    DrawBomb();
 }
 
 void CCSMapOverview::DrawHostages()
@@ -2569,16 +2659,35 @@ void CCSMapOverview::FireGameEvent( IGameEvent *event )
 		if( localPlayer == NULL )
 			return;
 		MapPlayer_t *localMapPlayer = GetPlayerByUserID(localPlayer->GetUserID());
+		
+		C_CS_PlayerResource *pCSPR = (C_CS_PlayerResource*)GameResources();
 
 		player->team = event->GetInt("team");
 
+		int playerIndex = player->index + 1; 
+		int teammateColor = -1;
+		
+		if (pCSPR)
+		teammateColor = pCSPR->GetCompTeammateColor(playerIndex);
+	
+	if (teammateColor >= 0 && teammateColor < 5 && 
+	    player->team == localPlayer->GetTeamNumber())
+	{
+		if( player == localMapPlayer )
+			player->icon = m_TeammateColorIconsSelf[teammateColor];
+		else
+			player->icon = m_TeammateColorIcons[teammateColor];
+	}
+	else
+	{
 		if( player == localMapPlayer )
 			player->icon = m_TeamIconsSelf[ GetIconNumberFromTeamNumber(player->team) ];
 		else
 			player->icon = m_TeamIcons[ GetIconNumberFromTeamNumber(player->team) ];
-
-		player->color = m_TeamColors[ GetIconNumberFromTeamNumber(player->team) ];
 	}
+
+	player->color = m_TeamColors[ GetIconNumberFromTeamNumber(player->team) ];
+}
 	else
 	{
 		BaseClass::FireGameEvent(event);
@@ -2611,41 +2720,59 @@ void CCSMapOverview::SetMode(int mode)
 
 void CCSMapOverview::UpdateSizeAndPosition()
 {
-	C_BasePlayer *pPlayer = C_BasePlayer::GetLocalPlayer();
-	if ( !pPlayer )
-		return;
+    C_BasePlayer *pPlayer = C_BasePlayer::GetLocalPlayer();
+    if (!pPlayer)
+        return;
 
-	if ( GetMode() == MAP_MODE_RADAR )
-	{
-		// Radar type
-		int iObserverMode = pPlayer->GetObserverMode();
-		if ( engine->IsHLTV() || pPlayer->GetTeamNumber() == TEAM_SPECTATOR ||
-			 pPlayer->IsObserver() && iObserverMode > OBS_MODE_DEATHCAM )
-		{
-			m_bRoundRadar = false;
-			m_fZoom = 1.0f; // fit the entire map in a square
-		}
-		else
-		{
-			switch ( cl_radar_square.GetInt() )
-			{
-				case 0: // always round
-					m_bRoundRadar = true;
-					m_fZoom = cl_radar_scale.GetFloat() * (OVERVIEW_MAP_SIZE / DESIRED_RADAR_RESOLUTION);
-					break;
-				case 1: // always square
-					m_bRoundRadar = false;
-					m_fZoom = cl_radar_scale.GetFloat() * (OVERVIEW_MAP_SIZE / DESIRED_RADAR_RESOLUTION);
-					break;
-				case 2: // square with scoreboard
-					IViewPortPanel* panel = gViewPortInterface->FindPanelByName( PANEL_SCOREBOARD );
-					bool bScoreboardIsVisible = panel->IsVisible();
-					m_bRoundRadar = !bScoreboardIsVisible;
-					m_fZoom = bScoreboardIsVisible ? 1.0f : cl_radar_scale.GetFloat() * (OVERVIEW_MAP_SIZE / DESIRED_RADAR_RESOLUTION); // fit the entire map in a square with scoreboard
-					break;
-			}
-		}
-	}
+    int screenWide, screenTall;
+    vgui::surface()->GetScreenSize(screenWide, screenTall);
+
+    float baseRadarSize = screenWide * 0.15f; 
+    float hudRadarScale = cl_hud_radar_scale.GetFloat(); 
+    int radarSize = static_cast<int>(baseRadarSize * hudRadarScale);
+
+    
+    radarSize = (radarSize / 2) * 2;
+    radarSize = clamp(radarSize, 100, 400); 
+
+    if (GetMode() == MAP_MODE_RADAR)
+    {
+        // Radar type
+        int iObserverMode = pPlayer->GetObserverMode();
+        if (engine->IsHLTV() || pPlayer->GetTeamNumber() == TEAM_SPECTATOR ||
+            pPlayer->IsObserver() && iObserverMode > OBS_MODE_DEATHCAM)
+        {
+            m_bRoundRadar = false;
+            m_fZoom = 1.0f; // Fit the entire map in a square
+        }
+        else
+        {
+            switch (cl_radar_square.GetInt())
+            {
+                case 0: // Always round
+                    m_bRoundRadar = true;
+                    m_fZoom = cl_radar_scale.GetFloat() * (OVERVIEW_MAP_SIZE / DESIRED_RADAR_RESOLUTION);
+                    break;
+                case 1: // Always square
+                    m_bRoundRadar = false;
+                    m_fZoom = cl_radar_scale.GetFloat() * (OVERVIEW_MAP_SIZE / DESIRED_RADAR_RESOLUTION);
+                    break;
+                case 2: // Square with scoreboard
+                    IViewPortPanel* panel = gViewPortInterface->FindPanelByName(PANEL_SCOREBOARD);
+                    bool bScoreboardIsVisible = panel && panel->IsVisible();
+                    m_bRoundRadar = !bScoreboardIsVisible;
+                    m_fZoom = bScoreboardIsVisible ? 1.0f : cl_radar_scale.GetFloat() * (OVERVIEW_MAP_SIZE / DESIRED_RADAR_RESOLUTION);
+                    break;
+            }
+        }
+
+        SetSize(radarSize, radarSize);
+
+        // Apply safezone offset - anchored to top-left
+        int left, top, right, bottom;
+        GetSafeZoneMargins( left, top, right, bottom );
+        SetPos( s_nRadarBaseXPos + left, s_nRadarBaseYPos + top );
+    }
 }
 
 void CCSMapOverview::SetPlayerSeen( int index )
@@ -2931,10 +3058,25 @@ void CCSMapOverview::MsgFunc_UpdateRadar( bf_read &msg )
 
 // Location text under radar
 
+static CHudLocation *s_pLocationInstance = NULL;
+static int s_nLocationBaseXPos = 0;
+static int s_nLocationBaseYPos = 0;
+
+static void LocationSafeZoneCallback()
+{
+	if ( s_pLocationInstance )
+	{
+		int left, top, right, bottom;
+		GetSafeZoneMargins( left, top, right, bottom );
+		s_pLocationInstance->SetPos( s_nLocationBaseXPos + left, s_nLocationBaseYPos + top );
+	}
+}
+
 DECLARE_HUDELEMENT( CHudLocation );
 
 CHudLocation::CHudLocation( const char *pName ) :	vgui::Label( NULL, "HudLocation", "" ), CHudElement( pName )
 {
+	s_pLocationInstance = this;
 	SetParent( g_pClientMode->GetViewport() );
 }
 

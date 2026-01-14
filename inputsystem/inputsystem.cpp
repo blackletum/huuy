@@ -169,6 +169,7 @@ InitReturnVal_t CInputSystem::Init()
 	
 	if( !m_bConsoleTextMode )
 		InitializeTouch();
+		InitializeGyro();
 	
 	if ( IsPC() && !m_bConsoleTextMode )
 	{

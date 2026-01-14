@@ -33,9 +33,12 @@ public:
     ImageButton( vgui::Panel *parent, const char *imageName );
 
     virtual void Paint() override;
-    virtual void OnCommand( const char *cmd ) override;
+    virtual void OnMousePressed(vgui::MouseCode code) override;
+    virtual void OnMouseReleased(vgui::MouseCode code) override;
 
     void SetImage( const char *imageName );
+    void SetSelected( bool selected ) { m_bSelected = selected; }
+    bool IsSelected() const { return m_bSelected; }
 
 private:
     int  m_textureID;
@@ -59,49 +62,72 @@ public:
     CImageButtonContainer( vgui::Panel *pParent, const char *pName )
         : BaseClass(pParent, pName), m_nColumns(4), m_nSpacing(5) {}
         
-        CUtlVector<AgentButton> m_Buttons;
+    CUtlVector<AgentButton> m_Buttons;
 
-    void AddImageButton(const char *imageName, const char *command, const char *labelText)
-{
-    AgentButton ab;
-
-    ab.button = new ImageButton(this, imageName);
-    ab.button->SetCommand(command);
-
-    ab.label = new vgui::Label(this, "", labelText);
-    ab.label->SetFgColor(Color(255, 255, 255, 255));
-   // ab.label->SetContentAlignment(Label::a_center);
-
-    m_Buttons.AddToTail(ab);
-
-    InvalidateLayout();
-}
-
-    virtual void PerformLayout() override
-{
-    int buttonWide = 192;
-    int buttonTall = 128;
-    int spacingX = 5;
-    int spacingY = buttonTall / 2; 
-    int maxColumns = 4;
-
-    for (int i = 0; i < m_Buttons.Count(); ++i)
+    void AddImageButton(const char *imageName, const char *command, const char *labelText, vgui::Panel *actionTarget)
     {
-        int col = i % maxColumns;
-        int row = i / maxColumns;
+        AgentButton ab;
 
-        int x = spacingX + col * (buttonWide + spacingX);
-        int y = row * int(buttonTall * 1.5);
+        ab.button = new ImageButton(this, imageName);
+        ab.button->SetCommand(command);
         
-        m_Buttons[i].button->SetBounds(x, y, buttonWide, buttonTall);
+        if (actionTarget)
+        {
+            ab.button->AddActionSignalTarget(actionTarget);
+        }
 
-        int labelTall = buttonTall / 2;
-        m_Buttons[i].label->SetBounds(x, y + buttonTall, buttonWide, labelTall);
+        vgui::IScheme* pScheme = vgui::scheme()->GetIScheme(GetScheme());
+        vgui::HFont hFont = pScheme->GetFont("InventorySmall", true);
+
+        ab.label = new vgui::Label(this, "", labelText);
+        ab.label->SetFgColor(Color(255, 255, 255, 255));
+        ab.label->SetFont(hFont);
+        ab.label->SetContentAlignment(vgui::Label::a_northwest);  
+        ab.label->SetWrap(true);
+
+        m_Buttons.AddToTail(ab);
+
+        InvalidateLayout();
     }
 
-    int numRows = (m_Buttons.Count() + maxColumns - 1) / maxColumns;
-    SetTall(numRows * int(buttonTall * 1.5));
-}
+    void RemoveAll()
+    {
+        for (int i = 0; i < m_Buttons.Count(); i++)
+        {
+            if (m_Buttons[i].button)
+                m_Buttons[i].button->MarkForDeletion();
+            if (m_Buttons[i].label)
+                m_Buttons[i].label->MarkForDeletion();
+        }
+        m_Buttons.RemoveAll();
+    }
+
+    virtual void PerformLayout() override
+    {
+        int buttonWide = 288;
+        int buttonTall = 192;
+        int spacingX = 5;
+        int spacingY = buttonTall / 2; 
+        int maxColumns = 4;
+
+        for (int i = 0; i < m_Buttons.Count(); ++i)
+        {
+            int col = i % maxColumns;
+            int row = i / maxColumns;
+
+            int x = spacingX + col * (buttonWide + spacingX);
+            int y = row * int(buttonTall * 1.9);
+            
+            m_Buttons[i].button->SetBounds(x, y, buttonWide, buttonTall);
+
+            int labelTall = buttonTall;
+            m_Buttons[i].label->SetBounds(x, y + buttonTall, buttonWide, labelTall);
+        }
+
+        int numRows = (m_Buttons.Count() + maxColumns - 1) / maxColumns;
+        SetTall(numRows * int(buttonTall * 1.5));
+    }
+    
     int m_nColumns;
     int m_nSpacing;
 };
@@ -122,10 +148,11 @@ protected:
 	virtual void OnResetData();
 	// Called when the OK / Apply button is pressed.  Changed data should be written into document.
 	virtual void OnApplyChanges();
+	virtual void OnCommand( const char *command ) override;
 
 private:
     void                    UpdateAgentModel();
-    void                    UpdateScrollPanel();
+    void                    PopulateAgentButtons();
     void                    UpdateAgentImages();
 	void					RemapAgentsImage();
 	CBitmapImagePanel		*m_pAgentImageCT;

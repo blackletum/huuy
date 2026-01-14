@@ -29,7 +29,6 @@ struct WeaponSelectPanel
 	WeaponSelectPanel()
 	{
 		pSVGPanel = NULL;
-		pNameLabel = NULL;
 		pCountLabel = NULL;
 		bShowCountNumber = false;
 		hWeapon = NULL;
@@ -38,7 +37,6 @@ struct WeaponSelectPanel
 	}
 
 	VectorImagePanel *pSVGPanel;
-	Label *pNameLabel;
 	Label *pCountLabel;
 	bool bShowCountNumber;
 	EHANDLE hWeapon;
@@ -69,6 +67,7 @@ public:
 	void UpdateIconColors();
 	void UpdateCountLabels();
 	void UpdateSlotLabels();
+	void UpdateSelectedWeaponName();
 
 protected:
 	virtual C_WeaponCSBase	*GetSelectedWeapon( void )
@@ -93,6 +92,7 @@ private:
 	VectorImagePanel *m_pDefuserIcon;
 	bool m_bHasDefuser;
 	Label *m_pSlotLabels[MAX_WEP_SELECT_PANELS];
+	Label *m_pWeaponNameLabel;  // Single label for selected weapon name
 	CPanelAnimationVarAliasType( int, icons_base_xpos, "icons_base_xpos", "0", "proportional_xpos" );
 	CPanelAnimationVarAliasType( int, icons_base_ypos, "icons_base_ypos", "0", "proportional_ypos" );
 	CPanelAnimationVarAliasType( int, name_label_xpos, "name_label_xpos", "0", "proportional_xpos" );

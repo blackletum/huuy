@@ -11,7 +11,11 @@
 #include "weapon_csbase.h"
 #include "icvar.h"
 #include "cs_gamerules.h"
-
+#ifdef CLIENT_DLL
+#include "cs_skin_database.h"
+#include "materialsystem/imaterial.h"
+#include "materialsystem/itexture.h"
+#endif
 
 //--------------------------------------------------------------------------------------------------------
 struct WeaponTypeInfo
@@ -335,6 +339,9 @@ CCSWeaponInfo::CCSWeaponInfo()
 	ZeroObject(m_fRecoilMagnitudeVariance);
 	m_iRecoilSeed = 0;
 	m_szDescription[0] = 0;
+	#ifdef CLIENT_DLL
+	szPaintKitConVar[0] = '\0';
+	#endif
 }
 
 int	CCSWeaponInfo::GetKillAward( void ) const
@@ -547,6 +554,19 @@ void CCSWeaponInfo::Parse( KeyValues *pKeyValuesData, const char *szWeaponName )
 
 	// Read the item description
 	Q_strncpy( m_szDescription, pKeyValuesData->GetString( "description" ), sizeof( m_szDescription ) );
+	
+	#ifdef CLIENT_DLL
+	const char* pszClass = szClassName;
+    if (Q_strnicmp(pszClass, "weapon_", 7) == 0)
+    {
+        pszClass += 7;  // Пропускаем префикс "weapon_"
+    }
+    
+    Q_snprintf(szPaintKitConVar, sizeof(szPaintKitConVar), "loadout_%s_skin", pszClass);
+    
+    DevMsg("[WeaponInfo] %s: auto-generated paintkit_convar = %s\n", 
+           szClassName, szPaintKitConVar);
+     #endif
 
 #ifndef CLIENT_DLL
 	// Enforce consistency for the weapon here, since that way we don't need to save off the model bounds
@@ -566,6 +586,61 @@ void CCSWeaponInfo::Parse( KeyValues *pKeyValuesData, const char *szWeaponName )
 	}*/
 #endif // !CLIENT_DLL
 }
+
+#ifdef CLIENT_DLL
+
+int CCSWeaponInfo::GetCurrentPaintKit() const
+{
+	if (!szPaintKitConVar[0])
+		return 0;
+		
+	ConVar* pConVar = cvar->FindVar(szPaintKitConVar);
+	if (!pConVar)
+		return 0;
+		
+	return pConVar->GetInt();
+}
+
+IMaterial* CCSWeaponInfo::GetSkinMaterial() const
+{
+	int iPaintKit = GetCurrentPaintKit();
+	if (iPaintKit <= 0)
+		return nullptr;
+	
+	return g_SkinDatabase.GetSkinMaterial(iPaintKit);
+}
+
+ITexture* CCSWeaponInfo::GetSkinIcon() const
+{
+	int iPaintKit = GetCurrentPaintKit();
+	if (iPaintKit <= 0)
+		return nullptr;
+	
+	return g_SkinDatabase.GetSkinIcon(iPaintKit);
+}
+
+const SkinDefinition_t* CCSWeaponInfo::GetSkinDefinition() const
+{
+	int iPaintKit = GetCurrentPaintKit();
+	if (iPaintKit <= 0)
+		return nullptr;
+	
+	return g_SkinDatabase.FindSkinByPaintKit(iPaintKit);
+}
+
+void CCSWeaponInfo::SetPaintKit(int iPaintKit) const
+{
+	if (!szPaintKitConVar[0])
+		return;
+		
+	ConVar* pConVar = cvar->FindVar(szPaintKitConVar);
+	if (pConVar)
+	{
+		pConVar->SetValue(iPaintKit);
+	}
+}
+
+#endif // CLIENT_DLL
 
 ConVar weapon_recoil_suppression_shots( "weapon_recoil_suppression_shots", "4", FCVAR_CHEAT |  FCVAR_REPLICATED, "Number of shots before weapon uses full recoil" );
 ConVar weapon_recoil_suppression_factor( "weapon_recoil_suppression_factor", "0.75", FCVAR_CHEAT |  FCVAR_REPLICATED, "Initial recoil suppression factor (first suppressed shot will use this factor * standard recoil, lerping to 1 for later shots" );

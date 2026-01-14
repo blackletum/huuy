@@ -37,6 +37,7 @@
 #include "clienteffectprecachesystem.h"
 #include "soundenvelope.h"
 #include "c_basetempentity.h"
+#include "c_gameinstructor.h"
 #include "materialsystem/imaterialsystemstub.h"
 #include "VGuiMatSurface/IMatSystemSurface.h"
 #include "materialsystem/imaterialsystemhardwareconfig.h"
@@ -1056,6 +1057,7 @@ int CHLClient::Init( CreateInterfaceFn appSystemFactory, CreateInterfaceFn physi
 
 #ifndef CSTRIKE_DLL
 	InitSmokeFogOverlay();
+	GetGameInstructor().Init();
 #endif
 
 	// Register user messages..
@@ -2527,6 +2529,87 @@ int CHLClient::GetScreenWidth()
 int CHLClient::GetScreenHeight()
 {
 	return ScreenHeight();
+}
+
+//-----------------------------------------------------------------------------
+// Safezone helpers for HUD positioning
+//-----------------------------------------------------------------------------
+static void SafeZoneChanged( IConVar *var, const char *pOldValue, float flOldValue );
+
+static ConVar safezonex( "safezonex", "1.0", FCVAR_ARCHIVE, "Horizontal safe zone (0.0-1.0, 1.0 = no margin)", true, 0.0f, true, 1.0f, SafeZoneChanged );
+static ConVar safezoney( "safezoney", "1.0", FCVAR_ARCHIVE, "Vertical safe zone (0.0-1.0, 1.0 = no margin)", true, 0.0f, true, 1.0f, SafeZoneChanged );
+
+// Callback list for panels that need to update when safezone changes
+static CUtlVector<void (*)()> s_SafeZoneCallbacks;
+
+void RegisterSafeZoneCallback( void (*callback)() )
+{
+	if ( s_SafeZoneCallbacks.Find( callback ) == s_SafeZoneCallbacks.InvalidIndex() )
+		s_SafeZoneCallbacks.AddToTail( callback );
+}
+
+void UnregisterSafeZoneCallback( void (*callback)() )
+{
+	s_SafeZoneCallbacks.FindAndRemove( callback );
+}
+
+static void SafeZoneChanged( IConVar *var, const char *pOldValue, float flOldValue )
+{
+	for ( int i = 0; i < s_SafeZoneCallbacks.Count(); i++ )
+	{
+		s_SafeZoneCallbacks[i]();
+	}
+}
+
+float GetSafeZoneX()
+{
+	return safezonex.GetFloat();
+}
+
+float GetSafeZoneY()
+{
+	return safezoney.GetFloat();
+}
+
+void GetSafeZoneMargins( int &left, int &top, int &right, int &bottom )
+{
+	int screenW = ScreenWidth();
+	int screenH = ScreenHeight();
+
+	float szX = GetSafeZoneX();
+	float szY = GetSafeZoneY();
+
+	int marginX = (int)( ( 1.0f - szX ) * screenW * 0.5f );
+	int marginY = (int)( ( 1.0f - szY ) * screenH * 0.5f );
+
+	left = marginX;
+	right = marginX;
+	top = marginY;
+	bottom = marginY;
+}
+
+void GetSafeZoneBounds( int &x, int &y, int &wide, int &tall )
+{
+	int screenW = ScreenWidth();
+	int screenH = ScreenHeight();
+
+	int left, top, right, bottom;
+	GetSafeZoneMargins( left, top, right, bottom );
+
+	x = left;
+	y = top;
+	wide = screenW - left - right;
+	tall = screenH - top - bottom;
+}
+
+int GetProportionalScaledValue( int baseValue )
+{
+	return vgui::scheme()->GetProportionalScaledValue( baseValue );
+}
+
+float GetProportionalScale()
+{
+	return (float)ScreenHeight() / 480.0f;
 }
 
 // NEW INTERFACES

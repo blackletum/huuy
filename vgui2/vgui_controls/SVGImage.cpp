@@ -13,6 +13,7 @@
 #include "filesystem.h"
 #include "lunasvg/lunasvg.h"
 #include "VGuiMatSurface/IMatSystemSurface.h"
+#include <vgui_controls/SVGEdgeEffects.h>
 
 // memdbgon must be the last include file in a .cpp file!!!
 #include "tier0/memdbgon.h"
@@ -21,7 +22,7 @@ using namespace vgui;
 using namespace lunasvg;
 
 //-----------------------------------------------------------------------------
-// Purpose: Conctructor. Start with default position and default color.
+// Purpose: Constructor. Start with default position and default color.
 //-----------------------------------------------------------------------------
 SVGImage::SVGImage()
 {
@@ -42,7 +43,10 @@ SVGImage::~SVGImage()
 	Evict();
 }
 
-bool SVGImage::SetTexture( const char* pszFilePath )
+//-----------------------------------------------------------------------------
+// Purpose: 
+//-----------------------------------------------------------------------------
+bool SVGImage::SetTexture( const char* pszFilePath, bool bBlurEdges, int blurRadius, Color glowColor )
 {
 	// don't even bother doing anything without a file
 	if ( !pszFilePath )
@@ -87,6 +91,12 @@ bool SVGImage::SetTexture( const char* pszFilePath )
 		return false;
 	}
 	bitmap.convertToRGBA(); // PiMoN: fuck lunasvg devs for making me add this after their dumb update!
+
+	if ( bBlurEdges )
+	{
+		SVGEffects::QuickOutwardGlow( bitmap.data(), bitmap.width(), bitmap.height(), glowColor.r(), glowColor.g(),glowColor.b(), blurRadius );
+	}
+	// ====================================================================
 
 	int wide = bitmap.width();
 	int tall = bitmap.height();
@@ -185,4 +195,3 @@ HTexture SVGImage::GetID()
 {
 	return m_nTextureID;
 }
-

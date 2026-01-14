@@ -179,4 +179,18 @@ extern CSteamID GetSteamIDForPlayerIndex( int iPlayerIndex );
 
 #endif
 
+//-----------------------------------------------------------------------------
+// Safezone helpers for HUD positioning
+//-----------------------------------------------------------------------------
+float GetSafeZoneX();
+float GetSafeZoneY();
+void GetSafeZoneMargins( int &left, int &top, int &right, int &bottom );
+void GetSafeZoneBounds( int &x, int &y, int &wide, int &tall );
+int GetProportionalScaledValue( int baseValue );
+float GetProportionalScale();
+
+// Register/unregister callbacks for when safezone convars change
+void RegisterSafeZoneCallback( void (*callback)() );
+void UnregisterSafeZoneCallback( void (*callback)() );
+
 #endif // CDLL_CLIENT_INT_H

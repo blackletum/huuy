@@ -86,6 +86,7 @@ public:
 
 	int GetCost( void ) const							{ return m_cost; }
 	int GetSkin( void ) const							{ return m_skin; }
+	int GetMaxDifficulty() const;					///< return maximum difficulty flag value
 	bool IsDifficulty( BotDifficultyType diff ) const;	///< return true if this profile can be used for the given difficulty level
 	int GetVoicePitch( void ) const						{ return m_voicePitch; }
 	float GetReactionTime( void ) const					{ return m_reactionTime; }
@@ -148,6 +149,18 @@ private:
 };
 typedef CUtlLinkedList<BotProfile *> BotProfileList;
 
+inline int BotProfile::GetMaxDifficulty() const
+{
+	for ( int i = NUM_DIFFICULTY_LEVELS - 1; i >= BOT_EASY; --i )
+	{
+		if ( m_difficultyFlags & ( 1 << i ) )
+		{
+			return i;
+		}
+	}
+
+	return BOT_EASY;
+}
 
 inline bool BotProfile::IsDifficulty( BotDifficultyType diff ) const
 {

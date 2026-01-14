@@ -412,6 +412,8 @@ public:
 #endif
 
 	bool					HasPhysicsFlag( unsigned int flag ) { return (m_afPhysicsFlags & flag) != 0; }
+	
+	virtual	CBaseCombatCharacter *ActivePlayerCombatCharacter( void ) { return this; }
 
 	// Weapon stuff
 	virtual Vector			Weapon_ShootPosition( );
@@ -922,6 +924,8 @@ public:
 	const CEconWearable		*GetWearable( int i ) const { return m_hMyWearables[i]; }
 	int						GetNumWearables( void ) const { return m_hMyWearables.Count(); }
 #endif
+
+	int					GetAssociatedTeamNumber( void ) const; // Returns coaching team if player is a coach. Otherwise returns GetTeamNumber.
 
 private:
 

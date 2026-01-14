@@ -29,7 +29,6 @@
 #include "death_pose.h"
 #include "interpolatortypes.h"
 #include "matsys_controls/mdlpanel.h"
-#include "SkinProcessor.h"
 
 #include "effect_dispatch_data.h"	//for water ripple / splash effect
 #include "c_te_effect_dispatch.h"	//ditto
@@ -79,6 +78,8 @@
 static Vector WALL_MIN(-WALL_OFFSET,-WALL_OFFSET,-WALL_OFFSET);
 static Vector WALL_MAX(WALL_OFFSET,WALL_OFFSET,WALL_OFFSET);
 
+#define GLOWUPDATE_DEFAULT_THINK_INTERVAL		0.2f
+
 extern ConVar	spec_freeze_time;
 extern ConVar	spec_freeze_traveltime;
 extern ConVar	spec_freeze_traveltime_long;
@@ -96,6 +97,28 @@ ConVar spec_freeze_cinematiclight_scale( "spec_freeze_cinematiclight_scale", "2.
 ConVar cl_crosshair_sniper_width( "cl_crosshair_sniper_width", "1", FCVAR_CLIENTDLL | FCVAR_ARCHIVE, "If >1 sniper scope cross lines gain extra width (1 for single-pixel hairline)" );
 ConVar cl_ragdoll_physics_enable( "cl_ragdoll_physics_enable", "1", 0, "Enable/disable ragdoll physics." );
 ConVar cl_disable_shooting_effects( "cl_disable_shooting_effects", "1", FCVAR_ARCHIVE );
+
+ConVar spec_glow_silent_factor( "spec_glow_silent_factor", "0.6", FCVAR_CLIENTDLL, "Lurking player xray glow scaling.", true, 0.0f, true, 1.0f );
+ConVar spec_glow_spike_factor( "spec_glow_spike_factor", "1.2", FCVAR_CLIENTDLL, "Noisy player xray glow scaling (pop when noise is made).  Make >1 to add a 'spike' to noise-making players", true, 1.0f, true, 3.0f );
+
+ConVar spec_glow_full_time( "spec_glow_full_time", "1.0", FCVAR_CLIENTDLL, "Noisy players stay at full brightness for this long.", true, 0.0f, false, 0.0f );
+ConVar spec_glow_decay_time( "spec_glow_decay_time", "2.0", FCVAR_CLIENTDLL, "Time to decay glow from 1.0 to spec_glow_silent_factor after spec_glow_full_time.", true, 0.0f, false, 0.0f );
+ConVar spec_glow_spike_time( "spec_glow_spike_time", "0.0", FCVAR_CLIENTDLL, "Time for noisy player glow 'spike' to show that they made noise very recently.", true, 0.0f, false, 0.0f );
+
+static void Spec_Show_Xray_Callback( IConVar *pConVar, const char *pOldString, float flOldValue )
+{
+	C_CSPlayer *pLocalPlayer = C_CSPlayer::GetLocalCSPlayer();
+	if ( pLocalPlayer )
+		pLocalPlayer->UpdateGlowsForAllPlayers();
+}
+
+ConVar spec_show_xray("spec_show_xray", "0", FCVAR_ARCHIVE, "If set to 1, you can see player outlines and name IDs through walls - who you can see depends on your team and mode", Spec_Show_Xray_Callback );
+
+ConVar cl_teammate_colors_show( "cl_teammate_colors_show", "1", FCVAR_CLIENTDLL, "In competitive, 1 = show teammates as separate colors in the radar, scoreboard, etc., 2 = show colors and letters" );
+
+ConVar spec_replay_outline( "spec_replay_outline", "1", FCVAR_CLIENTDLL, "Enable outline selecting victim in hltv replay: 0 - none; 1 - ouline YOU; 2 - outline YOU, with red ragdoll outline; 3 - normal spectator outlines" );
+
+ConVar cl_hud_radar_scale( "cl_hud_radar_scale", "1", FCVAR_CLIENTDLL, "", true, 0.8, true, 1.3 );
 
 ConVar fov_cs_debug( "fov_cs_debug", "0", FCVAR_CHEAT, "Sets the view fov if cheats are on." );
 
@@ -331,7 +354,7 @@ public:
 
 private:
 
-	C_CSRagdoll( const C_CSRagdoll & ) {}
+	C_CSRagdoll( const C_CSRagdoll & ) :m_nGlowObjectHandle( -1) { }
 
 	void Interp_Copy( C_BaseAnimatingOverlay *pSourceEntity );
 
@@ -341,6 +364,8 @@ private:
 	void CreateGlovesModel( void );
 
 private:
+
+    void DestroyGlowObject();
 
 	EHANDLE	m_hPlayer;
 	EHANDLE	m_hControlledPlayer;
@@ -354,6 +379,7 @@ private:
 	bool m_bInitialized;
 	bool m_bCreatedWhilePlaybackSkipping;
 	C_BaseCSGloves* m_pGloves;
+	int m_nGlowObjectHandle;
 };
 
 
@@ -375,7 +401,8 @@ IMPLEMENT_CLIENTCLASS_DT_NOBASE( C_CSRagdoll, DT_CSRagdoll, CCSRagdoll )
 END_RECV_TABLE()
 
 
-C_CSRagdoll::C_CSRagdoll()
+C_CSRagdoll::C_CSRagdoll():
+	m_nGlowObjectHandle(-1)
 {
 	m_flRagdollSinkStart = -1;
 	m_bInitialized = false;
@@ -385,6 +412,8 @@ C_CSRagdoll::C_CSRagdoll()
 
 C_CSRagdoll::~C_CSRagdoll()
 {
+	DestroyGlowObject();
+	
 	PhysCleanupFrictionSounds( this );
 
 	if ( m_pGloves )
@@ -392,6 +421,15 @@ C_CSRagdoll::~C_CSRagdoll()
 		m_pGloves->Remove();
 		m_pGloves = NULL;
 	}
+}
+
+void C_CSRagdoll::DestroyGlowObject()
+{
+	/*if ( m_nGlowObjectHandle >= 0 )
+	{
+		g_GlowObjectManager.UnregisterGlowObject( m_nGlowObjectHandle );
+		m_nGlowObjectHandle = -1;
+	}*/
 }
 
 void C_CSRagdoll::GetRagdollInitBoneArrays( matrix3x4_t *pDeltaBones0, matrix3x4_t *pDeltaBones1, matrix3x4_t *pCurrentBones, float boneDt )
@@ -641,6 +679,16 @@ void C_CSRagdoll::CreateCSRagdoll()
 
 	// mark this to prevent model changes from overwriting the death sequence with the server sequence
 	SetReceivedSequence();
+	
+		// if we're playing a replay, only add a glow to ourselves
+	DestroyGlowObject();
+	
+	if ( pPlayer && engine && spec_replay_outline.GetInt() )
+	{
+			/*float gb = ( spec_replay_outline.GetInt() == 2 ) ? 0.375f : 1.0f;
+			m_nGlowObjectHandle = g_GlowObjectManager.RegisterGlowObject( this, Vector( 1, gb, gb ), 0.8f, true, false, GLOW_FOR_ALL_SPLIT_SCREEN_SLOTS );
+			SetRenderColor( 255, 0, 0 );*/
+	}
 
 	if ( pPlayer && !pPlayer->IsDormant() )
 	{
@@ -1116,8 +1164,9 @@ END_RECV_TABLE()
 
 bool C_CSPlayer::s_bPlayingFreezeCamSound = false;
 
-C_CSPlayer::C_CSPlayer() :
-	m_iv_angEyeAngles( "C_CSPlayer::m_iv_angEyeAngles" )
+C_CSPlayer::C_CSPlayer() : 
+	m_iv_angEyeAngles( "C_CSPlayer::m_iv_angEyeAngles" ),
+	m_GlowObject( this, Vector( 1.0f, 1.0f, 1.0f ), 0.0f, false, false )
 {
 	m_bMaintainSequenceTransitions = false; // disabled for perf - animstate takes care of carefully blending only the layers that need it
 
@@ -1148,11 +1197,21 @@ C_CSPlayer::C_CSPlayer() :
 	m_iOldIDEntIndex = 0;
 	m_holdTargetIDTimer.Reset();
 	m_iDirection = 0;
+	
+	m_bIsBuyMenuOpen = false;
 
 	m_Activity = ACT_IDLE;
-
+	m_fNextGlowCheckUpdate = 0.0f;
 	m_pFlashlightBeam = NULL;
 	m_fNextThinkPushAway = 0.0f;
+	
+	m_fNextGlowCheckInterval = GLOWUPDATE_DEFAULT_THINK_INTERVAL;
+
+	m_fGlowAlpha = 1.0f;
+	m_fGlowAlphaTarget = 1.0f;
+	m_fGlowAlphaUpdateTime = -1.0f;
+	m_fGlowAlphaTargetTime = -1.0f;
+	
 
 	m_serverIntendedCycle = -1.0f;
 
@@ -1921,8 +1980,6 @@ public:
 
 		return BaseClass::GetAbsOrigin();
 	}
-	
-	void ApplyCustomSkinMaterial();
 
 	virtual bool ShouldDraw()
 	{
@@ -2084,34 +2141,10 @@ void C_CSPlayer::CreateAddonModel( int i )
 		pEnt->SetSolid( SOLID_NONE );
 		pEnt->RemoveEFlags( EFL_USE_PARTITION_WHEN_NOT_SOLID );
 	}
-	
-    if (addonType == ADDON_PRIMARY || addonType == ADDON_PISTOL || addonType == ADDON_KNIFE)
-    {
-        pEnt->ApplyCustomSkinMaterial();
-    }
 
 	int iHolsterstrapBodygroup = pEnt->FindBodygroupByName( "holsterstrap" );
 	if ( iHolsterstrapBodygroup != -1 )
 		pEnt->SetBodygroup( iHolsterstrapBodygroup, 1 );
-}
-
-void C_PlayerAddonModel::ApplyCustomSkinMaterial()
-{
-    CBaseEntity* pParent = GetMoveParent();
-    if (!pParent)
-        return;
-
-    C_CSPlayer* pPlayer = ToCSPlayer(pParent);
-    if (!pPlayer)
-        return;
-
-    C_BaseCombatWeapon* pWeapon = dynamic_cast<C_BaseCombatWeapon*>(this);
-    if (!pWeapon)
-        return;
-
-    IMaterial* pMat = g_SkinProcessor.GetSkinMaterial(pWeapon);
-    if (pMat)
-        modelrender->ForcedMaterialOverride(pMat);
 }
 
 //-----------------------------------------------------------------------------
@@ -2267,6 +2300,16 @@ void C_CSPlayer::UpdateAddonModels( bool bForce )
 	m_bAddonModelsAreOutOfDate = false;
 }
 
+void C_CSPlayer::SetBuyMenuOpen( bool bOpen ) 
+{ 
+	m_bIsBuyMenuOpen = bOpen;
+	
+	if ( bOpen == true )
+		engine->ClientCmd( "open_buymenu" );
+	else
+		engine->ClientCmd( "close_buymenu" );
+} 
+
 
 void C_CSPlayer::RemoveAddonModels()
 {
@@ -2335,6 +2378,7 @@ void C_CSPlayer::FireGameEvent( IGameEvent *event )
 	{
 		if ( IsLocalPlayer() && CSGameRules() && CSGameRules()->IsPlayingGunGameDeathmatch() )
 			m_bShouldAutobuyDMWeapons = true;
+			UpdateGlowsForAllPlayers();
 	}
 	else if ( Q_strcmp( name, "cs_pre_restart" ) == 0 )
 	{
@@ -2382,6 +2426,7 @@ void C_CSPlayer::FireGameEvent( IGameEvent *event )
 					m_iOldIDEntIndex = 0;
 					m_holdTargetIDTimer.Reset();
 					m_iTargetedWeaponEntIndex = 0;
+					UpdateGlowsForAllPlayers();
 
 					if ( CSGameRules()->IsPlayingAnyCompetitiveStrictRuleset() )
 					{
@@ -2410,6 +2455,7 @@ void C_CSPlayer::FireGameEvent( IGameEvent *event )
 			m_nLastKillerHitsGiven = 0;
 
 			UpdateAddonModels( true );
+			UpdateGlowsForAllPlayers();
 
 			m_flLastSpawnTimeIndex = gpGlobals->curtime;
 
@@ -2586,6 +2632,239 @@ void C_CSPlayer::ToggleRandomWeapons( void )
 
 	CLocalPlayerFilter filter;
 	EmitSound( filter, GetSoundSourceIndex(), "BuyPreset.Updated" );
+}
+
+bool C_CSPlayer::ShouldShowTeamPlayerColors( int nOtherTeamNum )
+{
+	ConVarRef cl_teammate_colors_show( "cl_teammate_colors_show" );
+	if ( cl_teammate_colors_show.GetBool( ) == false || engine->IsHLTV( ) )
+		return false;
+
+	if ( nOtherTeamNum != TEAM_CT && nOtherTeamNum != TEAM_TERRORIST )
+		return false;
+
+	int nMaxPlayers = CCSGameRules::GetMaxPlayers();
+	
+	bool bShowColor = (nMaxPlayers <= 10) && CSGameRules() && CSGameRules()->IsPlayingAnyCompetitiveStrictRuleset() && (nOtherTeamNum == GetTeamNumber());
+
+	return bShowColor;
+}
+
+bool C_CSPlayer::ShouldShowTeamPlayerColorLetters( void )
+{
+	ConVarRef cl_teammate_colors_show( "cl_teammate_colors_show" );
+	if ( cl_teammate_colors_show.GetInt() == 2 && engine->IsHLTV() == false )
+		return true;
+
+	return false;
+}
+
+void C_CSPlayer::UpdateGlowsForAllPlayers( void )
+{
+	for ( int i = 1; i <= MAX_PLAYERS; i++ )
+	{
+		C_CSPlayer *pPlayer = ToCSPlayer( UTIL_PlayerByIndex( i ) );
+		if ( pPlayer )
+		{
+			pPlayer->UpdateGlows();
+		}
+	}
+}
+
+static bool GlowEffectSpectator( C_CSPlayer* thisPlayer, C_CSPlayer* pLocalPlayer, GlowRenderStyle_t& glowStyle, Vector& glowColor, float& alphaStart, float& alpha, float& timeStart, float& timeTarget, bool& animate )
+{
+	// Spectator rendering
+	if ( !pLocalPlayer )
+		return false;
+
+	C_CS_PlayerResource *cs_PR = dynamic_cast< C_CS_PlayerResource * >( g_PR );
+	if ( cs_PR )
+	{
+		if ( cs_PR->GetTeam( thisPlayer->entindex() ) != thisPlayer->GetTeamNumber() )
+		{
+			//Msg( "Player resource disagrees on player team: %s\n", GetPlayerName() );
+			return false;
+		}
+	}
+
+	bool bRenderForSpectator = ( spec_show_xray.GetInt() );
+
+	if ( !bRenderForSpectator && ( pLocalPlayer->IsAlive() || ( pLocalPlayer->GetObserverMode() <= OBS_MODE_FREEZECAM ) ) )
+		return false;
+
+	bool bRender = false;
+	if ( mp_teammates_are_enemies.GetBool() && thisPlayer->IsOtherEnemy( pLocalPlayer->entindex() ) )  // if everyone is an enemy
+	{
+		// red
+		glowColor.x = ( 242.0f / 255.0f );
+		glowColor.y = ( 117.0f / 255.0f );
+		glowColor.z = ( 117.0f / 255.0f );
+		bRender = true;
+	}
+	else if ( ( thisPlayer->GetTeamNumber() == TEAM_CT ) )
+	{
+		// blue
+		glowColor.x = ( 114.0f / 255.0f );
+		glowColor.y = ( 155.0f / 255.0f );
+		glowColor.z = ( 221.0f / 255.0f );
+		bRender = true;
+	}
+	else if ( ( thisPlayer->GetTeamNumber() == TEAM_TERRORIST ) )
+	{
+		// yellow
+		glowColor.x = ( 224.0f / 255.0f );
+		glowColor.y = ( 175.0f / 255.0f );
+		glowColor.z = ( 86.0f / 255.0f );
+		bRender = true;
+	}
+
+	// Check for xray highlight of currently selected player
+	int nTargetSpec = ( pLocalPlayer->GetObserverTarget() ? pLocalPlayer->GetObserverTarget()->entindex() : -1 );
+	if ( nTargetSpec == thisPlayer->entindex() )
+	{
+		bool bShowSelected =
+			// we must alraedy be eligible to xray this player to highlight them as selected
+			bRender &&
+			// $$$REI I think this is a proxy for "is this a competitive mode game"
+			( CCSGameRules::GetMaxPlayers() <= 10 ) &&
+			// no selection highlight in dm/armsrace ($$$REI Why?)
+			!( CSGameRules()->IsPlayingGunGameDeathmatch() || CSGameRules()->IsPlayingGunGameProgressive() ) &&
+			// must be in 'free' observer mode otherwise we are already tethered to the selected player
+			( pLocalPlayer->GetObserverMode() == OBS_MODE_FIXED || pLocalPlayer->GetObserverMode() == OBS_MODE_ROAMING );
+
+		// always highlight the selected player when we are interpolating to them
+		if ( pLocalPlayer->IsInObserverInterpolation() )
+			bShowSelected = true;
+
+		if ( bShowSelected )
+		{
+			glowColor.x = ( 255.0f / 255.0f );
+			glowColor.y = ( 255.0f / 255.0f );
+			glowColor.z = ( 255.0f / 255.0f );
+			bRender = true;
+		}
+	}
+
+	if ( !bRender )
+		return false;
+
+	// turn down spectator xray if player is quiet
+	float fSpecGlowSilentFactor = spec_glow_silent_factor.GetFloat();
+	float fSpecGlowSpikeFactor = spec_glow_spike_factor.GetFloat();
+	float fSpecGlowFullTime = spec_glow_full_time.GetFloat();
+	float fSpecGlowDecayTime = spec_glow_decay_time.GetFloat();
+	float fSpecGlowSpikeTime = spec_glow_spike_time.GetFloat();
+	
+	// drop values (remnant of legacy glow code that 1.0 really means 0.6)
+	alpha *= 0.6f;
+	alphaStart *= 0.6f;
+
+	return true;
+}
+
+
+typedef bool( *tGetGlowFunc )( C_CSPlayer* thisPlayer, C_CSPlayer* localPlayer, GlowRenderStyle_t& glowStyle, Vector& glowColor, float& alphaStart, float& alpha, float& timeStart, float& timeTarget, bool& animate );
+
+void C_CSPlayer::UpdateGlows( void )
+{
+	C_CSPlayer *pLocalPlayer = C_CSPlayer::GetLocalCSPlayer();
+
+	//////////////////////////////////////////////////////////////////////////
+	// First handle screen effects
+	// TODO: Doesn't really belong in UpdateGlow(), but right now they update
+	//       at the same time as glow effects
+
+	// in order of priority
+	static const tGetGlowFunc kGlowFuncs[] =
+	{
+		GlowEffectSpectator,
+		nullptr
+	};
+
+	m_fNextGlowCheckInterval = GLOWUPDATE_DEFAULT_THINK_INTERVAL;
+
+	bool bRender = false;
+	Vector glowColor = vec3_origin;
+	GlowRenderStyle_t glowStyle = GLOWRENDERSTYLE_DEFAULT;
+	//	bool bRenderInside = false;
+	float flAlphaStart = m_fGlowAlpha;
+	float flAlpha = 1.0f;
+	float flAlphaStartTime = gpGlobals->curtime;
+	float flAlphaTargetTime = gpGlobals->curtime;
+	bool animate = false;
+
+	for ( const tGetGlowFunc* pGlowFunc = kGlowFuncs; *pGlowFunc != nullptr; ++pGlowFunc )
+	{
+		if ( ( *pGlowFunc )( this, pLocalPlayer, glowStyle, glowColor, flAlphaStart, flAlpha, flAlphaStartTime, flAlphaTargetTime, animate ) )
+		{
+			bRender = true;
+			break;
+		}
+	}
+
+	m_GlowObject.SetRenderFlags( bRender, true );
+	//m_GlowObject.SetRenderFlags( !bRenderInside, bRender, bRenderInside );
+	m_GlowObject.SetRenderStyle( glowStyle );
+	m_GlowObject.SetColor( glowColor );
+
+	if( bRender && animate )
+	{
+		// set up animation
+		if(flAlphaTargetTime > flAlphaStartTime && flAlphaTargetTime > gpGlobals->curtime )
+		{
+			m_fGlowAlpha = Lerp( ( gpGlobals->curtime - flAlphaStartTime ) / ( flAlphaTargetTime - flAlphaStartTime ), flAlphaStart, flAlpha );
+			m_fGlowAlphaTarget = flAlpha;
+			m_fGlowAlphaTargetTime = flAlphaTargetTime;
+		}
+		else
+		{
+			m_fGlowAlphaTargetTime = -1.0f;
+			m_fGlowAlpha = m_fGlowAlphaTarget = flAlpha;
+		}
+	}
+	else
+	{
+		m_fGlowAlphaTargetTime = -1.0f;
+		m_fGlowAlpha = m_fGlowAlphaTarget = flAlpha;
+	}
+	m_fGlowAlphaUpdateTime = gpGlobals->curtime;
+
+	m_GlowObject.SetAlpha( bRender ? m_fGlowAlpha : 0.0f );
+}
+
+void C_CSPlayer::AnimateGlows( void )
+{
+	// Lerp towards the target
+	float totalTimeRemaining = m_fGlowAlphaTargetTime - m_fGlowAlphaUpdateTime;
+	float timeUsed = gpGlobals->curtime - m_fGlowAlphaUpdateTime;
+	float percent;
+	
+	if ( timeUsed < totalTimeRemaining && totalTimeRemaining > 0 )
+	{
+		percent = timeUsed / totalTimeRemaining;
+	}
+	else
+	{
+		percent = 1.0f;
+	}
+
+	if ( percent < 1.0f )
+	{
+		// animate
+		float newAlpha = Lerp( percent, m_fGlowAlpha, m_fGlowAlphaTarget );
+		m_fGlowAlpha = newAlpha;
+		m_fGlowAlphaUpdateTime = gpGlobals->curtime;
+		m_GlowObject.SetAlpha( newAlpha );
+	}
+	else
+	{
+		// otherwise we are done with the animation, finish it and check if there is a new state
+		m_fGlowAlpha = m_fGlowAlphaTarget;
+		m_fGlowAlphaUpdateTime = m_fGlowAlphaTargetTime;
+		m_fGlowAlphaTargetTime = -1.0f;
+		m_GlowObject.SetAlpha( m_fGlowAlphaTarget );
+		UpdateGlows();
+	}
 }
 
 void C_CSPlayer::Spawn( void )
@@ -2972,7 +3251,7 @@ void C_CSPlayer::PostDataUpdate( DataUpdateType_t updateType )
 		if ( m_bUseNewAnimstate && m_PlayerAnimStateCSGO )
 		{
 			m_PlayerAnimStateCSGO->Reset();
-			//m_PlayerAnimStateCSGO->Update( EyeAngles()[YAW], EyeAngles()[PITCH] );
+			m_PlayerAnimStateCSGO->Update( EyeAngles()[YAW], EyeAngles()[PITCH] );
 		}
 	}
 }
@@ -3372,25 +3651,39 @@ void C_CSPlayer::HandleTaserAnimation()
 
 void C_CSPlayer::UpdateClientSideAnimation()
 {
-	if ( m_bUseNewAnimstate )
-	{
-		m_PlayerAnimStateCSGO->Update( EyeAngles()[YAW], EyeAngles()[PITCH] );
-	}
+    if ( m_PlayerAnimStateCSGO )
+    {
+        float eyeYaw = EyeAngles()[YAW];
+        float eyePitch = EyeAngles()[PITCH];
+        
+        if ( IsLocalPlayer() )
+        {
+          /*  Msg("=== LOCAL PLAYER ANGLES ===\n");
+            Msg("EyeAngles: %.2f %.2f\n", eyeYaw, eyePitch);
+            Msg("GetLocalAngles: %.2f %.2f\n", GetLocalAngles()[YAW], GetLocalAngles()[PITCH]);
+            Msg("GetAbsAngles: %.2f %.2f\n", GetAbsAngles()[YAW], GetAbsAngles()[PITCH]);
+            Msg("GetRenderAngles: %.2f %.2f\n", GetRenderAngles()[YAW], GetRenderAngles()[PITCH]);
+            Msg("m_angEyeAngles: %.2f %.2f\n", m_angEyeAngles[YAW], m_angEyeAngles[PITCH]);
+            Msg("pl.v_angle: %.2f %.2f\n", pl.v_angle[YAW], pl.v_angle[PITCH]);*/
+        }
+        
+        m_PlayerAnimStateCSGO->Update( eyeYaw, eyePitch );
+    }
 	else
 	{
+
 		// We do this in a different order than the base class.
-		// We need our cycle to be valid for when we call the playeranimstate update code,
+		// We need our cycle to be valid for when we call the playeranimstate update code, 
 		// or else it'll synchronize the upper body anims with the wrong cycle.
+		
 		if ( GetSequence() != -1 )
 		{
 			// move frame forward
 			FrameAdvance( 0.0f ); // 0 means to use the time we last advanced instead of a constant
 		}
 
-		// Update the animation data. It does the local check here so this works when using
-		// a third-person camera (and we don't have valid player angles).
-		if ( this == C_CSPlayer::GetLocalCSPlayer() )
-			m_PlayerAnimState->Update( EyeAngles()[YAW], EyeAngles()[PITCH] );
+		if ( C_BasePlayer::IsLocalPlayer( this ) )
+			m_PlayerAnimState->Update( LocalEyeAngles()[YAW], LocalEyeAngles()[PITCH] );
 		else
 			m_PlayerAnimState->Update( m_angEyeAngles[YAW], m_angEyeAngles[PITCH] );
 	}
@@ -3788,24 +4081,88 @@ void C_CSPlayer::DoExtraBoneProcessing( CStudioHdr *pStudioHdr, Vector pos[], Qu
 {
 	if ( !m_bUseNewAnimstate || !m_PlayerAnimStateCSGO )
 		return;
-	
-	if ( !IsVisible() || (IsLocalPlayer() && !C_BasePlayer::ShouldDrawLocalPlayer()) || !ShouldDraw() )
-		return;
+
+	mstudioikchain_t *pLeftFootChain = NULL;
+	mstudioikchain_t *pRightFootChain = NULL;
 	mstudioikchain_t *pLeftArmChain = NULL;
 
+	int nLeftFootBoneIndex = LookupBone( "ankle_L" );
+	int nRightFootBoneIndex = LookupBone( "ankle_R" );
 	int nLeftHandBoneIndex = LookupBone( "hand_L" );
 
-	Assert( nLeftHandBoneIndex != -1 );
+	Assert( nLeftFootBoneIndex != -1 && nRightFootBoneIndex != -1 && nLeftHandBoneIndex != -1 );
 
 	for( int i = 0; i < pStudioHdr->numikchains(); i++ )
 	{
 		mstudioikchain_t *pchain = pStudioHdr->pIKChain( i );
-		if ( nLeftHandBoneIndex == pchain->pLink( 2 )->bone )
+		if ( nLeftFootBoneIndex == pchain->pLink( 2 )->bone )
+		{
+			pLeftFootChain = pchain;
+		}
+		else if ( nRightFootBoneIndex == pchain->pLink( 2 )->bone )
+		{
+			pRightFootChain = pchain;
+		}
+		else if ( nLeftHandBoneIndex == pchain->pLink( 2 )->bone )
 		{
 			pLeftArmChain = pchain;
+		}
+
+		if ( pLeftFootChain && pRightFootChain && pLeftArmChain )
 			break;
+	}
+	
+	Assert( pLeftFootChain && pRightFootChain );
+	
+	Vector vecAnimatedLeftFootPos = boneToWorld[nLeftFootBoneIndex].GetOrigin();
+	Vector vecAnimatedRightFootPos = boneToWorld[nRightFootBoneIndex].GetOrigin();
+
+	m_PlayerAnimStateCSGO->DoProceduralFootPlant( boneToWorld, pLeftFootChain, pRightFootChain, pos );
+	
+
+	// hack - keep the toes above the ground
+	if ( (GetFlags() & FL_ONGROUND) && (GetMoveType() == MOVETYPE_WALK) )
+	{
+		float flZMaxToe = GetAbsOrigin().z + 0.75f;
+
+		int nLeftToeBoneIndex = LookupBone( "ball_L" );
+		int nRightToeBoneIndex = LookupBone( "ball_R" );
+
+		if ( nLeftToeBoneIndex > 0 )
+		{
+			// need to build an extended toe position
+			Vector vecToeLeft = boneToWorld[nLeftFootBoneIndex].TransformVector( pos[nLeftToeBoneIndex] );
+			Vector vecForward;
+			MatrixGetColumn( boneToWorld[nLeftToeBoneIndex], 0, vecForward );
+			vecToeLeft += vecForward * cl_player_toe_length;
+			if ( vecToeLeft.z < flZMaxToe )
+			{
+				boneToWorld[nLeftFootBoneIndex][2][3] += (flZMaxToe - vecToeLeft.z);
+			}
+		}
+
+		if ( nRightToeBoneIndex > 0 )
+		{
+			Vector vecToeRight = boneToWorld[nRightFootBoneIndex].TransformVector( pos[nRightToeBoneIndex] );
+			Vector vecForward;
+			MatrixGetColumn( boneToWorld[nRightToeBoneIndex], 0, vecForward );
+			vecToeRight -= vecForward * cl_player_toe_length; // right toe bone is backwards...
+			if ( vecToeRight.z < flZMaxToe )
+			{
+				boneToWorld[nRightFootBoneIndex][2][3] += (flZMaxToe - vecToeRight.z);
+			}
 		}
 	}
+
+	Vector vecLeftFootPos = boneToWorld[nLeftFootBoneIndex].GetOrigin();
+	Vector vecRightFootPos = boneToWorld[nRightFootBoneIndex].GetOrigin();
+
+	boneToWorld[nLeftFootBoneIndex].SetOrigin( vecAnimatedLeftFootPos );
+	boneToWorld[nRightFootBoneIndex].SetOrigin( vecAnimatedRightFootPos );
+
+	Studio_SolveIK( pLeftFootChain->pLink( 0 )->bone, pLeftFootChain->pLink( 1 )->bone, nLeftFootBoneIndex, vecLeftFootPos, boneToWorld );
+	Studio_SolveIK( pRightFootChain->pLink( 0 )->bone, pRightFootChain->pLink( 1 )->bone, nRightFootBoneIndex, vecRightFootPos, boneToWorld );
+
 
 	int nLeftHandIkBoneDriver = LookupBone( "lh_ik_driver" );
 	if ( nLeftHandIkBoneDriver > 0 && pos[nLeftHandIkBoneDriver].x > 0 )
@@ -3873,23 +4230,14 @@ void C_CSPlayer::DoExtraBoneProcessing( CStudioHdr *pStudioHdr, Vector pos[], Qu
 								Vector vecShoulderToHand = (vecTarget - boneToWorld[pLeftArmChain->pLink( 0 )->bone].GetOrigin()).Normalized() * CS_ARM_HYPEREXTENSION_LIM;
 								vecTarget = vecShoulderToHand + boneToWorld[pLeftArmChain->pLink( 0 )->bone].GetOrigin();							
 							}
-
-							//debugoverlay->AddBoxOverlay( vecTarget, Vector(-0.1,-0.1,-0.1), Vector(0.1,0.1,0.1), QAngle(0,0,0), 0,255,0,255, 0 );
-							//debugoverlay->AddLineOverlay( boneToWorld[pLeftArmChain->pLink( 0 )->bone].GetOrigin(), boneToWorld[pLeftArmChain->pLink( 1 )->bone].GetOrigin(), 80,80,80,true,0);
-							//debugoverlay->AddLineOverlay( boneToWorld[pLeftArmChain->pLink( 1 )->bone].GetOrigin(), boneToWorld[pLeftArmChain->pLink( 2 )->bone].GetOrigin(), 80,80,80,true,0);
-							//debugoverlay->AddLineOverlay( boneToWorld[pLeftArmChain->pLink( 0 )->bone].GetOrigin(), boneToWorld[pLeftArmChain->pLink( 2 )->bone].GetOrigin(), 80,80,80,true,0);
-
 							Studio_SolveIK( pLeftArmChain->pLink( 0 )->bone, pLeftArmChain->pLink( 1 )->bone, pLeftArmChain->pLink( 2 )->bone, vecTarget, boneToWorld );
-
-							//debugoverlay->AddLineOverlay( boneToWorld[pLeftArmChain->pLink( 0 )->bone].GetOrigin(), boneToWorld[pLeftArmChain->pLink( 1 )->bone].GetOrigin(), 255,0,0,true,0);
-							//debugoverlay->AddLineOverlay( boneToWorld[pLeftArmChain->pLink( 1 )->bone].GetOrigin(), boneToWorld[pLeftArmChain->pLink( 2 )->bone].GetOrigin(), 255,0,0,true,0);
-							//debugoverlay->AddLineOverlay( boneToWorld[pLeftArmChain->pLink( 0 )->bone].GetOrigin(), boneToWorld[pLeftArmChain->pLink( 2 )->bone].GetOrigin(), 0,0,255,true,0);
 						}
 					}
 				}
 			}
 		}
 	}
+
 }
 
 bool FindWeaponAttachmentBone( C_BaseCombatWeapon *pWeapon, int &iWeaponBone )

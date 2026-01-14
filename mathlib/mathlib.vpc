@@ -13,6 +13,8 @@ $Configuration
 	{
 		$AdditionalIncludeDirectories	"$BASE;..\public\mathlib"
 		$PreprocessorDefinitions		"$BASE;MATHLIB_LIB"
+		$PreprocessorDefinitions    "$BASE;__ARM_NEON__" [$ANDROID]
+            $AdditionalOptions          "-mfpu=neon" [$ANDROID32]
 	}
 }
 

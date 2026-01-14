@@ -245,6 +245,8 @@ public: // IViewPortPanel interface:
 	virtual int GetIconNumberFromTeamNumber( int teamNumber );
 
 	void MsgFunc_UpdateRadar( bf_read &msg );
+	
+	virtual void	UpdateSizeAndPosition();
 
 protected:
 
@@ -258,7 +260,6 @@ protected:
 	void			DrawGoalIcons();
 	virtual void	ResetRound();
 	virtual void	InitTeamColorsAndIcons();
-	virtual void	UpdateSizeAndPosition();
 	void			UpdateGoalIcons();
 	void			ClearGoalIcons();
 	virtual bool	IsRadarLocked();
@@ -312,6 +313,14 @@ private:
 	int		m_TeamIconsOffscreen[MAP_ICON_COUNT];
 	int		m_TeamIconsGhost[MAP_ICON_COUNT];
 	int		m_TeamIconsBomb[MAP_ICON_COUNT];
+	
+	// Teammate colored icons
+	int		m_TeammateColorIcons[5];
+	int		m_TeammateColorIconsSelf[5];
+	int		m_TeammateColorIconsDead[5];
+	int		m_TeammateColorIconsOffscreen[5];
+	int		m_TeammateColorIconsGhost[5];
+	int		m_TeammateColorIconsBomb[5];
 
 	int		m_bombRingPlanted;
 	int		m_bombRingDropped;

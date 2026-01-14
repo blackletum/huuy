@@ -9,6 +9,7 @@
 #include "hudelement.h"
 #include "hud_macros.h"
 #include "iclientmode.h"
+#include "cdll_client_int.h"
 
 #include <vgui/ISurface.h>
 #include <vgui/ILocalize.h>
@@ -39,12 +40,16 @@ class CHudAmmo : public CHudElement, public EditablePanel
 
 public:
 	CHudAmmo( const char *pElementName );
+	~CHudAmmo();
 	virtual void Init( void );
 	virtual void ApplySettings( KeyValues *inResourceData );
 	virtual void Reset( void );
 	virtual void OnThink();
 	virtual void OnScreenSizeChanged( int iOldWide, int iOldTall );
 	virtual bool ShouldDraw();
+
+	void UpdateSafeZonePosition();
+	static CHudAmmo *s_pAmmoInstance;
 	
 private:
 	CHandle<C_WeaponCSBase>	m_pActiveWeapon;
@@ -72,7 +77,22 @@ private:
 	int		m_iOriginalYPos;
 	int		m_iOriginalWide;
 	int		m_iOriginalTall;
+
+	int		m_iBaseXPos;
+	int		m_iBaseYPos;
+	int        s_nAmmoBaseXPos;
+	int       s_nAmmoBaseYPos;
 };
+
+CHudAmmo *CHudAmmo::s_pAmmoInstance = NULL;
+
+static void AmmoSafeZoneCallback()
+{
+	if ( CHudAmmo::s_pAmmoInstance )
+	{
+		CHudAmmo::s_pAmmoInstance->UpdateSafeZonePosition();
+	}
+}
 
 DECLARE_HUDELEMENT( CHudAmmo );
 
@@ -81,6 +101,8 @@ DECLARE_HUDELEMENT( CHudAmmo );
 //-----------------------------------------------------------------------------
 CHudAmmo::CHudAmmo( const char *pElementName ): CHudElement( pElementName ), EditablePanel( NULL, "HudAmmo" )
 {
+	s_pAmmoInstance = this;
+
 	vgui::Panel *pParent = g_pClientMode->GetViewport();
 	SetParent( pParent );
 
@@ -105,6 +127,14 @@ CHudAmmo::CHudAmmo( const char *pElementName ): CHudElement( pElementName ), Edi
 	m_pBurstIcon = new VectorImagePanel( this, "BurstIcon" );
 
 	LoadControlSettings( "resource/hud/ammo.res" );
+
+	RegisterSafeZoneCallback( AmmoSafeZoneCallback );
+}
+
+CHudAmmo::~CHudAmmo()
+{
+	UnregisterSafeZoneCallback( AmmoSafeZoneCallback );
+	s_pAmmoInstance = NULL;
 }
 
 void CHudAmmo::OnScreenSizeChanged( int iOldWide, int iOldTall )
@@ -120,6 +150,21 @@ void CHudAmmo::OnScreenSizeChanged( int iOldWide, int iOldTall )
  	m_bIsExhaustible = false;
  	m_iAmmoCount = 0;
  	m_bBurstMode = false;
+
+	// Store base position and apply safezone
+	GetBounds( m_iOriginalXPos, m_iOriginalYPos, m_iOriginalWide, m_iOriginalTall );
+	UpdateSafeZonePosition();
+}
+
+void CHudAmmo::UpdateSafeZonePosition()
+{
+	// Apply safezone offset - anchored to bottom-right
+	int left, top, right, bottom;
+	GetSafeZoneMargins( left, top, right, bottom );
+
+	int wide, tall;
+	GetSize( wide, tall );
+	SetPos( ScreenWidth() - wide - right, ScreenHeight() - tall - bottom );
 }
 
 void CHudAmmo::Init( void )
@@ -141,6 +186,11 @@ void CHudAmmo::ApplySettings( KeyValues *inResourceData )
 	// these values have to be computed outside of PanelAnimationVars since those are recomputed before everything else (why??)
 	ComputePos( this, inResourceData->GetString( "simple_xpos", NULL ), m_iSimpleXPos, simple_wide, alignScreenWide, m_iBaseResolutionOverride[0], m_iBaseResolutionOverride[1], true, OP_SET );
 	ComputePos( this, inResourceData->GetString( "simple_ypos", NULL ), m_iSimpleYPos, simple_tall, alignScreenTall, m_iBaseResolutionOverride[0], m_iBaseResolutionOverride[1], false, OP_SET );
+
+	// Store base position and apply safezone
+	s_nAmmoBaseXPos = m_iOriginalXPos;
+	s_nAmmoBaseYPos = m_iOriginalYPos;
+	UpdateSafeZonePosition();
 }
 
 void CHudAmmo::Reset()

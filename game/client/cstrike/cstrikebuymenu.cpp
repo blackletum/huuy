@@ -19,9 +19,11 @@
 #include "view_shared.h"
 #include "view.h"
 #include "model_types.h"
-#include "vgui_avatarimage_nonsteam.h"
+#include "vgui_avatarimage.h"
 #include "cs_hud_weaponselection.h"
 #include "viewpostprocess.h"
+#include "SkinProcessor.h"
+#include "cs_skin_database.h"
 
 #include "c_cs_player.h"
 #include "cs_loadout.h"
@@ -623,39 +625,66 @@ void CCSBuyMenuPlayerImage::SetPlayerModel( const char* pszModel )
 	}
 }
 
-void CCSBuyMenuPlayerImage::SetWeaponModel( const char* pszModel )
+void CCSBuyMenuPlayerImage::SetWeaponModel( const char* pszModel, CSWeaponID weaponID )
 {
-	if ( !pszModel || !m_hPlayerModel.Get() )
-	{
-		if ( m_hWeaponModel.Get() )
-		{
-			m_hWeaponModel->Remove();
-			m_hWeaponModel = NULL;
-		}
-		return;
-	}
+    if ( !pszModel || !m_hPlayerModel.Get() )
+    {
+        if ( m_hWeaponModel.Get() )
+        {
+            m_hWeaponModel->Remove();
+            m_hWeaponModel = NULL;
+        }
+        return;
+    }
 
-	if ( m_hWeaponModel.Get() )
-	{
-		m_hWeaponModel->SetModel( pszModel );
-	}
-	else
-	{
-		C_BaseAnimating* pEnt = new C_BaseAnimating;
-		if ( !pEnt )
-			return;
-		if ( pEnt->InitializeAsClientEntity( pszModel, RENDER_GROUP_OPAQUE_ENTITY ) == false )
-		{
-			// we failed to initialize this entity so just return gracefully
-			pEnt->Remove();
-			return;
-		}
-		// setup the handle
-		m_hWeaponModel = pEnt;
-		m_hWeaponModel->DontRecordInTools();
-		m_hWeaponModel->AddEffects( EF_NODRAW );
-		m_hWeaponModel->FollowEntity( m_hPlayerModel.Get() );
-	}
+    if ( m_hWeaponModel.Get() )
+    {
+        m_hWeaponModel->SetModel( pszModel );
+    }
+    else
+    {
+        C_BaseAnimating* pEnt = new C_BaseAnimating;
+        if ( !pEnt )
+            return;
+        if ( pEnt->InitializeAsClientEntity( pszModel, RENDER_GROUP_OPAQUE_ENTITY ) == false )
+        {
+            pEnt->Remove();
+            return;
+        }
+        
+        m_hWeaponModel = pEnt;
+        m_hWeaponModel->DontRecordInTools();
+        m_hWeaponModel->AddEffects( EF_NODRAW );
+        m_hWeaponModel->FollowEntity( m_hPlayerModel.Get() );
+    }
+    
+    ApplyWeaponSkin( weaponID );
+}
+
+void CCSBuyMenuPlayerImage::ApplyWeaponSkin( CSWeaponID weaponID )
+{
+    if ( !m_hWeaponModel.Get() || weaponID == WEAPON_NONE )
+        return;
+
+    const char* pszWeaponClass = WeaponIDToAlias( weaponID );
+    if ( !pszWeaponClass )
+        return;
+    
+    char szWeaponClass[64];
+    Q_snprintf( szWeaponClass, sizeof(szWeaponClass), "weapon_%s", pszWeaponClass );
+    
+    IMaterial* pSkinMaterial = g_SkinProcessor.GetSkinMaterialForClass( szWeaponClass );
+    
+    if ( pSkinMaterial )
+    {
+        m_hWeaponModel->ForcedMaterialOverride( pSkinMaterial );
+        
+        DevMsg("[BuyMenu] Applied skin material to %s via ForcedMaterialOverride\n", szWeaponClass);
+    }
+    else
+    {
+        m_hWeaponModel->ForcedMaterialOverride( NULL );
+    }
 }
 
 void CCSBuyMenuPlayerImage::SetGlovesModel( const char* pszModel )
@@ -983,7 +1012,7 @@ void CCSBuyMenuLoadoutPanel::SetPlayer( C_CSPlayer* pPlayer )
 		return;
 
 	m_pPlayer = pPlayer;
-	m_pPlayerAvatarImage->SetAvatarSize( 32, 32 );
+	m_pPlayerAvatarImage->SetPlayer( pPlayer, k_EAvatarSize32x32 );
 	m_pPlayerAvatarImage->SetDefaultAvatar( GetDefaultAvatarImage( pPlayer ) );
 }
 
@@ -1564,37 +1593,41 @@ void CCSBuyMenu::SetItemNameAndDescription( const char* pszName, const char* psz
 
 void CCSBuyMenu::ResetWeapon()
 {
-	C_CSPlayer* pPlayer = C_CSPlayer::GetLocalCSPlayer();
-	if ( !pPlayer )
-		return;
+    C_CSPlayer* pPlayer = C_CSPlayer::GetLocalCSPlayer();
+    if ( !pPlayer )
+        return;
 
-	const char* pszPlayerSequence = "t_buymenu_nowep";
-	const char* pszPlayerWeaponModel = NULL;
+    const char* pszPlayerSequence = "t_buymenu_nowep";
+    const char* pszPlayerWeaponModel = NULL;
+    CSWeaponID weaponID = WEAPON_NONE;
 
-	C_WeaponCSBase* pWeapon = dynamic_cast<C_WeaponCSBase*>(pPlayer->Weapon_GetSlot( WEAPON_SLOT_RIFLE ));
-	if ( !pWeapon )
-	{
-		pWeapon = dynamic_cast<C_WeaponCSBase*>(pPlayer->Weapon_GetSlot( WEAPON_SLOT_PISTOL ));
-		if ( !pWeapon )
-		{
-			pWeapon = dynamic_cast<C_WeaponCSBase*>(pPlayer->Weapon_GetSlot( WEAPON_SLOT_KNIFE ));
-			if ( !pWeapon )
-			{
-				pWeapon = pPlayer->GetActiveCSWeapon();
-			}
-		}
-	}
-	if ( pWeapon )
-	{
-		pszPlayerWeaponModel = pWeapon->GetCSWpnData().szWorldModel;
-		if ( pPlayer->GetTeamNumber() == TEAM_TERRORIST )
-			pszPlayerSequence = pWeapon->GetCSWpnData().m_szBuyMenuAnimT;
-		else
-			pszPlayerSequence = pWeapon->GetCSWpnData().m_szBuyMenuAnim;
-	}
+    C_WeaponCSBase* pWeapon = dynamic_cast<C_WeaponCSBase*>(pPlayer->Weapon_GetSlot( WEAPON_SLOT_RIFLE ));
+    if ( !pWeapon )
+    {
+        pWeapon = dynamic_cast<C_WeaponCSBase*>(pPlayer->Weapon_GetSlot( WEAPON_SLOT_PISTOL ));
+        if ( !pWeapon )
+        {
+            pWeapon = dynamic_cast<C_WeaponCSBase*>(pPlayer->Weapon_GetSlot( WEAPON_SLOT_KNIFE ));
+            if ( !pWeapon )
+            {
+                pWeapon = pPlayer->GetActiveCSWeapon();
+            }
+        }
+    }
+    
+    if ( pWeapon )
+    {
+        pszPlayerWeaponModel = pWeapon->GetCSWpnData().szWorldModel;
+        weaponID = pWeapon->GetCSWeaponID();
+        
+        if ( pPlayer->GetTeamNumber() == TEAM_TERRORIST )
+            pszPlayerSequence = pWeapon->GetCSWpnData().m_szBuyMenuAnimT;
+        else
+            pszPlayerSequence = pWeapon->GetCSWpnData().m_szBuyMenuAnim;
+    }
 
-	m_pPlayerModel->SetWeaponModel( pszPlayerWeaponModel );
-	m_pPlayerModel->SetSequence( pszPlayerSequence );
+    m_pPlayerModel->SetWeaponModel( pszPlayerWeaponModel, weaponID );
+    m_pPlayerModel->SetSequence( pszPlayerSequence );
 }
 
 void CCSBuyMenu::ShowSpecialMessage( const char* pszText, BuyMenuSpecialMessageType_t nMessageType )
