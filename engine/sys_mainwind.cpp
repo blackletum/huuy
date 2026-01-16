@@ -65,6 +65,8 @@
 #include "sys.h"
 #include "materialsystem/imaterial.h"
 
+#include "rocketui/rocketui.h"
+
 
 #if defined( _X360 )
   #include "xbox/xbox_win32stubs.h"
@@ -377,7 +379,15 @@ void CGame::DispatchInputEvent( const InputEvent_t &event )
 	case IE_FingerUp:
 	case IE_FingerMotion:
 		if( g_ClientDLL )
+        {
 			g_ClientDLL->IN_TouchEvent( event.m_nType, event.m_nData, event.m_nData2, event.m_nData3 );
+            
+            bool vguiActive = IsPC() && cv_vguipanel_active.GetBool();
+
+                if ( !vguiActive && g_pRocketUI && g_pRocketUI->HandleInputEvent( event ) )
+                    break;
+                    
+        }
 	default:
 		// Let vgui have the first whack at events
 		if ( g_pMatSystemSurface && g_pMatSystemSurface->HandleInputEvent( event ) )

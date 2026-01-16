@@ -129,6 +129,8 @@
 #if defined( LINUX )
 #include <locale.h>
 
+#include "rocketui/rocketui.h"
+
 #ifdef USE_SDL
 #include "SDL.h"
 #endif
@@ -3337,6 +3339,12 @@ void _Host_RunFrame (float time)
 				g_pReplay->Think();
 			}
 #endif
+
+            if ( g_pRocketUI && shouldrender )
+        {
+			g_pRocketUI->RunFrame( g_ClientGlobalVariables.realtime );
+        }
+        
 #if LOG_FRAME_OUTPUT
 			if ( !cl.IsPaused() || !sv.IsPaused() )
 			{

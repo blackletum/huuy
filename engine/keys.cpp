@@ -16,6 +16,7 @@
 #include "tier2/tier2.h"
 #include "inputsystem/iinputsystem.h"
 #include "cheatcodes.h"
+#include "rocketui/rocketui.h"
 
 // memdbgon must be the last include file in a .cpp file!!!
 #include "tier0/memdbgon.h"
@@ -28,6 +29,7 @@ enum KeyUpTarget_t
 	KEY_UP_VGUI,
 	KEY_UP_TOOLS,
 	KEY_UP_CLIENT,
+	KEY_UP_ROCKETUI
 };
 
 struct KeyInfo_t
@@ -571,6 +573,12 @@ static bool HandleVGuiKey( const InputEvent_t &event )
 
 	return EngineVGui()->Key_Event( event );
 }
+
+static bool HandleRocketKey( const InputEvent_t &event )
+{
+    return g_pRocketUI->HandleInputEvent( event );
+}
+
 //-----------------------------------------------------------------------------
 // Lets the client have a whack at key events
 //-----------------------------------------------------------------------------
@@ -755,6 +763,22 @@ void Key_Event( const InputEvent_t &event )
 	// Let the client have a whack at keys
 	if ( FilterKey( event, KEY_UP_CLIENT, HandleClientKey ) )
 		return;
+        
+    if ( FilterKey( event, KEY_UP_ROCKETUI, HandleRocketKey ) )
+	    return;
+        
+    else if ( g_ClientDLL->IsChatRaised() || g_ClientDLL->IsBindMenuRaised() )
+    {
+        if ( FilterKey( event, KEY_UP_ROCKETUI, HandleRocketKey ) )
+            return;
+    }
+    
+    	// Ok the client wants nothing to do with the magical ESC key
+	// let's see if VGUI wants to do something with it.
+	if ( IsESC( event ) )
+	{
+		if( FilterKey( event, KEY_UP_ROCKETUI, HandleRocketKey ) )
+		    return;
 
 	// Finally, let the engine deal. Here's where keybindings occur.
 	FilterKey( event, KEY_UP_ENGINE, HandleEngineKey );

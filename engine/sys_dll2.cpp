@@ -85,6 +85,8 @@
 #include "cl_steamauth.h"
 #endif // SWDS
 
+#include "rocketui/rocketui.h"
+
 #if defined(_WIN32)
 #include <eh.h>
 #endif
@@ -114,6 +116,8 @@ ISourceVirtualReality *g_pSourceVR = NULL;
 #if defined( USE_SDL )
 ILauncherMgr *g_pLauncherMgr = NULL;
 #endif
+
+IRocketUI* g_pRocketUI = NULL;
 
 #ifndef SWDS
 extern CreateInterfaceFn g_ClientFactory;
@@ -1034,6 +1038,8 @@ bool CEngineAPI::Connect( CreateInterfaceFn factory )
 		Sys_Error( "Unable to init studio render system version %s\n", STUDIO_RENDER_INTERFACE_VERSION );
 		return false;
 	}
+    
+    g_pRocketUI = ( IRocketUI* ) factory( ROCKETUI_INTERFACE_VERSION, NULL );
 
 	g_pHammer = (IHammer*)factory( INTERFACEVERSION_HAMMER, NULL );
 

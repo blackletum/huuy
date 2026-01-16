@@ -143,6 +143,8 @@ void V_RenderVGuiOnly_NoSwap()
 		CMatRenderContextPtr pRenderContext( materials );
 		   
 		pRenderContext->ClearBuffers( true, true );
+        
+        pRenderContext->RenderRocketMenu();
 
 
 		EngineVGui()->Paint( (PaintMode_t)(PAINT_UIPANELS | PAINT_CURSOR ));
