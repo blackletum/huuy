@@ -126,6 +126,9 @@
 #include "client_virtualreality.h"
 #include "mumble.h"
 
+#include "RocketUI/rkhud_chat.h"
+#include "RocketUI/rkhud_loadingscreen.h"
+
 #include "gametypes.h"
 
 // NVNT includes
@@ -219,6 +222,8 @@ IEngineReplay *g_pEngineReplay = NULL;
 IEngineClientReplay *g_pEngineClientReplay = NULL;
 IReplaySystem *g_pReplay = NULL;
 #endif
+
+IRocketUI* g_pRocketUI = NULL;
 
 IHaptics* haptics = NULL;// NVNT haptics system interface singleton
 
@@ -870,6 +875,8 @@ int CHLClient::Init( CreateInterfaceFn appSystemFactory, CreateInterfaceFn physi
 	ConnectTier1Libraries( &appSystemFactory, 1 );
 	ConnectTier2Libraries( &appSystemFactory, 1 );
 	ConnectTier3Libraries( &appSystemFactory, 1 );
+    
+    g_pRocketUI = ( IRocketUI* ) appSystemFactory( ROCKETUI_INTERFACE_VERSION, NULL );
 
 #ifndef NO_STEAM
 	ClientSteamContext().Activate();

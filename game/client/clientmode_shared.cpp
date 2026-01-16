@@ -45,6 +45,7 @@
 #include "cs_shareddefs.h"
 #include "weapon_csbase.h"
 #include "c_cs_playerresource.h"
+#include "RocketUI/rkhud_chat.h"
 #endif
 
 #if defined( REPLAY_ENABLED )
@@ -767,10 +768,9 @@ void ClientModeShared::StartMessageMode( int iMessageModeType )
 	{
 		return;
 	}
-	if ( m_pChatElement )
-	{
-		m_pChatElement->StartMessageMode( iMessageModeType );
-	}
+    RkHudChat* pChat = GET_HUDELEMENT( RkHudChat );
+	if( pChat )
+	    pChat->StartMessageMode( iMessageModeType );
 }
 
 //-----------------------------------------------------------------------------
