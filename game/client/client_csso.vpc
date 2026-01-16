@@ -51,6 +51,7 @@ $Project "Client (CStrike)"
 		$File	"$SRCDIR\game\shared\predicted_viewmodel.h"
 		$File	"c_env_cascade_light.cpp"
 		$File	"C_Env_Cascade_Light.h"
+		$File    "c_sunlightshadowcontrol.cpp"
 		
 		$Folder	"CounterStrike DLL"
 		{

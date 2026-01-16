@@ -185,9 +185,9 @@ class CHudChatHistory : public vgui::RichText
 public:
 
 	CHudChatHistory( vgui::Panel *pParent, const char *panelName );
-    virtual void PaintBackground();
 
 	virtual void	ApplySchemeSettings(vgui::IScheme *pScheme);
+    virtual void    Paint();
 };
 
 class CHudChatFilterButton : public vgui::Button

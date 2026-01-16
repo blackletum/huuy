@@ -632,19 +632,18 @@ void CHudChatHistory::ApplySchemeSettings( vgui::IScheme *pScheme )
 	SetAlpha( 255 );
 }
 
-void CHudChatHistory::PaintBackground()
+void CHudChatHistory::Paint()
 {
-    int iWide, iTall;
-    GetSize(iWide, iTall);
-
-    vgui::surface()->DrawSetColor(Color(0, 0, 0, 150));
-    
-    vgui::surface()->DrawFilledRect(0, 0, iWide, iTall);
-
-    vgui::surface()->DrawSetColor(Color(60, 60, 60, 200));
-    vgui::surface()->DrawOutlinedRect(0, 0, iWide, iTall);
-
-    BaseClass::PaintBackground();
+	BaseClass::Paint();
+	// 84928: Messages/Instructions from coop partners are important and
+	// we don't want to have them disappear. Keep them on and let them spam.
+#if !defined ( PORTAL2 ) 
+	if ( IsAllTextAlphaZero() && HasText() )
+	{
+		SetText( "" );
+		// Wipe
+	}
+#endif
 }
 
 int CBaseHudChat::m_nLineCounter = 1;
@@ -715,11 +714,8 @@ void CBaseHudChat::CreateChatInputLine( void )
 
 void CBaseHudChat::CreateChatLines( void )
 {
-#ifndef _XBOX
 	m_ChatLine = new CBaseHudChatLine( this, "ChatLine1" );
 	m_ChatLine->SetVisible( false );		
-
-#endif
 }
 
 
@@ -772,7 +768,7 @@ void CBaseHudChat::ApplySchemeSettings( vgui::IScheme *pScheme )
 	SetBgColor( Color ( cColor.r(), cColor.g(), cColor.b(), CHAT_HISTORY_ALPHA ) );
 
 	GetChatHistory()->SetVerticalScrollbar( false );
-	GetChatHistory()->SetPaintBackgroundEnabled(true);
+	GetChatHistory()->SetPaintBackgroundEnabled(false);
 	GetChatHistory()->SetBgColor( Color( 0, 0, 0, 0 ) );
 }
 
@@ -1103,7 +1099,6 @@ const char *CBaseHudChat::GetDisplayedSubtitlePlayerName( int clientIndex )
 	return g_PR->GetPlayerName( clientIndex );
 }
 
-#ifndef _XBOX
 static int __cdecl SortLines( void const *line1, void const *line2 )
 {
 	CBaseHudChatLine *l1 = *( CBaseHudChatLine ** )line1;
@@ -1129,7 +1124,6 @@ static int __cdecl SortLines( void const *line1, void const *line2 )
 
 	return 0;
 }
-#endif
 
 //-----------------------------------------------------------------------------
 // Purpose: Allow inheriting classes to change this spacing behavior
@@ -1285,7 +1279,7 @@ void CBaseHudChat::StartMessageMode( int iMessageModeType )
 		GetChatHistory()->SetKeyBoardInputEnabled( false );
 		GetChatHistory()->SetVerticalScrollbar( true );
 		GetChatHistory()->ResetAllFades( true );
-		GetChatHistory()->SetPaintBorderEnabled( false );
+		GetChatHistory()->SetPaintBorderEnabled( true );
 		GetChatHistory()->SetVisible( true );
 	}
 
@@ -1323,7 +1317,7 @@ void CBaseHudChat::StopMessageMode( void )
 
 	if ( GetChatHistory() )
 	{
-		GetChatHistory()->SetPaintBorderEnabled( true );
+		GetChatHistory()->SetPaintBorderEnabled( false );
 		GetChatHistory()->GotoTextEnd();
 		GetChatHistory()->SetMouseInputEnabled( false );
 		GetChatHistory()->SetVerticalScrollbar( false );

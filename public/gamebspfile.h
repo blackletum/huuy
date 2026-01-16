@@ -225,6 +225,7 @@ struct StaticPropLumpV10_t
 	unsigned int	m_Flags;
 	unsigned short  m_nLightmapResolutionX;
 	unsigned short  m_nLightmapResolutionY;
+    color32			m_DiffuseModulation;	// per instance color and alpha modulation
 };
 
 struct StaticPropLumpV11_t

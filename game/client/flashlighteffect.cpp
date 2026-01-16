@@ -535,14 +535,9 @@ void CFlashlightEffect::UpdateFlashlightTexture( const char* pTextureName )
     if ( !m_FlashlightTexture.IsValid() ||
 		V_stricmp( m_textureName, pTextureName ) != 0 )
 	{
-        if ( pTextureName == pEmptyString )
-		{
-            m_FlashlightTexture.Init( "effects/flashlight001", TEXTURE_GROUP_OTHER, true );
-		}
-		else
-		{
-			m_FlashlightTexture.Init( pTextureName, TEXTURE_GROUP_OTHER, true );
-		}
+        
+        m_FlashlightTexture.Init( "effects/flashlight001", TEXTURE_GROUP_OTHER, true );
+            
 		V_strncpy( m_textureName, pTextureName, sizeof( m_textureName ) );
 	}
     
@@ -572,14 +567,11 @@ bool CFlashlightEffect::ComputeLightPosAndOrientation( const Vector &vecPos, con
 		}
 	}
     
-    
-
-// We will lock some of the flashlight params if player is on a ladder, to prevent oscillations due to the trace-rays
+	// We will lock some of the flashlight params if player is on a ladder, to prevent oscillations due to the trace-rays
 	bool bPlayerOnLadder = ( pPlayer->GetMoveType() == MOVETYPE_LADDER );
 
 	CTraceFilterSkipPlayerAndViewModel traceFilter( pPlayer, bTracePlayers );
 
-	//	Vector vOrigin = vecPos + r_flashlightoffsety.GetFloat() * vecUp;
 	Vector vecOffset;
 	pPlayer->GetFlashlightOffset( vecForward, vecRight, vecUp, &vecOffset );
 	Vector vOrigin = vecPos + vecOffset;
@@ -590,7 +582,7 @@ bool CFlashlightEffect::ComputeLightPosAndOrientation( const Vector &vecPos, con
 		Vector vecPlayerEyePos = pPlayer->GetRenderOrigin() + pPlayer->GetViewOffset();
 
 		trace_t pmOriginTrace;
-		UTIL_TraceHull( vecPlayerEyePos, vOrigin, Vector(-2, -2, -2), Vector(2, 2, 2), ( MASK_SOLID & ~(CONTENTS_HITBOX) ) | CONTENTS_WINDOW | CONTENTS_GRATE, &traceFilter, &pmOriginTrace );//1
+		UTIL_TraceHull( vecPlayerEyePos, vOrigin, Vector(-2, -2, -2), Vector(2, 2, 2), ( MASK_SOLID & ~(CONTENTS_HITBOX) ) | CONTENTS_WINDOW | CONTENTS_GRATE, &traceFilter, &pmOriginTrace );
 
 		if ( bDebugVis )
 		{
@@ -621,10 +613,8 @@ bool CFlashlightEffect::ComputeLightPosAndOrientation( const Vector &vecPos, con
     {
         vOrigin = vecPos;
     }
-    
-    
 
-// Now do a trace along the flashlight direction to ensure there is nothing within range to pull back from
+	// Now do a trace along the flashlight direction to ensure there is nothing within range to pull back from
 	int iMask = MASK_OPAQUE_AND_NPCS;
 	iMask &= ~CONTENTS_HITBOX;
 	iMask |= CONTENTS_WINDOW | CONTENTS_GRATE | CONTENTS_IGNORE_NODRAW_OPAQUE;
@@ -632,27 +622,42 @@ bool CFlashlightEffect::ComputeLightPosAndOrientation( const Vector &vecPos, con
 	Vector vTarget = vOrigin + vecForward * r_flashlightfar.GetFloat();
 
 	// Work with these local copies of the basis for the rest of the function
-	Vector vDir   = vTarget - vOrigin;
+	// ВАЖНО: используем исходные векторы и делаем их ортонормальными правильно
+	Vector vDir   = vecForward;
 	Vector vRight = vecRight;
 	Vector vUp    = vecUp;
-	VectorNormalize( vDir   );
+	
+	VectorNormalize( vDir );
 	VectorNormalize( vRight );
-	VectorNormalize( vUp    );
-
-	// Orthonormalize the basis, since the flashlight texture projection will require this later...
-	vUp -= DotProduct( vDir, vUp ) * vDir;
 	VectorNormalize( vUp );
+
+	// Используем модифицированную ортонормализацию Грама-Шмидта
+	// Она нужна для корректной проекции текстуры!
+	// Forward остается неизменным
+	
+	// Ортогонализируем Right относительно Forward
 	vRight -= DotProduct( vDir, vRight ) * vDir;
 	VectorNormalize( vRight );
-	vRight -= DotProduct( vUp, vRight ) * vUp;
-	VectorNormalize( vRight );
+	
+	// Up вычисляем через cross product для гарантии правильной ориентации
+	vUp = CrossProduct( vDir, vRight );
+	VectorNormalize( vUp );
 
+	// Verify orthonormality
 	AssertFloatEquals( DotProduct( vDir, vRight ), 0.0f, 1e-3 );
 	AssertFloatEquals( DotProduct( vDir, vUp    ), 0.0f, 1e-3 );
 	AssertFloatEquals( DotProduct( vRight, vUp  ), 0.0f, 1e-3 );
 
+	// Debug visualization of basis vectors
+	if ( bDebugVis )
+	{
+		debugoverlay->AddLineOverlay( vOrigin, vOrigin + vDir * 50.0f, 255, 0, 0, true, 0 );      // Forward - Red
+		debugoverlay->AddLineOverlay( vOrigin, vOrigin + vRight * 50.0f, 0, 255, 0, true, 0 );    // Right - Green
+		debugoverlay->AddLineOverlay( vOrigin, vOrigin + vUp * 50.0f, 0, 0, 255, true, 0 );       // Up - Blue
+	}
+
 	trace_t pmDirectionTrace;
-	UTIL_TraceHull( vOrigin, vTarget, Vector( -1.5, -1.5, -1.5 ), Vector( 1.5, 1.5, 1.5 ), iMask, &traceFilter, &pmDirectionTrace );//.5
+	UTIL_TraceHull( vOrigin, vTarget, Vector( -1.5, -1.5, -1.5 ), Vector( 1.5, 1.5, 1.5 ), iMask, &traceFilter, &pmDirectionTrace );
 
 	if ( bDebugVis )
 	{
@@ -688,7 +693,6 @@ bool CFlashlightEffect::ComputeLightPosAndOrientation( const Vector &vecPos, con
 				// We have an intersection behind us as well, so limit our flTargetPullBackDist
 				float flMaxDist = (pmBackTrace.endpos - vOrigin).Length() - flEpsilon;
 				flTargetPullBackDist = MIN( flMaxDist, flTargetPullBackDist );
-				//m_flCurrentPullBackDist = MIN( flMaxDist, m_flCurrentPullBackDist );	// possible pop
 			}
 		}
 	}

@@ -1317,26 +1317,6 @@ void CStaticPropMgr::UnserializeLeafList( CUtlBuffer& buf )
 	}
 }
 
-template <typename SerializedLumpType>
-void UnserializeLump( StaticPropLump_t* _output, CUtlBuffer& buf )
-{
-	Assert(_output != NULL);
-	
-	SerializedLumpType srcLump;
-	buf.Get( &srcLump, sizeof(SerializedLumpType) );
-
-	(*_output) = srcLump;
-}
-
-// Specialization for current version.
-template <>
-void UnserializeLump<StaticPropLump_t>(StaticPropLump_t* _output, CUtlBuffer& buf)
-{
-	Assert(_output != NULL);
-
-	buf.Get(_output, sizeof(StaticPropLump_t));
-}
-
 void CStaticPropMgr::UnserializeModels( CUtlBuffer& buf )
 {
 	// Version check
@@ -1358,23 +1338,37 @@ void CStaticPropMgr::UnserializeModels( CUtlBuffer& buf )
 		switch ( nLumpVersion )
 		{
 			case 4:
-				UnserializeLump<StaticPropLumpV4_t>(&lump, buf);
+				buf.Get( &lump, sizeof( StaticPropLumpV4_t ) );
+				lump.m_flForcedFadeScale = 1.0f;
+				lump.m_nMinDXLevel = 0;
+				lump.m_nMaxDXLevel = 0;
+				lump.m_nLightmapResolutionX = 0;
+				lump.m_nLightmapResolutionY = 0;
+				lump.m_DiffuseModulation.r = lump.m_DiffuseModulation.g = lump.m_DiffuseModulation.b = lump.m_DiffuseModulation.a = 255; // default color/alpha modulation to identity
 				break;
 			case 5:
-				UnserializeLump<StaticPropLumpV5_t>(&lump, buf);
+				buf.Get( &lump, sizeof( StaticPropLumpV5_t ) );
+				lump.m_nMinDXLevel = 0;
+				lump.m_nMaxDXLevel = 0;
+				lump.m_nLightmapResolutionX = 0;
+				lump.m_nLightmapResolutionY = 0;			
+				lump.m_DiffuseModulation.r = lump.m_DiffuseModulation.g = lump.m_DiffuseModulation.b = lump.m_DiffuseModulation.a = 255; // default color/alpha modulation to identity
 				break;
 			case 6:
-				UnserializeLump<StaticPropLumpV6_t>(&lump, buf);
+				buf.Get( &lump, sizeof( StaticPropLumpV6_t ) );
+				lump.m_nLightmapResolutionX = 0;
+				lump.m_nLightmapResolutionY = 0;
+				lump.m_DiffuseModulation.r = lump.m_DiffuseModulation.g = lump.m_DiffuseModulation.b = lump.m_DiffuseModulation.a = 255; // default color/alpha modulation to identity
 				break;
 			case 7: // Falls down to version 10. We promoted TF to version 10 to deal with SFM; PiMoN: thanks for giving me a headache!
 			case 10:
-				UnserializeLump<StaticPropLumpV10_t>(&lump, buf);
+				buf.Get( &lump, sizeof( StaticPropLumpV10_t ) );
+				lump.m_DiffuseModulation.r = lump.m_DiffuseModulation.g = lump.m_DiffuseModulation.b = lump.m_DiffuseModulation.a = 255; // default color/alpha modulation to identity
 				break;
 			case 11:
-				UnserializeLump<StaticPropLumpV11_t>( &lump, buf );
-				break;
+				buf.Get( &lump, sizeof( StaticPropLump_t ) );
 			case 12:
-				UnserializeLump<StaticPropLump_t>( &lump, buf );
+				buf.Get( &lump, sizeof( StaticPropLump_t ) );
 				break;
 			default:
 				Assert("Unexpected version while deserializing lumps.");

@@ -47,6 +47,7 @@ $Project "Server (CStrike)"
 		$File "cstrike\cs_loadout_manager.cpp"
 		$File "cstrike\cs_loadout_manager.h"
 		$File "env_instructor_hint.cpp"
+		$File "sunlightshadowcontrol.cpp"
 
 		$Folder	"CounterStrike DLL"
 		{
