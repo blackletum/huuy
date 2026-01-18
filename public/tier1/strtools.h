@@ -843,13 +843,6 @@ bool V_IsMeanSpaceW( wchar_t wch );
 // and we simply don't accept
 bool V_IsDeprecatedW( wchar_t wch );
 
-// Convert from a string to an array of integers.
-// Returns the actual # of ints converted
-int V_StringToIntArray( OUT_CAP(count) int *pVector, int count, const char *pString );
-
-// Convert from a string to a 4 byte color value.
-void V_StringToColor32( color32 *color, const char *pString );
-
 //-----------------------------------------------------------------------------
 // generic unique name helper functions
 //-----------------------------------------------------------------------------

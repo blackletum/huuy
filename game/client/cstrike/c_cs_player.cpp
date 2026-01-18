@@ -3098,7 +3098,6 @@ void C_CSPlayer::ClientThink()
 		else
 		{
 			s_bPlayingFreezeCamSound = false;
-            CancelFreezeCamFlashlightEffect();
 		}
 	}
 
@@ -4164,9 +4163,6 @@ void C_CSPlayer::DoExtraBoneProcessing( CStudioHdr *pStudioHdr, Vector pos[], Qu
 {
 	if ( !m_bUseNewAnimstate || !m_PlayerAnimStateCSGO )
 		return;
-	
-	if ( !IsVisible() || (IsLocalPlayer( this ) && !C_BasePlayer::ShouldDrawLocalPlayer()) || !ShouldDraw() )
-		return;
 
 	mstudioikchain_t *pLeftFootChain = NULL;
 	mstudioikchain_t *pRightFootChain = NULL;
@@ -4316,17 +4312,7 @@ void C_CSPlayer::DoExtraBoneProcessing( CStudioHdr *pStudioHdr, Vector pos[], Qu
 								Vector vecShoulderToHand = (vecTarget - boneToWorld[pLeftArmChain->pLink( 0 )->bone].GetOrigin()).Normalized() * CS_ARM_HYPEREXTENSION_LIM;
 								vecTarget = vecShoulderToHand + boneToWorld[pLeftArmChain->pLink( 0 )->bone].GetOrigin();							
 							}
-
-							//debugoverlay->AddBoxOverlay( vecTarget, Vector(-0.1,-0.1,-0.1), Vector(0.1,0.1,0.1), QAngle(0,0,0), 0,255,0,255, 0 );
-							//debugoverlay->AddLineOverlay( boneToWorld[pLeftArmChain->pLink( 0 )->bone].GetOrigin(), boneToWorld[pLeftArmChain->pLink( 1 )->bone].GetOrigin(), 80,80,80,true,0);
-							//debugoverlay->AddLineOverlay( boneToWorld[pLeftArmChain->pLink( 1 )->bone].GetOrigin(), boneToWorld[pLeftArmChain->pLink( 2 )->bone].GetOrigin(), 80,80,80,true,0);
-							//debugoverlay->AddLineOverlay( boneToWorld[pLeftArmChain->pLink( 0 )->bone].GetOrigin(), boneToWorld[pLeftArmChain->pLink( 2 )->bone].GetOrigin(), 80,80,80,true,0);
-
 							Studio_SolveIK( pLeftArmChain->pLink( 0 )->bone, pLeftArmChain->pLink( 1 )->bone, pLeftArmChain->pLink( 2 )->bone, vecTarget, boneToWorld );
-
-							//debugoverlay->AddLineOverlay( boneToWorld[pLeftArmChain->pLink( 0 )->bone].GetOrigin(), boneToWorld[pLeftArmChain->pLink( 1 )->bone].GetOrigin(), 255,0,0,true,0);
-							//debugoverlay->AddLineOverlay( boneToWorld[pLeftArmChain->pLink( 1 )->bone].GetOrigin(), boneToWorld[pLeftArmChain->pLink( 2 )->bone].GetOrigin(), 255,0,0,true,0);
-							//debugoverlay->AddLineOverlay( boneToWorld[pLeftArmChain->pLink( 0 )->bone].GetOrigin(), boneToWorld[pLeftArmChain->pLink( 2 )->bone].GetOrigin(), 0,0,255,true,0);
 						}
 					}
 				}
@@ -4823,7 +4809,7 @@ const Vector& C_CSPlayer::GetRenderOrigin( void )
 
 void C_CSPlayer::Simulate( void )
 {
-	if ( !C_BasePlayer::IsLocalPlayer( this ) )
+	if( this != C_BasePlayer::GetLocalPlayer() )
 	{
 		if ( IsEffectActive( EF_DIMLIGHT ) )
 		{
@@ -4839,9 +4825,9 @@ void C_CSPlayer::Simulate( void )
 			Vector vecOrigin;
 			QAngle dummy;
 			GetAttachment( iAttachment, vecOrigin, dummy );
-				
+
 			trace_t tr;
-			UTIL_TraceLine( vecOrigin, vecOrigin + (vForward * 200 ), MASK_SHOT, this, COLLISION_GROUP_NONE, &tr );
+			UTIL_TraceLine( vecOrigin, vecOrigin + (vForward * 200), MASK_SHOT, this, COLLISION_GROUP_NONE, &tr );
 
 			if( !m_pFlashlightBeam )
 			{
@@ -4867,7 +4853,7 @@ void C_CSPlayer::Simulate( void )
 				beamInfo.m_bRenderable = true;
 				beamInfo.m_flLife = 0.5;
 				beamInfo.m_nFlags = FBEAM_FOREVER | FBEAM_ONLYNOISEONCE | FBEAM_NOTILE | FBEAM_HALOBEAM;
-				
+
 				m_pFlashlightBeam = beams->CreateBeamPoints( beamInfo );
 			}
 
@@ -4884,7 +4870,7 @@ void C_CSPlayer::Simulate( void )
 
 				dlight_t *el = effects->CL_AllocDlight( 0 );
 				el->origin = tr.endpos;
-				el->radius = 50; 
+				el->radius = 50;
 				el->color.r = 200;
 				el->color.g = 200;
 				el->color.b = 200;
