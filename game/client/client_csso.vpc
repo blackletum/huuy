@@ -16,10 +16,7 @@ $Configuration
 		$AdditionalIncludeDirectories		"$BASE;$SRCDIR\game\shared\cstrike\control,.\cstrike,.\cstrike\control,.\cstrike\VGUI,$SRCDIR\game\shared\cstrike,.\gameui"
 		$AdditionalIncludeDirectories		"$BASE;$SRCDIR\vgui2\include;$SRCDIR\vgui2\controls;$SRCDIR\common\GameUI"
 		$PreprocessorDefinitions			"$BASE;CSTRIKE_DLL;NEXT_BOT"
-		$PreprocessorDefinitions			"$BASE;GLOWS_ENABLE"
 		$PreprocessorDefinitions			"$BASE;GAMEUI_EXPORTS;VERSION_SAFE_STEAM_API_INTERFACES"
-        $PreprocessorDefinitions    "$BASE;STDSHADER_DX9_DLL_EXPORT"
-        $AdditionalIncludeDirectories   "$BASE;$SRCDIR/materialsystem/stdshaders"
 	}
 }
 
@@ -34,14 +31,11 @@ $Project "Client (CStrike)"
 	$Folder	"Source Files"
 	{
 		-$File	"$SRCDIR\game\shared\weapon_parse_default.cpp"
-		$File "worldlight.cpp"
-		$File "worldlight.h"
-		$File "imaterialproxydict.h"
+		
 		$File	"c_team_objectiveresource.cpp"
 		$File	"c_team_objectiveresource.h"
 		$File	"c_team_train_watcher.cpp"
 		$File	"c_team_train_watcher.h"
-		$File	"cstrike\c_cs_lesson.cpp"
 		$File	"hud_voicestatus.cpp"
 		$File	"hud_baseachievement_tracker.cpp"
 		$File	"hud_baseachievement_tracker.h"
@@ -49,8 +43,6 @@ $Project "Client (CStrike)"
 		$File	"$SRCDIR\game\client\hud_vote.cpp"
 		$File	"$SRCDIR\game\shared\predicted_viewmodel.cpp"
 		$File	"$SRCDIR\game\shared\predicted_viewmodel.h"
-		$File	"c_env_cascade_light.cpp"
-		$File	"C_Env_Cascade_Light.h"
 		
 		$Folder	"CounterStrike DLL"
 		{
@@ -67,13 +59,6 @@ $Project "Client (CStrike)"
 			$File	"cstrike\c_cs_player.cpp"
 			$File	"cstrike\c_cs_player.h"
 			$File	"cstrike\c_cs_playerresource.cpp"
-			$File    "cstrike\SkinProcessor.cpp"
-			$File    "cstrike\SkinProcessor.h"
-			$File    "cstrike\vgui_weaponinspect_modelpanel.cpp"
-			$File    "cstrike\vgui_weaponinspect_modelpanel.h"
-			$File "$SRCDIR\game\shared\cstrike\cs_skin_shareddefs.h"
-			$File    "cstrike\cs_skin_database.cpp"
-			$File    "cstrike\cs_skin_database.h"
 			$File	"cstrike\c_cs_playerresource.h"
 			$File	"cstrike\c_cs_team.cpp"
 			$File	"cstrike\c_cs_team.h"
@@ -145,11 +130,6 @@ $Project "Client (CStrike)"
 					$File	"gameui\BackgroundMenuButton.cpp"
 					$File	"gameui\BasePanel.cpp"
 					$File	"gameui\GameConsole.cpp"
-					$File    "gameui\rss_parser.cpp"
-					$File    "gameui\rss_parser.h"
-					$File    "gameui\rss_test_commands.cpp"
-					$File    "gameui\rss_feed_panel.cpp"
-					$File    "gameui\rss_feed_panel.h"
 					$File	"gameui\GameUI_Interface.cpp"
 					$File	"gameui\LogoFile.cpp" [!$POSIX]
 					$File	"gameui\ModInfo.cpp"
@@ -181,7 +161,7 @@ $Project "Client (CStrike)"
 					$File	"gameui\BonusMapsDatabase.h"
 					$File	"gameui\gameui_util.h"
 				}
-				
+
 				$Folder	"Header Files"
 				{
 					$File	"gameui\BackgroundMenuButton.h"
@@ -347,60 +327,56 @@ $Project "Client (CStrike)"
 				}
 
 				$Folder	"Options Dialog"
-                {
-               $File	"gameui\OptionsDialog.cpp"
-               $File	"gameui\OptionsSubAudio.cpp"
-               $File	"gameui\OptionsSubDifficulty.cpp"
-               $File	"gameui\OptionsSubGame.cpp"
-               $File	"gameui\OptionsSubHaptics.cpp"	[$WIN32]
-               $File	"gameui\OptionsSubKeyboard.cpp"
-               $File	"gameui\OptionsSubMouse.cpp"
-               $File	"gameui\OptionsSubTouch.cpp"
-               $File	"gameui\OptionsSubMultiplayer.cpp"
-               $File	"gameui\OptionsSubPortal.cpp"
-               $File	"gameui\OptionsSubVideo.cpp"
-               $File	"gameui\OptionsSubVoice.cpp"
-               $File	"gameui\ModOptionsDialog.cpp"
-               $File	"gameui\ModOptionsSubAgents.cpp"
-               $File	"gameui\ModOptionsSubGameplay.cpp"
-               $File	"gameui\ModOptionsSubLoadout.cpp"
-               $File	"gameui\ModOptionsSubKnives.cpp"
-               $File	"gameui\ModOptionsSubGloves.cpp"
-               $File	"gameui\ModOptionsSubCrosshair.cpp"
-               $File	"gameui\ModOptionsSubHUD.cpp"
-               $File "gameui\InventoryDialog.cpp"
-               $File "gameui\InventorySubLoadout.cpp"
-               {
-                   $Configuration
-                   {
-                       $Compiler
-                       {
-                            $Create/UsePrecompiledHeader "Not Using Precompiled Headers"
-                        }
-                    }
-                }
-                $File	"gameui\OptionsDialog.h"
-                $File	"gameui\OptionsSubAudio.h"
-                $File	"gameui\OptionsSubDifficulty.h"
-                $File	"gameui\OptionsSubGame.h"
-                $File	"gameui\OptionsSubHaptics.h"	[$WIN32]
-                $File	"gameui\OptionsSubKeyboard.h"
-                $File	"gameui\OptionsSubMouse.h"
-                $File	"gameui\OptionsSubMultiplayer.h"
-                $File	"gameui\OptionsSubPortal.h"
-                $File	"gameui\OptionsSubVideo.h"
-                $File	"gameui\OptionsSubVoice.h"
-                $File	"gameui\ModOptionsDialog.h"
-                $File	"gameui\ModOptionsSubAgents.h"
-                $File	"gameui\ModOptionsSubGameplay.h"
-                $File	"gameui\ModOptionsSubLoadout.h"
-                $File	"gameui\ModOptionsSubKnives.h"
-                $File	"gameui\ModOptionsSubGloves.h"
-                $File	"gameui\ModOptionsSubCrosshair.h"
-                $File "gameui\InventoryDialog.h"
-                $File "gameui\InventorySubLoadout.h"
-                }
-            }
+				{
+					$File	"gameui\OptionsDialog.cpp"
+					$File	"gameui\OptionsSubAudio.cpp"
+					$File	"gameui\OptionsSubDifficulty.cpp"
+					$File	"gameui\OptionsSubGame.cpp"
+					$File	"gameui\OptionsSubHaptics.cpp"	[$WIN32]
+					$File	"gameui\OptionsSubKeyboard.cpp"
+					$File	"gameui\OptionsSubMouse.cpp"
+					$File	"gameui\OptionsSubTouch.cpp"
+					$File	"gameui\OptionsSubMultiplayer.cpp"
+					$File	"gameui\OptionsSubPortal.cpp"
+					$File	"gameui\OptionsSubVideo.cpp"
+					$File	"gameui\OptionsSubVoice.cpp"
+					$File	"gameui\ModOptionsDialog.cpp"
+					$File	"gameui\ModOptionsSubAgents.cpp"
+					$File	"gameui\ModOptionsSubGameplay.cpp"
+					$File	"gameui\ModOptionsSubLoadout.cpp"
+					$File	"gameui\ModOptionsSubKnives.cpp"
+					$File	"gameui\ModOptionsSubGloves.cpp"
+					$File	"gameui\ModOptionsSubCrosshair.cpp"
+					$File	"gameui\ModOptionsSubHUD.cpp"
+					{
+						$Configuration
+						{
+							$Compiler
+							{
+								$Create/UsePrecompiledHeader "Not Using Precompiled Headers"
+							}
+						}
+					}
+					$File	"gameui\OptionsDialog.h"
+					$File	"gameui\OptionsSubAudio.h"
+					$File	"gameui\OptionsSubDifficulty.h"
+					$File	"gameui\OptionsSubGame.h"
+					$File	"gameui\OptionsSubHaptics.h"	[$WIN32]
+					$File	"gameui\OptionsSubKeyboard.h"
+					$File	"gameui\OptionsSubMouse.h"
+					$File	"gameui\OptionsSubMultiplayer.h"
+					$File	"gameui\OptionsSubPortal.h"
+					$File	"gameui\OptionsSubVideo.h"
+					$File	"gameui\OptionsSubVoice.h"
+					$File	"gameui\ModOptionsDialog.h"
+					$File	"gameui\ModOptionsSubAgents.h"
+					$File	"gameui\ModOptionsSubGameplay.h"
+					$File	"gameui\ModOptionsSubLoadout.h"
+					$File	"gameui\ModOptionsSubKnives.h"
+					$File	"gameui\ModOptionsSubGloves.h"
+					$File	"gameui\ModOptionsSubCrosshair.h"
+				}
+			}
 			$Folder "HUD Elements"
 			{
 				$File	"cstrike\cs_hud_account.cpp"
@@ -408,8 +384,6 @@ $Project "Client (CStrike)"
 				$File	"cstrike\cs_hud_chat.cpp"
 				$File	"cstrike\cs_hud_chat.h"
 				$File	"cstrike\cs_hud_damageindicator.cpp"
-				$File	"cstrike\c_hud_headname.cpp"
-		    	$File	"cstrike\c_hud_headname.h"
 				$File	"cstrike\cs_hud_freezepanel.cpp"
 				$File	"cstrike\cs_hud_freezepanel.h"		
 				$File	"cstrike\cs_hud_healtharmor.cpp"
@@ -426,7 +400,6 @@ $Project "Client (CStrike)"
 				$File	"cstrike\hud_deathnotice.cpp"
 				$File	"cstrike\hud_flashbang.cpp"
 				$File	"cstrike\hud_progressbar.cpp"
-				$File	"cstrike\hud_progressbar.h"
 				$File	"cstrike\hud_radar.h"
 				$File	"cstrike\cs_hud_achievement_announce.cpp"
 				$File	"cstrike\cs_hud_achievement_announce.h"
@@ -507,7 +480,6 @@ $Project "Client (CStrike)"
 				$File	"cstrike\VGUI\achievement_stats_summary.cpp"
 				$File	"cstrike\VGUI\achievement_stats_summary.h"
 				$File	"cstrike\VGUI\achievements_page.cpp"
-				$File	"cstrike\VGUI\radialmenu.h"
 				$File	"cstrike\VGUI\achievements_page.h"
 				$File	"cstrike\VGUI\stats_summary.cpp"
 				$File	"cstrike\VGUI\stats_summary.h"
@@ -541,10 +513,6 @@ $Project "Client (CStrike)"
 				$File	"cstrike\vgui_viewc4panel.cpp"
 				$File	"cstrike\VGUI\win_panel_round.cpp"
 				$File	"cstrike\VGUI\win_panel_round.h"
-				$File "cstrike\SpectatorPlayerListPanel.cpp"
-				$File "cstrike\SpectatorPlayerListPanel.h"
-				$File "gameui\PlayerModelPanel.cpp"
-				$File "gameui\PlayerModelPanel.h"
 			}
 
 			$Folder	"NextBot"
@@ -572,8 +540,6 @@ $Project "Client (CStrike)"
 	$Folder	"Link Libraries" 
 	{
 		$Lib vtf
-		$Lib curl
-		$Lib materialsystem
 	}
 
 }

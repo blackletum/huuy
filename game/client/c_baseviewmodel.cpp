@@ -12,7 +12,6 @@
 #include "view_shared.h"
 #include "iviewrender.h"
 #include "view.h"
-#include "tier1/convar.h"
 #include "mathlib/vmatrix.h"
 #include "cl_animevent.h"
 #include "eventlist.h"
@@ -28,7 +27,6 @@
 	#include "cs_shareddefs.h"
 	#include "c_cs_player.h"
 	#include "cs_loadout.h"
-	#include "SkinProcessor.h"
 #endif
 
 #if defined( REPLAY_ENABLED )
@@ -363,35 +361,6 @@ void C_BaseViewModel::ApplyBoneMatrixTransform( matrix3x4_t& transform )
 	}
 }
 
-
-CON_COMMAND(glove_test, "Quick glove material test")
-{
-    C_CSPlayer* pPlayer = C_CSPlayer::GetLocalCSPlayer();
-    if (!pPlayer) 
-    return;
-    
-    C_BaseViewModel* pViewModel = pPlayer->GetViewModel();
-    if (!pViewModel) 
-    return;
-    
-    if (pViewModel->m_vecViewmodelArmModels.Count() == 0)
-    {
-        Msg("No gloves!\n");
-        return;
-    }
-    
-    C_BaseAnimating* pGloves = pViewModel->m_vecViewmodelArmModels[0];
-    
-    IMaterial* pMat = materials->FindMaterial(
-        "models/weapons/v_models/arms/glove_sporty_skins/glove_sporty_left1",
-        TEXTURE_GROUP_MODEL
-    );
-    
-    pGloves->SetMaterialOverride( pMat );
-    
-    Msg("Applied test material!\n");
-}
-
 //-----------------------------------------------------------------------------
 // Purpose: check if weapon viewmodel should be drawn
 //-----------------------------------------------------------------------------
@@ -415,86 +384,94 @@ bool C_BaseViewModel::ShouldDraw()
 	}
 }
 
-
 //-----------------------------------------------------------------------------
 // Purpose: Render the weapon. Draw the Viewmodel if the weapon's being carried
 //			by this player, otherwise draw the worldmodel.
 //-----------------------------------------------------------------------------
-int C_BaseViewModel::DrawModel(int flags)
+int C_BaseViewModel::DrawModel( int flags )
 {
-    if (!m_bReadyToDraw)
-        return 0;
+	if ( !m_bReadyToDraw )
+		return 0;
 
-    CMatRenderContextPtr pRenderContext(materials);
+	CMatRenderContextPtr pRenderContext( materials );
 
-    // Blend / Color modulation
-    if (flags & STUDIO_RENDER)
-    {
-        float blend = (float)(GetFxBlend() / 255.0f);
-        if (blend <= 0.0f)
-            return 0;
+	if ( flags & STUDIO_RENDER )
+	{
+		// Determine blending amount and tell engine
+		float blend = (float)( GetFxBlend() / 255.0f );
 
-        render->SetBlend(blend);
-        float color[3];
-        GetColorModulation(color);
-        render->SetColorModulation(color);
-    }
+		// Totally gone
+		if ( blend <= 0.0f )
+			return 0;
 
-    if (ShouldFlipViewModel())
-        pRenderContext->CullMode(MATERIAL_CULLMODE_CW);
+		// Tell engine
+		render->SetBlend( blend );
 
-    C_BasePlayer* pPlayer = C_BasePlayer::GetLocalPlayer();
-    C_BaseCombatWeapon* pWeapon = GetOwningWeapon();
-    int ret = 0;
+		float color[3];
+		GetColorModulation( color );
+		render->SetColorModulation(	color );
+	}
 
-    // Override viewmodel
-    if (pPlayer && pPlayer->IsOverridingViewmodel())
-        ret = pPlayer->DrawOverriddenViewmodel(this, flags);
-    else if (pWeapon && pWeapon->IsOverridingViewmodel())
-        ret = pWeapon->DrawOverriddenViewmodel(this, flags);
-    else
-        ret = BaseClass::DrawModel(flags);
+	if ( ShouldFlipViewModel() )
+		pRenderContext->CullMode( MATERIAL_CULLMODE_CW );
+		
+	C_BasePlayer *pPlayer = C_BasePlayer::GetLocalPlayer();
+	C_BaseCombatWeapon *pWeapon = GetOwningWeapon();
+	int ret;
+	// If the local player's overriding the viewmodel rendering, let him do it
+	if ( pPlayer && pPlayer->IsOverridingViewmodel() )
+	{
+		ret = pPlayer->DrawOverriddenViewmodel( this, flags );
+	}
+	else if ( pWeapon && pWeapon->IsOverridingViewmodel() )
+	{
+		ret = pWeapon->DrawOverriddenViewmodel( this, flags );
+	}
+	else
+	{
+		ret = BaseClass::DrawModel( flags );
+	}
 
-    // Draw addons
-    if (flags && vm_draw_addon.GetBool())
-    {
-        FOR_EACH_VEC(m_vecViewmodelArmModels, i)
-        {
-            if (m_vecViewmodelArmModels[i])
-            {
-                if (m_vecViewmodelArmModels[i]->GetMoveParent() != this)
-                {
-                    m_vecViewmodelArmModels[i]->SetEFlags(EF_BONEMERGE);
-                    m_vecViewmodelArmModels[i]->SetParent(this);
-                }
-                m_vecViewmodelArmModels[i]->DrawModel(flags);
-            }
-        }
+	pRenderContext->CullMode( MATERIAL_CULLMODE_CCW );
 
-        if (m_viewmodelStatTrakAddon)
-            m_viewmodelStatTrakAddon->DrawModel(flags);
-    }
+	// Now that we've rendered, reset the animation restart flag
+	if ( flags & STUDIO_RENDER )
+	{
+		if ( m_nOldAnimationParity != m_nAnimationParity )
+		{
+			m_nOldAnimationParity = m_nAnimationParity;
+		}
+		// Tell the weapon itself that we've rendered, in case it wants to do something
+		if ( pWeapon )
+		{
+			pWeapon->ViewModelDrawn( this );
+		}
+	}
 
-    IMaterial* pSkinMat = g_SkinProcessor.GetSkinMaterial(pWeapon);
-    if (pSkinMat)
-    {
-        pWeapon->SetMaterialOverride( pSkinMat );
-        BaseClass::DrawModel(flags);
-        pWeapon->SetMaterialOverride(nullptr);
-    }
 
-    pRenderContext->CullMode(MATERIAL_CULLMODE_CCW);
+	if ( flags && vm_draw_addon.GetBool() )
+	{
+		FOR_EACH_VEC( m_vecViewmodelArmModels, i )
+		{
+			if ( m_vecViewmodelArmModels[i] )
+			{
 
-    if (flags & STUDIO_RENDER)
-    {
-        if (m_nOldAnimationParity != m_nAnimationParity)
-            m_nOldAnimationParity = m_nAnimationParity;
+				if ( m_vecViewmodelArmModels[i]->GetMoveParent() != this )
+				{
+					m_vecViewmodelArmModels[i]->SetEFlags( EF_BONEMERGE );
+					m_vecViewmodelArmModels[i]->SetParent( this );
+				}
 
-        if (pWeapon)
-            pWeapon->ViewModelDrawn(this);
-    }
+				m_vecViewmodelArmModels[i]->DrawModel( flags );
+			}
+		}
+		if ( m_viewmodelStatTrakAddon )
+		{
+			m_viewmodelStatTrakAddon->DrawModel( flags );
+		}
+	}
 
-    return ret;
+	return ret;
 }
 
 //-----------------------------------------------------------------------------
@@ -502,15 +479,15 @@ int C_BaseViewModel::DrawModel(int flags)
 //-----------------------------------------------------------------------------
 int C_BaseViewModel::InternalDrawModel( int flags )
 {
-    CMatRenderContextPtr pRenderContext( materials );
-    if ( ShouldFlipViewModel() )
-        pRenderContext->CullMode( MATERIAL_CULLMODE_CW );
+	CMatRenderContextPtr pRenderContext( materials );
+	if ( ShouldFlipViewModel() )
+		pRenderContext->CullMode( MATERIAL_CULLMODE_CW );
 
-    int ret = BaseClass::InternalDrawModel( flags );
+	int ret = BaseClass::InternalDrawModel( flags );
 
-    pRenderContext->CullMode( MATERIAL_CULLMODE_CCW );
+	pRenderContext->CullMode( MATERIAL_CULLMODE_CCW );
 
-    return ret;
+	return ret;
 }
 
 //-----------------------------------------------------------------------------

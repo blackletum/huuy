@@ -50,7 +50,6 @@
 #include "viewpostprocess.h"
 #include "cstrikeclientscoreboard.h"
 #include "cam_thirdperson.h"
-#include "SkinProcessor.h"
 
 // [tj] Needed to retrieve achievement text
 // [menglish] Need access to message macros 
@@ -65,8 +64,6 @@
 void __MsgFunc_MatchEndConditions( bf_read &msg );
 
 class CHudChat;
-
-extern CSkinProcessor g_SkinProcessor;
 
 ConVar cl_draw_only_deathnotices( "cl_draw_only_deathnotices", "0", FCVAR_CHEAT, "For drawing only the crosshair and death notices (used for moviemaking)" );
 
@@ -349,8 +346,6 @@ void ClientModeCSNormal::Init()
 
 	m_fDelayedCTWinTime = -1.0f;
 	m_nRoundMVP = 0;
-	
-	g_SkinProcessor.Initialize();
 }
 
 void ClientModeCSNormal::InitViewport()
@@ -372,8 +367,6 @@ void ClientModeCSNormal::LevelShutdown( void )
 	// This is in response to anecdotal reports that players can 'mark' the world with showimpacts or grenade trajectories,
 	// then use them to their advantage on subsequent games played immediately on the same map.
 	debugoverlay->ClearAllOverlays();
-	
-	g_SkinProcessor.Shutdown();
 }
 
 

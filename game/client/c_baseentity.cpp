@@ -1204,20 +1204,6 @@ void C_BaseEntity::Term()
 	RemoveFromAimEntsList();
 }
 
-bool C_BaseEntity::ComputeLightingOrigin( int nAttachmentIndex, Vector modelLightingCenter, const matrix3x4_t &matrix, Vector &transformedLightingCenter )
-{
-	if ( nAttachmentIndex <= 0 )
-	{
-		VectorTransform( modelLightingCenter, matrix, transformedLightingCenter );
-	}
-	else
-	{
-		matrix3x4_t attachmentTransform;
-		GetAttachment( nAttachmentIndex, attachmentTransform );
-		VectorTransform( modelLightingCenter, attachmentTransform, transformedLightingCenter );
-	}
-	return true;
-}
 
 void C_BaseEntity::SetRefEHandle( const CBaseHandle &handle )
 {

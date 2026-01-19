@@ -202,18 +202,6 @@ public:
 	CSWeaponType m_WeaponType;
 
 	bool	m_bFullAuto;		// is this a fully automatic weapon?
-	#ifdef CLIENT_DLL
-    const char* GetPaintKitConVar() const 
-	{ 
-		return szPaintKitConVar; 
-	}
-	
-	int GetCurrentPaintKit() const;
-	IMaterial* GetSkinMaterial() const;
-	ITexture* GetSkinIcon() const;
-	const SkinDefinition_t* GetSkinDefinition() const;
-	void SetPaintKit(int iPaintKit) const;
-	#endif // CLIENT_DLL
 
 	int m_iTeam;				// Which team can have this weapon. TEAM_UNASSIGNED if both can have it.
 	float m_flBotAudibleRange;	// How far away a bot can hear this weapon.

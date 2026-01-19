@@ -19,7 +19,7 @@
 #include "view_shared.h"
 #include "view.h"
 #include "model_types.h"
-#include "vgui_avatarimage_nonsteam.h"
+#include "vgui_avatarimage.h"
 #include "cs_hud_weaponselection.h"
 #include "viewpostprocess.h"
 
@@ -27,7 +27,6 @@
 #include "cs_loadout.h"
 #include "c_breakableprop.h"
 #include "ammodef.h"
-#include "SkinProcessor.h"
 
 #include "lunasvg/lunasvg.h"
 using namespace lunasvg;
@@ -276,8 +275,8 @@ void CCSBuyMenuItemButton::OnCursorEntered()
 	CCSBuyMenu* pParent = dynamic_cast<CCSBuyMenu*>(GetParent());
 	if ( pParent )
 	{
-		pParent->SetPlayerImageWeapon( pszItemModel, pszItemSequence, m_nItemID );
-        pParent->SetItemNameAndDescription( pszItemName, pszItemDescription );
+		pParent->SetPlayerImageWeapon( pszItemModel, pszItemSequence );
+		pParent->SetItemNameAndDescription( pszItemName, pszItemDescription );
 
 		AcquireMethod::Type nAcquireMethod = AcquireMethod::Buy;
 		if ( m_bDropBuy )
@@ -411,7 +410,6 @@ CCSBuyMenuPlayerImage::CCSBuyMenuPlayerImage( Panel* parent, const char* panelNa
 	m_bMousePressed = false;
 	m_flRotationAngleLeft = 0.0f;
 	m_flRotationTimeLeft = 0.0f;
-	m_nCurrentWeaponID = WEAPON_NONE;
 }
 
 CCSBuyMenuPlayerImage::~CCSBuyMenuPlayerImage()
@@ -631,19 +629,14 @@ void CCSBuyMenuPlayerImage::SetWeaponModel( const char* pszModel )
 	{
 		if ( m_hWeaponModel.Get() )
 		{
-			// Очищаем материал перед удалением
-			m_hWeaponModel->SetMaterialOverride( NULL );
 			m_hWeaponModel->Remove();
 			m_hWeaponModel = NULL;
 		}
-		m_nCurrentWeaponID = WEAPON_NONE;
 		return;
 	}
 
 	if ( m_hWeaponModel.Get() )
 	{
-		// ВАЖНО: Очищаем старый материал перед сменой модели
-		m_hWeaponModel->SetMaterialOverride( NULL );
 		m_hWeaponModel->SetModel( pszModel );
 	}
 	else
@@ -653,52 +646,15 @@ void CCSBuyMenuPlayerImage::SetWeaponModel( const char* pszModel )
 			return;
 		if ( pEnt->InitializeAsClientEntity( pszModel, RENDER_GROUP_OPAQUE_ENTITY ) == false )
 		{
+			// we failed to initialize this entity so just return gracefully
 			pEnt->Remove();
 			return;
 		}
+		// setup the handle
 		m_hWeaponModel = pEnt;
 		m_hWeaponModel->DontRecordInTools();
 		m_hWeaponModel->AddEffects( EF_NODRAW );
 		m_hWeaponModel->FollowEntity( m_hPlayerModel.Get() );
-	}
-}
-
-void CCSBuyMenuPlayerImage::SetWeaponSkin( CSWeaponID weaponID )
-{
-	if ( !m_hWeaponModel.Get() )
-		return;
-
-	m_nCurrentWeaponID = weaponID;
-
-	m_hWeaponModel->SetMaterialOverride( NULL );
-
-	if ( weaponID == WEAPON_NONE )
-		return;
-
-	const char* weaponName = WeaponIdAsString( weaponID );
-	if ( !weaponName )
-		return;
-
-	WEAPON_FILE_INFO_HANDLE hWpnInfo = LookupWeaponInfoSlot( weaponName );
-	if ( hWpnInfo == GetInvalidWeaponInfoHandle() )
-		return;
-
-	CCSWeaponInfo* pWeaponInfo = dynamic_cast<CCSWeaponInfo*>( GetFileWeaponInfoFromHandle( hWpnInfo ) );
-	if ( !pWeaponInfo )
-		return;
-
-	IMaterial* pSkinMaterial = pWeaponInfo->GetSkinMaterial();
-	
-	if ( pSkinMaterial )
-	{
-		m_hWeaponModel->SetMaterialOverride( pSkinMaterial );
-		
-		DevMsg( "[BuyMenu] Applied skin material for %s (paint kit %d)\n", 
-				weaponName, pWeaponInfo->GetCurrentPaintKit() );
-	}
-	else
-	{
-		DevMsg( "[BuyMenu] No skin material for %s, using default\n", weaponName );
 	}
 }
 
@@ -1028,7 +984,6 @@ void CCSBuyMenuLoadoutPanel::SetPlayer( C_CSPlayer* pPlayer )
 
 	m_pPlayer = pPlayer;
 	m_pPlayerAvatarImage->SetPlayer( pPlayer, k_EAvatarSize32x32 );
-	m_pPlayerAvatarImage->SetAvatarSize( 32, 32 );
 	m_pPlayerAvatarImage->SetDefaultAvatar( GetDefaultAvatarImage( pPlayer ) );
 }
 
@@ -1578,11 +1533,10 @@ void CCSBuyMenu::HideCategory()
 	HideSpecialMessage( GlobalMessage );
 }
 
-void CCSBuyMenu::SetPlayerImageWeapon( const char* pszWeaponModel, const char* pszWeaponSequence, CSWeaponID weaponID )
+void CCSBuyMenu::SetPlayerImageWeapon( const char* pszWeaponModel, const char* pszWeaponSequence )
 {
-    m_pPlayerModel->SetWeaponModel( pszWeaponModel );
-    m_pPlayerModel->SetSequence( pszWeaponSequence );
-    m_pPlayerModel->SetWeaponSkin( weaponID );  
+	m_pPlayerModel->SetWeaponModel( pszWeaponModel );
+	m_pPlayerModel->SetSequence( pszWeaponSequence );
 }
 
 void CCSBuyMenu::SetItemNameAndDescription( const char* pszName, const char* pszDescription )
@@ -1616,7 +1570,6 @@ void CCSBuyMenu::ResetWeapon()
 
 	const char* pszPlayerSequence = "t_buymenu_nowep";
 	const char* pszPlayerWeaponModel = NULL;
-	CSWeaponID weaponID = WEAPON_NONE;
 
 	C_WeaponCSBase* pWeapon = dynamic_cast<C_WeaponCSBase*>(pPlayer->Weapon_GetSlot( WEAPON_SLOT_RIFLE ));
 	if ( !pWeapon )
@@ -1642,7 +1595,6 @@ void CCSBuyMenu::ResetWeapon()
 
 	m_pPlayerModel->SetWeaponModel( pszPlayerWeaponModel );
 	m_pPlayerModel->SetSequence( pszPlayerSequence );
-	m_pPlayerModel->SetWeaponSkin( weaponID );
 }
 
 void CCSBuyMenu::ShowSpecialMessage( const char* pszText, BuyMenuSpecialMessageType_t nMessageType )

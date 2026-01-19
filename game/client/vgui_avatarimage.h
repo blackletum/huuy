@@ -3,7 +3,7 @@
 // Purpose:
 //
 //=============================================================================
-#ifdef  STEAM_AVATARS
+
 #ifndef VGUI_AVATARIMAGE_H
 #define VGUI_AVATARIMAGE_H
 #ifdef _WIN32
@@ -57,6 +57,7 @@ enum EAvatarSize
 	k_EAvatarSize64x64 = 1,
 	k_EAvatarSize184x184 = 2,
 };
+
 
 //-----------------------------------------------------------------------------
 // Purpose:
@@ -251,4 +252,3 @@ private:
 };
 
 #endif // VGUI_AVATARIMAGE_H
-#endif // STEAM_AVATARS

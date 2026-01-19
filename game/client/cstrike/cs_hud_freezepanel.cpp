@@ -17,7 +17,6 @@
 #include <vgui/ILocalize.h>
 #include <vgui/ISurface.h>
 #include "VGUI/bordered_panel.h"
-#include <filesystem.h>
 #include "fmtstr.h"
 #include "cs_gamerules.h"
 #include "view.h"
@@ -61,7 +60,6 @@ CCSFreezePanel::CCSFreezePanel( const char *pElementName ) :
 	m_pDamageTakenLabel = new Label( this, "DamageTakenLabel", L" " );
 	m_pDamageGivenLabel = new Label( this, "DamageGivenLabel", L" " );
 	m_pScreenshotLabel = new Label( this, "ScreenshotLabel", L"ScreenshotLabel" );
-	m_pWeaponImage = new ImagePanel(this, "WeaponImage");
 
 	m_pAvatar->SetDefaultAvatar( scheme()->GetImage( CSTRIKE_DEFAULT_AVATAR, true ) );
 	m_pAvatar->SetShouldScaleImage( true );
@@ -149,7 +147,7 @@ void CCSFreezePanel::FireGameEvent( IGameEvent * event )
 
 				// is it a grenade suicide?
 				// only he and decoy is included because you cant suicide from other grenades (no shit)
-				if ( StringHasPrefixCaseSensitive(szWeapon, "hegrenade") ||
+				/*if ( StringHasPrefixCaseSensitive(szWeapon, "hegrenade") ||
 					 StringHasPrefixCaseSensitive( szWeapon, "decoy" ) )
 				{
 					SetDialogVariable( "InfoLabel", g_pVGuiLocalize->Find( "#FreezePanel_KilledByOwnGrenade" ) );
@@ -161,68 +159,68 @@ void CCSFreezePanel::FireGameEvent( IGameEvent * event )
 				else
 				{
 					SetDialogVariable( "InfoLabel", g_pVGuiLocalize->Find( "#FreezePanel_KilledSelf" ) );
-				}
+				}*/
 			}
 			else if ( szWeapon && szWeapon[0] )
-{
-    m_pDominationIcon->SetVisible( false );
+			{
+				m_pDominationIcon->SetVisible( false );
+				/*if ( pKiller )
+				{
+					const char *pszLocString = "#FreezePanel_Killer_Weapon";
+					wchar_t wszLocalizedString[256];
 
-    const char *pszWeaponName = szWeapon;
-    if ( StringHasPrefixCaseSensitive( pszWeaponName, "weapon_" ) )
-        pszWeaponName += 7;
+					CSWeaponID nWeaponID = AliasToWeaponID( szWeapon );
+					WEAPON_FILE_INFO_HANDLE	hWpnInfo = LookupWeaponInfoSlot( WeaponIdAsString( nWeaponID ) );
+					if ( hWpnInfo == GetInvalidWeaponInfoHandle() )
+					{
+						if ( StringHasPrefixCaseSensitive( szWeapon, "hegrenade" ) )
+						{
+							g_pVGuiLocalize->ConstructString( wszLocalizedString, sizeof( wszLocalizedString ), g_pVGuiLocalize->Find( pszLocString ), 1, g_pVGuiLocalize->Find( "#Cstrike_WPNHUD_HE_Grenade" ) );
+						}
+						else if ( StringHasPrefixCaseSensitive( szWeapon, "flashbang" ) )
+						{
+							g_pVGuiLocalize->ConstructString( wszLocalizedString, sizeof( wszLocalizedString ), g_pVGuiLocalize->Find( pszLocString ), 1, g_pVGuiLocalize->Find( "#Cstrike_WPNHUD_Flashbang" ) );
+						}
+						else if ( StringHasPrefixCaseSensitive( szWeapon, "decoy" ) )
+						{
+							g_pVGuiLocalize->ConstructString( wszLocalizedString, sizeof( wszLocalizedString ), g_pVGuiLocalize->Find( pszLocString ), 1, g_pVGuiLocalize->Find( "#Cstrike_WPNHUD_Decoy" ) );
+						}
+						else if ( StringHasPrefixCaseSensitive( szWeapon, "smokegrenade" ) )
+						{
+							g_pVGuiLocalize->ConstructString( wszLocalizedString, sizeof( wszLocalizedString ), g_pVGuiLocalize->Find( pszLocString ), 1, g_pVGuiLocalize->Find( "#Cstrike_WPNHUD_Smoke_Grenade" ) );
+						}
+						else if ( StringHasPrefixCaseSensitive( szWeapon, "incgrenade" ) )
+						{
+							g_pVGuiLocalize->ConstructString( wszLocalizedString, sizeof( wszLocalizedString ), g_pVGuiLocalize->Find( pszLocString ), 1, g_pVGuiLocalize->Find( "#Cstrike_WPNHUD_IncGrenade" ) );
+						}
+						else if ( StringHasPrefixCaseSensitive( szWeapon, "molotov" ) )
+						{
+							g_pVGuiLocalize->ConstructString( wszLocalizedString, sizeof( wszLocalizedString ), g_pVGuiLocalize->Find( pszLocString ), 1, g_pVGuiLocalize->Find( "#Cstrike_WPNHUD_Molotov" ) );
+						}
+						else if ( !V_strcmp(szWeapon, "inferno") )
+						{
+							V_swprintf_safe( wszLocalizedString, L"" FMT_WS, g_pVGuiLocalize->Find( "#FreezePanel_KilledByFire" ) );
+							SetDialogVariable( "InfoLabel", wszLocalizedString );
+						}
+						else
+						{
+							return;
+						}
+					}
+					else
+					{
+						CCSWeaponInfo *pWeaponInfo = dynamic_cast<CCSWeaponInfo*>(GetFileWeaponInfoFromHandle( hWpnInfo ));
+						if ( !pWeaponInfo )
+							return;
 
-    char szWeaponPath[MAX_PATH];
-    Q_snprintf( szWeaponPath, sizeof(szWeaponPath), "gfx/vgui/%s", pszWeaponName );
-    
-    m_pWeaponImage->SetImage( szWeaponPath );
-    m_pWeaponImage->SetVisible( true );
-    if ( pKiller )
-    {
-        const char *pszLocString = "#FreezePanel_Killer_Weapon";
-        wchar_t wszLocalizedString[256];
+						if ( nWeaponID == WEAPON_ELITE )
+							pszLocString = "#FreezePanel_Killer_Weapon_Plural";
 
-        CSWeaponID nWeaponID = AliasToWeaponID( szWeapon );
-        WEAPON_FILE_INFO_HANDLE hWpnInfo = LookupWeaponInfoSlot( WeaponIdAsString( nWeaponID ) );
-
-        if ( hWpnInfo == GetInvalidWeaponInfoHandle() )
-        {
-            if ( StringHasPrefixCaseSensitive( szWeapon, "hegrenade" ) )
-                g_pVGuiLocalize->ConstructString( wszLocalizedString, sizeof(wszLocalizedString), g_pVGuiLocalize->Find(pszLocString), 1, g_pVGuiLocalize->Find("#Cstrike_WPNHUD_HE_Grenade") );
-            else if ( StringHasPrefixCaseSensitive( szWeapon, "flashbang" ) )
-                g_pVGuiLocalize->ConstructString( wszLocalizedString, sizeof(wszLocalizedString), g_pVGuiLocalize->Find(pszLocString), 1, g_pVGuiLocalize->Find("#Cstrike_WPNHUD_Flashbang") );
-            else if ( StringHasPrefixCaseSensitive( szWeapon, "decoy" ) )
-                g_pVGuiLocalize->ConstructString( wszLocalizedString, sizeof(wszLocalizedString), g_pVGuiLocalize->Find(pszLocString), 1, g_pVGuiLocalize->Find("#Cstrike_WPNHUD_Decoy") );
-            else if ( StringHasPrefixCaseSensitive( szWeapon, "smokegrenade" ) )
-                g_pVGuiLocalize->ConstructString( wszLocalizedString, sizeof(wszLocalizedString), g_pVGuiLocalize->Find(pszLocString), 1, g_pVGuiLocalize->Find("#Cstrike_WPNHUD_Smoke_Grenade") );
-            else if ( StringHasPrefixCaseSensitive( szWeapon, "incgrenade" ) )
-                g_pVGuiLocalize->ConstructString( wszLocalizedString, sizeof(wszLocalizedString), g_pVGuiLocalize->Find(pszLocString), 1, g_pVGuiLocalize->Find("#Cstrike_WPNHUD_IncGrenade") );
-            else if ( StringHasPrefixCaseSensitive( szWeapon, "molotov" ) )
-                g_pVGuiLocalize->ConstructString( wszLocalizedString, sizeof(wszLocalizedString), g_pVGuiLocalize->Find(pszLocString), 1, g_pVGuiLocalize->Find("#Cstrike_WPNHUD_Molotov") );
-            else if ( !V_strcmp(szWeapon, "inferno") )
-            {
-                V_swprintf_safe( wszLocalizedString, L"" FMT_WS, g_pVGuiLocalize->Find("#FreezePanel_KilledByFire") );
-                SetDialogVariable( "InfoLabel", wszLocalizedString );
-                m_pWeaponImage->SetImage( "gfx/vgui/molotov" ); 
-            }
-            else
-                return;
-        }
-        else
-        {
-            CCSWeaponInfo *pWeaponInfo = dynamic_cast<CCSWeaponInfo*>(GetFileWeaponInfoFromHandle( hWpnInfo ));
-            if ( !pWeaponInfo ) return;
-
-            if ( nWeaponID == WEAPON_ELITE )
-                pszLocString = "#FreezePanel_Killer_Weapon_Plural";
-
-            g_pVGuiLocalize->ConstructString( wszLocalizedString, sizeof(wszLocalizedString), 
-                g_pVGuiLocalize->Find(pszLocString), 1, 
-                g_pVGuiLocalize->Find(pWeaponInfo->szPrintName) );
-        }
-
-        SetDialogVariable( "InfoLabel", wszLocalizedString );
-    }
-}
+						g_pVGuiLocalize->ConstructString( wszLocalizedString, sizeof( wszLocalizedString ), g_pVGuiLocalize->Find( pszLocString ), 1, g_pVGuiLocalize->Find( pWeaponInfo->szPrintName ) );
+					}
+					SetDialogVariable( "InfoLabel", wszLocalizedString );
+				}*/
+			}
 
 			wchar_t wzBind[16] = L"";
 			wchar_t navBarText[256] = L"";
@@ -267,7 +265,7 @@ void CCSFreezePanel::FireGameEvent( IGameEvent * event )
 
 			m_pKillerHealth->SetProgress( clamp( (float) iKillerHealth / (float) iMaxHealth, 0.0f, 1.0f ) );
 			// do not show health bar in competitive and if damage print is disabled
-			m_pKillerHealth->SetVisible( sv_damage_print_enable.GetInt() == 1 && !CSGameRules()->IsPlayingAnyCompetitiveStrictRuleset() );
+			m_pKillerHealth->SetVisible( sv_damage_print_enable.GetBool() && !CSGameRules()->IsPlayingAnyCompetitiveStrictRuleset() );
 
 			wchar_t wszkillerName[MAX_DECORATED_PLAYER_NAME_LENGTH];
 			wszkillerName[0] = '\0';
@@ -278,7 +276,7 @@ void CCSFreezePanel::FireGameEvent( IGameEvent * event )
 			int nHitsGiven = 0;
 			int nDamGiven = 0;
 
-			if ( sv_damage_print_enable.GetInt() == 1 )
+			if ( sv_damage_print_enable.GetBool() )
 			{
 				nHitsTaken = event->GetInt( "hits_taken" );
 				nDamTaken = event->GetInt( "damage_taken" );
@@ -348,12 +346,6 @@ void CCSFreezePanel::FireGameEvent( IGameEvent * event )
 			}
 		}
 	}
-	C_BasePlayer *pLocal = C_BasePlayer::GetLocalPlayer();
-         if (pLocal && pLocal->IsObserver() && pLocal->GetObserverMode() == OBS_MODE_FREEZECAM)
-    {
-       C_BasePlayer *pKiller = ToBasePlayer(pLocal->GetObserverTarget());
-   // HighlightKillerLight(pKiller);
-    }
 }
 
 //-----------------------------------------------------------------------------

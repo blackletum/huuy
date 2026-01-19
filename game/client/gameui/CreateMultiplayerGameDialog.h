@@ -12,7 +12,6 @@
 #endif
 
 #include <vgui_controls/PropertyDialog.h>
-#include <vgui/ISurface.h>
 
 class CCreateMultiplayerGameServerPage;
 class CCreateMultiplayerGameGameplayPage;

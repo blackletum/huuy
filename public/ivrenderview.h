@@ -84,21 +84,12 @@ enum
 //-----------------------------------------------------------------------------
 // Describes the leaves to be rendered this view, set by BuildWorldLists
 //-----------------------------------------------------------------------------
-struct WorldListLeafData_t
-{
-	uint32	leafIndex;
-	int32	waterData;
-	uint32	firstTranslucentSurface;	// engine-internal list index
-	uint32	translucentSurfaceCount;	// count of translucent surfaces+disps
-};
-
 struct WorldListInfo_t
 {
 	int		m_ViewFogVolume;
 	int		m_LeafCount;
 	LeafIndex_t*		m_pLeafList;
 	LeafFogVolume_t*	m_pLeafFogVolume;
-	WorldListLeafData_t	*m_pLeafDataList;
 };
 
 class IWorldRenderList : public IRefCounted

@@ -17,7 +17,7 @@
 #include <vgui_controls/AnimationController.h>
 #include <vgui_controls/EditablePanel.h>
 #include "vgui/ILocalize.h"
-#include "vgui_avatarimage_nonsteam.h"
+#include "vgui_avatarimage.h"
 #include "hud.h"
 #include "hudelement.h"
 #include "vgui_borderprogress.h"
@@ -65,7 +65,6 @@ private:
 	Label*									m_pDamageTakenLabel;
 	Label*									m_pDamageGivenLabel;
 	Label*									m_pScreenshotLabel;
-	vgui::ImagePanel *m_pWeaponImage;
 
 	bool					m_bShouldBeVisible;
 

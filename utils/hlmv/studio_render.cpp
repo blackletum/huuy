@@ -445,6 +445,7 @@ void StudioModel::SetUpBones( bool mergeBones )
 		s = 3 * s * s - 2 * s * s * s;
 
 		boneSetup.AccumulatePose( pos, q, m_prevsequence, m_prevcycle, s, GetRealtimeTime(), NULL );
+		// Con_DPrintf("%d %f : %d %f : %f\n", pev->sequence, f, pev->prevsequence, pev->prevframe, s );
 	}
 	else
 	{
@@ -498,10 +499,7 @@ void StudioModel::SetUpBones( bool mergeBones )
 
 		pIK->UpdateTargets( pos, q, m_pBoneToWorld, boneComputed );
 
-		// ======================================================================
-		// ⭐ ИСПРАВЛЕННАЯ ВЕРСИЯ IK GROUND PROCESSING
-		// ======================================================================
-		
+		// FIXME: check number of slots?
 		for (int i = 0; i < pIK->m_target.Count(); i++)
 		{
 			trace_t tr;
@@ -511,203 +509,61 @@ void StudioModel::SetUpBones( bool mergeBones )
 			{
 			case IK_GROUND:
 				{
-					// === КОМПЕНСАЦИЯ ДВИЖЕНИЯ ===
+					// drawLine( pTarget->est.pos, pTarget->est.pos + pTarget->offset.pos, 0, 255, 0 );
+
+					// hack in movement
 					pTarget->est.pos -= deltaPos;
 
-					// === ТРАНСФОРМАЦИЯ В MODEL SPACE ===
 					matrix3x4_t invViewTransform;
 					MatrixInvert( g_viewtransform, invViewTransform );
 					Vector tmp;
 					VectorTransform( pTarget->est.pos, invViewTransform, tmp );
+					tmp.z = pTarget->est.floor;
+					VectorTransform( tmp, g_viewtransform, pTarget->est.pos );
+					Vector p1;
+					Quaternion q1;
+					MatrixAngles( g_viewtransform, q1, p1 );
+					pTarget->est.q = q1;
 
-					// ======================================================================
-					// ⭐⭐⭐ НОВЫЙ КОД: ТРАССИРОВКА ВНИЗ ДЛЯ ПОИСКА РЕАЛЬНОЙ ЗЕМЛИ
-					// ======================================================================
-					
-					// Параметры трассировки
-					const float TRACE_UP_OFFSET = 50.0f;      // Начинаем выше предполагаемой позиции
-					const float TRACE_DOWN_DISTANCE = 150.0f;  // Трассируем вниз на это расстояние
-					const float MAX_VALID_DROP = 100.0f;       // Максимально допустимое падение
-					const float MIN_FLOOR_NORMAL_Z = 0.7f;     // Минимальный Z компонент нормали (для отсева стен)
-
-					// Начальная точка - выше целевой позиции
-					Vector traceStart = tmp;
-					traceStart.z += TRACE_UP_OFFSET;
-
-					// Конечная точка - ниже целевой позиции
-					Vector traceEnd = tmp;
-					traceEnd.z -= TRACE_DOWN_DISTANCE;
-
-					// Трансформируем точки в world space для трассировки
-					Vector worldTraceStart, worldTraceEnd;
-					VectorTransform( traceStart, g_viewtransform, worldTraceStart );
-					VectorTransform( traceEnd, g_viewtransform, worldTraceEnd );
-
-					// Выполняем трассировку
-					trace_t groundTrace;
-					// ПРИМЕЧАНИЕ: Вам нужно будет реализовать функцию трассировки
-					// или использовать существующую из вашего engine
-					bool bHitGround = PerformGroundTrace( 
-						worldTraceStart, 
-						worldTraceEnd, 
-						&groundTrace 
-					);
-
-					Vector finalGroundPos = tmp;
-					QAngle surfaceAngles;
-					QAngle::Init( surfaceAngles, 0, 0, 0 );
-
-					if ( bHitGround && groundTrace.fraction < 1.0f )
+					float color[4] = { 0, 0, 0, 0 };
+					float wirecolor[4] = { 1, 1, 0, 1 };
+					if (pTarget->est.latched > 0.0)
 					{
-						// Проверяем что это действительно пол, а не стена
-						if ( groundTrace.plane.normal.z >= MIN_FLOOR_NORMAL_Z )
-						{
-							// Трансформируем точку попадания обратно в model space
-							Vector worldGroundPos = groundTrace.endpos;
-							VectorTransform( worldGroundPos, invViewTransform, finalGroundPos );
-
-							// Проверяем разумность падения
-							float dropDistance = tmp.z - finalGroundPos.z;
-							
-							if ( dropDistance >= 0 && dropDistance <= MAX_VALID_DROP )
-							{
-								// ✅ Используем найденную высоту земли
-								tmp.z = finalGroundPos.z;
-
-								// ✅ Вычисляем углы поверхности для поворота стопы
-								Vector surfaceNormal = groundTrace.plane.normal;
-								
-								// Преобразуем нормаль в model space
-								Vector modelSpaceNormal;
-								VectorRotate( surfaceNormal, invViewTransform, modelSpaceNormal );
-								
-								// Конвертируем нормаль в углы
-								VectorAngles( modelSpaceNormal, surfaceAngles );
-								
-								// Применяем поворот к target
-								Quaternion surfaceQuat;
-								AngleQuaternion( surfaceAngles, surfaceQuat );
-								pTarget->est.q = surfaceQuat;
-							}
-							else
-							{
-								// Слишком большое падение - используем дефолтные углы
-								Vector p1;
-								Quaternion q1;
-								MatrixAngles( g_viewtransform, q1, p1 );
-								pTarget->est.q = q1;
-								
-								// Используем оригинальную высоту пола
-								tmp.z = pTarget->est.floor;
-							}
-						}
-						else
-						{
-							// Попали в стену - используем оригинальную высоту
-							tmp.z = pTarget->est.floor;
-							
-							Vector p1;
-							Quaternion q1;
-							MatrixAngles( g_viewtransform, q1, p1 );
-							pTarget->est.q = q1;
-						}
+						wirecolor[1] = 1.0 - pTarget->est.flWeight;
 					}
 					else
 					{
-						// ⚠️ НЕ НАШЛИ ЗЕМЛЮ - используем оригинальную логику
-						tmp.z = pTarget->est.floor;
-						
-						Vector p1;
-						Quaternion q1;
-						MatrixAngles( g_viewtransform, q1, p1 );
-						pTarget->est.q = q1;
+						wirecolor[0] = 1.0 - pTarget->est.flWeight;
 					}
 
-					// === ОБРАТНАЯ ТРАНСФОРМАЦИЯ В WORLD SPACE ===
-					VectorTransform( tmp, g_viewtransform, pTarget->est.pos );
+					float r = max(pTarget->est.radius,1.f);
+					Vector p0 = tmp + Vector( -r, -r, 0 );
+					Vector p2 = tmp + Vector( r, r, 0 );
+					drawTransparentBox( p0, p2, g_viewtransform, color, wirecolor );
 
-					// ======================================================================
-					// ВИЗУАЛИЗАЦИЯ ДЛЯ ОТЛАДКИ
-					// ======================================================================
-					
-					if ( g_viewerSettings.showIKTargets )
-					{
-						float color[4] = { 0, 0, 0, 0 };
-						float wirecolor[4] = { 1, 1, 0, 1 };
-						
-						// Цветовая индикация состояния
-						if ( pTarget->est.latched > 0.0 )
-						{
-							// Locked - зелёный
-							wirecolor[0] = 0.0f;
-							wirecolor[1] = 1.0f;
-							wirecolor[2] = pTarget->est.flWeight;
-						}
-						else
-						{
-							// Unlocked - красный
-							wirecolor[0] = 1.0f;
-							wirecolor[1] = pTarget->est.flWeight;
-							wirecolor[2] = 0.0f;
-						}
 
-						// Рисуем бокс на земле
-						float r = max( pTarget->est.radius, 1.0f );
-						Vector p0 = tmp + Vector( -r, -r, 0 );
-						Vector p2 = tmp + Vector( r, r, 0 );
-						drawTransparentBox( p0, p2, g_viewtransform, color, wirecolor );
-
-						// Рисуем линию трассировки (для отладки)
-						if ( g_viewerSettings.showIKTraces && bHitGround )
-						{
-							Vector debugStart, debugEnd;
-							VectorTransform( traceStart, g_viewtransform, debugStart );
-							VectorTransform( finalGroundPos, g_viewtransform, debugEnd );
-							
-							drawLine( debugStart, debugEnd, 0, 255, 255 );
-							
-							// Рисуем нормаль поверхности
-							if ( groundTrace.plane.normal.z >= MIN_FLOOR_NORMAL_Z )
-							{
-								Vector normalEnd = groundTrace.endpos + groundTrace.plane.normal * 10.0f;
-								drawLine( groundTrace.endpos, normalEnd, 255, 0, 255 );
-							}
-						}
-
-						// Рисуем линию от estimated до latched позиции
-						drawLine( pTarget->est.pos, pTarget->latched.pos, 255, 128, 0 );
-					}
-
-					// Настройка отключения IK
-					if ( !g_viewerSettings.enableTargetIK )
+					if (!g_viewerSettings.enableTargetIK)
 					{
 						pTarget->est.flWeight = 0.0;
 					}
 				}
 				break;
-				
 			case IK_ATTACHMENT:
 				{
-					// Attachment IK остаётся без изменений
 					matrix3x4_t m;
+
 					QuaternionMatrix( pTarget->est.q, pTarget->est.pos, m );
 
-					if ( g_viewerSettings.showIKTargets )
-					{
-						drawTransform( m, 4 );
-					}
+					drawTransform( m, 4 );
 				}
 				break;
 			}
+
+			// drawLine( pTarget->est.pos, pTarget->latched.pos, 255, 0, 0 );
 		}
 		
-		// ⭐⭐⭐ РЕШЕНИЕ IK - применяет targets к костям
 		pIK->SolveDependencies( pos, q, m_pBoneToWorld, boneComputed );
 	}
-
-	// ======================================================================
-	// Остальной код без изменений
-	// ======================================================================
 
 	pbones = pStudioHdr->pBone( 0 );
 
@@ -739,7 +595,7 @@ void StudioModel::SetUpBones( bool mergeBones )
 		}
 		else if (boneComputed.IsBoneMarked(i))
 		{
-			// already calculated by IK
+			// already calculated
 		}
 		else if (CalcProceduralBone( pStudioHdr, i, CBoneAccessor( m_pBoneToWorld ) ))
 		{
@@ -756,7 +612,13 @@ void StudioModel::SetUpBones( bool mergeBones )
 			if ( (pStudioHdr->pBone( 0 )[i].flags & BONE_ALWAYS_PROCEDURAL) && 
 				 (pStudioHdr->pBone( 0 )[i].proctype & STUDIO_PROC_JIGGLE) )
 			{
+				//
 				// Physics-based "jiggle" bone
+				// Bone is assumed to be along the Z axis
+				// Pitch around X, yaw around Y
+				//
+
+				// compute desired bone orientation
 				matrix3x4_t goalMX;
 
 				if (pbones[i].parent == -1) 
@@ -768,6 +630,7 @@ void StudioModel::SetUpBones( bool mergeBones )
 					ConcatTransforms( m_pBoneToWorld[ pbones[i].parent ], bonematrix, goalMX );
 				}
 
+				// get jiggle properties from QC data
 				mstudiojigglebone_t *jiggleInfo = (mstudiojigglebone_t *)pStudioHdr->pBone( 0 )[i].pProcedure( );
 
 				if (!m_pJiggleBones)
@@ -775,11 +638,13 @@ void StudioModel::SetUpBones( bool mergeBones )
 					m_pJiggleBones = new CJiggleBones;
 				}
 
+				// do jiggle physics
 				m_pJiggleBones->BuildJiggleTransformations( i, GetRealtimeTime(), jiggleInfo, goalMX, m_pBoneToWorld[ i ] );
 			}
 			else if (pbones[i].parent == -1) 
 			{
 				ConcatTransforms( g_viewtransform, bonematrix, m_pBoneToWorld[ i ] );
+				// MatrixCopy(bonematrix, g_bonetoworld[i]);
 			} 
 			else 
 			{

@@ -112,34 +112,32 @@ const char* const g_szWeaponPrefixLookupTable[] = {
 	"grenade",
 	"knife"
 };
-
 struct procedural_foot_t
 {
-    Vector m_vecPosAnim;         
-    Vector m_vecPosAnimLast;     
-    Vector m_vecCurrent;         
-    Vector m_vecPosPlant;        
-    Vector m_vecPlantVel;        
-    Vector m_vecPendingTarget;   
-    float  m_flLockAmount = 0.0f;   
-    float  m_flLastPlantTime = 0.0f; 
-    bool   m_bHasPending = false;
-    bool   m_bPlanted = false;
-    float m_groundZLast;
-    float m_flLateralWeight;
-    float m_flLastLiftTime;
-
-    void Init(const Vector &vec)
-    {
-        m_vecPosAnim = m_vecPosAnimLast = m_vecCurrent = m_vecPosPlant = vec;
-        m_vecPlantVel.Init();
-        m_flLockAmount = 0.0f;
-        m_flLastPlantTime = 0.0f;
-        m_bHasPending = false;
-        m_vecPendingTarget.Init();
-        m_groundZLast = vec.z;
-        float m_flLastLiftTime = 0.0f;
-    }
+	Vector m_vecPosAnim;
+	Vector m_vecPosAnimLast;
+	Vector m_vecPosPlant;
+	Vector m_vecPlantVel;
+	float m_flLockAmount;
+	float m_flLastPlantTime;
+	procedural_foot_t()
+	{
+		m_vecPosAnim.Init();
+		m_vecPosAnimLast.Init();
+		m_vecPosPlant.Init();
+		m_vecPlantVel.Init();
+		m_flLockAmount = 0;
+		m_flLastPlantTime = gpGlobals->curtime;
+	}
+	void Init( Vector vecNew )
+	{
+		m_vecPosAnim = vecNew;
+		m_vecPosAnimLast = vecNew;
+		m_vecPosPlant = vecNew;
+		m_vecPlantVel.Init();
+		m_flLockAmount = 0;
+		m_flLastPlantTime = gpGlobals->curtime;
+	}
 };
 struct aimmatrix_transition_t
 {
@@ -191,8 +189,6 @@ public:
 	void					Release( void ) { delete this; }
 	void					Update( float eyeYaw, float eyePitch, bool bForce = false );
 	float					GetPrimaryCycle( void ) { return m_flPrimaryCycle; }
-	Vector                   SmoothLerp(float t, const Vector& from, const Vector& to);
-	void OffsetFeetForBackwardMotion(Vector& vecLeftTarget, Vector& vecRightTarget, float flFrameTime);
 	void					SetUpVelocity( void );
 	void					SetUpAimMatrix( void );
 	void					SetUpWeaponAction( void );
@@ -227,7 +223,6 @@ public:
 	void					ModifyEyePosition( Vector& vecInputEyePos );
 #ifdef CLIENT_DLL
 	bool					m_bFirstFootPlantSinceInit;
-	
 	void					DoProceduralFootPlant( matrix3x4_t boneToWorld[], mstudioikchain_t *pLeftFootChain, mstudioikchain_t *pRightFootChain, Vector pos[] );
 	int						m_iLastUpdateFrame;
 	

@@ -265,6 +265,9 @@ void Con_ToggleConsole_f( void )
 	if (EngineVGui()->IsConsoleVisible())
 	{
 		Con_HideConsole_f();
+
+		// If we hide the console, we also hide the game UI
+		EngineVGui()->HideGameUI();
 	}
 	else
 	{
@@ -1266,7 +1269,7 @@ void CConPanel::Paint()
 //-----------------------------------------------------------------------------
 // Purpose: 
 //-----------------------------------------------------------------------------
-static ConVar mod_version( "mod_version", "2.0", FCVAR_DEVELOPMENTONLY | FCVAR_CHEAT );
+static ConVar mod_version( "mod_version", "1.0", FCVAR_DEVELOPMENTONLY | FCVAR_CHEAT );
 void CConPanel::PaintBackground()
 {
 	if ( !Con_IsVisible() )
@@ -1275,9 +1278,9 @@ void CConPanel::PaintBackground()
 	int wide = GetWide();
 	char ver[ 100 ];
 	
-       if ( !Q_stricmp( "csso+", GetCurrentMod() ) ){ // weird hardcode but works
-		Q_snprintf(ver, sizeof( ver ), "Source Engine %i (build %d)  CS:SO-PLUSS v%2.1f by KROKY AND ATOMIC_REACTOR", PROTOCOL_VERSION, build_number(), mod_version.GetFloat() );
-	        Q_snprintf(ver, sizeof( ver ), "Unofficial port by kroky,atomic_reactor, saugpt, denchik nahuy, maga nahuy");
+       if ( !Q_stricmp( "csso", GetCurrentMod() ) ){ // weird hardcode but works
+		Q_snprintf(ver, sizeof( ver ), "Source Engine %i (build %d)  CS:SO v%2.1f by PiMoNFeeD", PROTOCOL_VERSION, build_number(), mod_version.GetFloat() );
+	        Q_snprintf(ver, sizeof( ver ), "Unofficial port by /dev/nvme0n1,den4iklovelinux,kroky,atomic_reactor(compiler)");
         }
         else{
              Q_snprintf(ver, sizeof( ver ), "Source Engine %i (build %d)", PROTOCOL_VERSION, build_number() );

@@ -78,10 +78,6 @@ enum view_id_t
 	VIEW_INTRO_CAMERA = 6,
 	VIEW_SHADOW_DEPTH_TEXTURE = 7,
 	VIEW_SSAO = 8,
-
-	VIEW_DEFERRED_GBUFFER = 9,
-	VIEW_DEFERRED_SHADOW = 10,
-
 	VIEW_ID_COUNT
 };
 view_id_t CurrentViewID();
@@ -320,7 +316,7 @@ public:
 	static CViewRender *	GetMainView() { return assert_cast<CViewRender *>( view ); }
 
 	void			AddViewToScene( CRendering3dView *pView ) { m_SimpleExecutor.AddView( pView ); }
-	
+protected:
 	// Sets up the view parameters for all views (left, middle and right eyes).
     void            SetUpViews();
 
@@ -427,7 +423,7 @@ public:
 	{
 		m_UnderWaterOverlayMaterial.Init( pMaterial );
 	}
-	
+private:
 	int				m_BuildWorldListsNumber;
 
 

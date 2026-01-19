@@ -21,8 +21,6 @@
 	#include "prediction.h"
 	#include "npcevent.h"
 	#include "eventlist.h"
-	#include "SkinProcessor.h"
-	#include "cs_weapon_parse.h"
 #endif
 // NVNT end extra includes
 
@@ -122,6 +120,14 @@ void RecvProxy_WeaponWorldmodel( const CRecvProxyData *pData, void *pStruct, voi
 	}
 }
 
+int CBaseWeaponWorldModel::DrawModel( int flags )
+{
+	if ( IsEffectActive(EF_NODRAW) || !ShouldDraw() )
+		return 0;
+
+	return BaseClass::DrawModel( flags );
+}
+
 void CBaseWeaponWorldModel::OnDataChanged( DataUpdateType_t type )
 {
 	if ( type == DATA_UPDATE_CREATED )
@@ -132,11 +138,6 @@ void CBaseWeaponWorldModel::OnDataChanged( DataUpdateType_t type )
 	BaseClass::OnDataChanged( type );
 
 	ValidateParent();
-	
-	if ( IsVisible() )
-		{
-		//	ApplyCustomMaterialsAndStickers();
-		}
 
 	UpdateVisibility();
 }
@@ -352,24 +353,6 @@ void CBaseWeaponWorldModel::HandleAnimEvent( animevent_t *pEvent )
 
 #ifdef CLIENT_DLL
 
-int CBaseWeaponWorldModel::DrawModel(int flags)
-{
-	CBaseWeaponWorldModel *pWeaponWorldModel;
-	
-	CBaseCombatWeapon* pWeapon;
-    
-    int ret = BaseClass::DrawModel(flags);
-
-    if ( pWeapon )
-  {
-    IMaterial* pSkinMat = g_SkinProcessor.GetSkinMaterial(pWeapon);
-    if (pSkinMat)
-        pWeaponWorldModel->SetMaterialOverride(pSkinMat);
-   }
-    
-    return ret;
-}
-
 void CBaseWeaponWorldModel::FireEvent( const Vector& origin, const QAngle& angles, int event, const char *options )
 {
 	if ( event == AE_CL_EJECT_MAG )
@@ -478,7 +461,6 @@ CBaseWeaponWorldModel* CBaseCombatWeapon::CreateWeaponWorldModel( void )
 
 		pWorldModel->SetOwningWeapon( this );
 		m_hWeaponWorldModel.Set( pWorldModel );
-	//	pWorldModel->ApplyCustomMaterials();
 
 		return pWorldModel;
 	}
@@ -496,7 +478,6 @@ void CBaseCombatWeapon::UpdateVisibility( void )
 	if ( pWeaponWorldModel )
 	{
 		pWeaponWorldModel->UpdateVisibility();
-	//	pWeaponWorldModel->ApplyCustomMaterials();
 	}
 	BaseClass::UpdateVisibility();
 }
@@ -1130,6 +1111,7 @@ bool CBaseCombatWeapon::CanBeSelected( void )
 
 	return HasAmmo();
 }
+
 //-----------------------------------------------------------------------------
 // Purpose: Return true if this weapon has some ammo
 //-----------------------------------------------------------------------------

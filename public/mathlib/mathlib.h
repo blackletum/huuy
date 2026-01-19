@@ -423,13 +423,7 @@ inline vec_t RoundInt (vec_t in)
 	return floor(in + 0.5f);
 }
 
-inline int Q_log2(int val)
-{
-	int answer=0;
-	while (val>>=1)
-		answer++;
-	return answer;
-}
+int Q_log2(int val);
 
 // Math routines done in optimized assembly math package routines
 void inline SinCos( float radians, float *sine, float *cosine )
@@ -620,53 +614,7 @@ void AngleQuaternion( RadianEuler const &angles, Quaternion &qt );
 void QuaternionAxisAngle( const Quaternion &q, Vector &axis, float &angle );
 void AxisAngleQuaternion( const Vector &axis, float angle, Quaternion &q );
 void BasisToQuaternion( const Vector &vecForward, const Vector &vecRight, const Vector &vecUp, Quaternion &q );
-
-//ATOMIC_REAKTOR: optimaized
-// The optimization replaces the original two-step process of converting a 3x4 matrix to Euler angles and then to a quaternion with a direct extraction of the quaternion from the matrix's 3x3 rotation component. 
-//By computing the quaternion using the matrix trace and dominant diagonal elements, it eliminates expensive trigonometric operations, reducing computational overhead. 
-//A normalization step ensures numerical stability. This can significantly improve performance (e.g., by 30–50%) in scenarios with frequent matrix-to-quaternion conversions, such as in game engines.
-
-inline void MatrixQuaternion(const matrix3x4_t &mat, Quaternion &q)
-{
-    float trace = mat[0][0] + mat[1][1] + mat[2][2];
-    if (trace > 0.0f) {
-        float s = sqrtf(trace + 1.0f) * 2.0f;
-        float inv_s = 1.0f / s;
-        q.w = 0.25f * s;
-        q.x = (mat[2][1] - mat[1][2]) * inv_s;
-        q.y = (mat[0][2] - mat[2][0]) * inv_s;
-        q.z = (mat[1][0] - mat[0][1]) * inv_s;
-    } else if (mat[0][0] > mat[1][1] && mat[0][0] > mat[2][2]) {
-        float s = sqrtf(1.0f + mat[0][0] - mat[1][1] - mat[2][2]) * 2.0f;
-        float inv_s = 1.0f / s;
-        q.w = (mat[2][1] - mat[1][2]) * inv_s;
-        q.x = 0.25f * s;
-        q.y = (mat[0][1] + mat[1][0]) * inv_s;
-        q.z = (mat[0][2] + mat[2][0]) * inv_s;
-    } else if (mat[1][1] > mat[2][2]) {
-        float s = sqrtf(1.0f + mat[1][1] - mat[0][0] - mat[2][2]) * 2.0f;
-        float inv_s = 1.0f / s;
-        q.w = (mat[0][2] - mat[2][0]) * inv_s;
-        q.x = (mat[0][1] + mat[1][0]) * inv_s;
-        q.y = 0.25f * s;
-        q.z = (mat[1][2] + mat[2][1]) * inv_s;
-    } else {
-        float s = sqrtf(1.0f + mat[2][2] - mat[0][0] - mat[1][1]) * 2.0f;
-        float inv_s = 1.0f / s;
-        q.w = (mat[1][0] - mat[0][1]) * inv_s;
-        q.x = (mat[0][2] + mat[2][0]) * inv_s;
-        q.y = (mat[1][2] + mat[2][1]) * inv_s;
-        q.z = 0.25f * s;
-    }
-    float len = sqrtf(q.x * q.x + q.y * q.y + q.z * q.z + q.w * q.w);
-    if (len > 0.0f) {
-        float inv_len = 1.0f / len;
-        q.x *= inv_len;
-        q.y *= inv_len;
-        q.z *= inv_len;
-        q.w *= inv_len;
-    }
-}
+void MatrixQuaternion( const matrix3x4_t &mat, Quaternion &q );
 
 // A couple methods to find the dot product of a vector with a matrix row or column...
 inline float MatrixRowDotProduct( const matrix3x4_t &in1, int row, const Vector& in2 )
@@ -1986,20 +1934,8 @@ inline void MatrixITransformPlane( const matrix3x4_t &src, const cplane_t &inPla
 	outPlane.dist -= outPlane.normal.x * vecInvTranslation[0] + outPlane.normal.y * vecInvTranslation[1] + outPlane.normal.z * vecInvTranslation[2];
 }
 
-inline int CeilPow2( int in )
-{
-	int retval = 1;
-	while( retval < in )
-		retval <<= 1;
-	return retval;
-}
-inline int FloorPow2( int in )
-{
-	int retval = 1;
-	while( retval < in )
-		retval <<= 1;
-	return retval >> 1;
-}
+int CeilPow2( int in );
+int FloorPow2( int in );
 
 FORCEINLINE float * UnpackNormal_HEND3N( const unsigned int *pPackedNormal, float *pNormal )
 {

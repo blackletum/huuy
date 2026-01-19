@@ -22,7 +22,6 @@ public:
 	CHudChatLine( vgui::Panel *parent, const char *panelName );
 
 	virtual void	ApplySchemeSettings(vgui::IScheme *pScheme);
-	virtual void Paint();
 
 private:
 	CHudChatLine( const CHudChatLine & ); // not defined, not accessible
@@ -48,9 +47,6 @@ class CHudChat : public CBaseHudChat
 
 public:
 	CHudChat( const char *pElementName );
-	virtual ~CHudChat();
-    virtual void ApplySchemeSettings( vgui::IScheme *pScheme );
-    void UpdateSafeZonePosition();
 
 	virtual bool	ShouldDraw();
 
@@ -68,12 +64,12 @@ public:
 	void			MsgFunc_RawAudio( bf_read &msg );
 
 	int				GetChatInputOffset( void );
-	
+
+
 	virtual Color	GetTextColorForClient( TextColor colorNum, int clientIndex );
 	virtual Color	GetClientColor( int clientIndex );
 
 	virtual int GetFilterForString( const char *pString );
-	bool m_bIsRadioMessage;
 };
 
 #endif	//CS_HUD_CHAT_H

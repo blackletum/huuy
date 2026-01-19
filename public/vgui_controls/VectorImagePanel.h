@@ -12,7 +12,6 @@
 #endif
 
 #include <vgui_controls/Panel.h>
-#include <Color.h>
 
 struct Bitmap_t;
 
@@ -32,12 +31,7 @@ public:
 	virtual void ApplySettings( KeyValues *inResourceData );
 	virtual void Paint();
 
-	// ИЗМЕНЕНО: Добавлены параметры для размытия и окраски краёв
-	void SetTexture( const char *szFilePath, 
-	                 bool bBlurEdges = false, 
-	                 int blurRadius = 5, 
-	                 Color edgeColor = Color(255, 255, 255, 255) );
-	
+	void SetTexture( const char *szFilePath );
 	void SetRepeatsCount( int repeats ) { m_nRepeatsCount = repeats; }
 	void DestroyTexture();
 	void SetRenderSize( int wide, int tall );

@@ -14,14 +14,10 @@
 #include "spectatorgui.h"
 #include "mapoverview.h"
 #include "cs_shareddefs.h"
-#include "vgui_avatarimage_nonsteam.h"
-#include "vgui_borderprogress.h"
+#include "vgui_avatarimage.h"
 
 extern ConVar mp_playerid; // in cs_gamerules.h
 extern ConVar mp_forcecamera; // in gamevars_shared.h
-
-class C_CSPlayer;
-class C_PlayerResource;
 
 void Radar_FlashPlayer( int iPlayer );
 
@@ -39,18 +35,6 @@ public:
 	bool m_bRadarFlash;				// flash or do not, there is no try
 };
 
-class CPlayerBgPanel : public vgui::Panel
-{
-    DECLARE_CLASS_SIMPLE(CPlayerBgPanel, vgui::Panel);
-
-public:
-    CPlayerBgPanel(vgui::Panel* parent, const char* name);
-    void SetAlive(bool alive) { m_bAlive = alive; InvalidateLayout(); }
-    
-    virtual void PaintBackground() override;
-private:
-    bool m_bAlive;
-};
 
 //-----------------------------------------------------------------------------
 // Purpose: Cstrike Spectator UI
@@ -69,14 +53,9 @@ public:
 
 protected:
 
-    static int __cdecl PlayerScoreCompare( const void *elem1, const void *elem2 );
-	static C_PlayerResource *m_pCurrentPR;
-
 	void UpdateTimer();
 	void UpdateTeamInfo();
 	void UpdateRoundCounter();
-	void UpdateTeamAvatars();
-	void UpdateTeamAvatarsInternal(C_Team *team, CAvatarImagePanel *avatars[5], int count);
 
 	int		m_nLastTime;
 	int		m_nLastSpecMode;
@@ -102,19 +81,6 @@ protected:
 	CPanelAnimationVar( Color, m_pTStripColor, "TStripColor", "White" );
 	CPanelAnimationVar( Color, m_clrC4Planted, "C4PlantedColor", "White" );
 	CPanelAnimationVar( Color, m_clrC4Defused, "C4DefusedColor", "White" );
-	
-	
-	CAvatarImagePanel *m_pCTAvatars[5];
-	CAvatarImagePanel *m_pTAvatars[5];
-	int m_nLastCTPlayerIdx[5];
-    int m_nLastTPlayerIdx[5];
-	bool m_bForceRefresh;
-	vgui::Label *m_pCTNames[5];
-    vgui::Label *m_pTNames[5];
-    vgui::ContinuousProgressBar *m_pCTHealth[5];
-    vgui::ContinuousProgressBar *m_pTHealth[5];
-    CPlayerBgPanel* m_pCTBg[5];
-    CPlayerBgPanel* m_pTBg[5];
 };
 
 //////////////////////////////////////////////////////////////////////////
@@ -232,12 +198,6 @@ public: // IViewPortPanel interface:
 
 	// Object settings
 	virtual void	FlashEntity( int entityID );
-	
-	// blink overlay when bomb planted
-    float m_flLastBombTickTime;
-    float m_flBombBlinkSpeed;
-    float m_flNextBombBlinkTime;
-    bool  m_bBombOverlayVisible;   
 
 	// rules that define if you can see a player on the overview or not
 	virtual bool CanPlayerBeSeen(MapPlayer_t *player);
@@ -245,8 +205,6 @@ public: // IViewPortPanel interface:
 	virtual int GetIconNumberFromTeamNumber( int teamNumber );
 
 	void MsgFunc_UpdateRadar( bf_read &msg );
-	
-	virtual void	UpdateSizeAndPosition();
 
 protected:
 
@@ -260,6 +218,7 @@ protected:
 	void			DrawGoalIcons();
 	virtual void	ResetRound();
 	virtual void	InitTeamColorsAndIcons();
+	virtual void	UpdateSizeAndPosition();
 	void			UpdateGoalIcons();
 	void			ClearGoalIcons();
 	virtual bool	IsRadarLocked();
@@ -313,14 +272,6 @@ private:
 	int		m_TeamIconsOffscreen[MAP_ICON_COUNT];
 	int		m_TeamIconsGhost[MAP_ICON_COUNT];
 	int		m_TeamIconsBomb[MAP_ICON_COUNT];
-	
-	// Teammate colored icons
-	int		m_TeammateColorIcons[5];
-	int		m_TeammateColorIconsSelf[5];
-	int		m_TeammateColorIconsDead[5];
-	int		m_TeammateColorIconsOffscreen[5];
-	int		m_TeammateColorIconsGhost[5];
-	int		m_TeammateColorIconsBomb[5];
 
 	int		m_bombRingPlanted;
 	int		m_bombRingDropped;
@@ -346,7 +297,6 @@ private:
 	int m_nCircleBackgroundTextureID;
 	int m_nCircleOverlayTextureID;
 	int m_nSquareOverlayTextureID;
-	int m_nRedOverlayTextureID;
 
 	int m_nCurrentRadarVerticalSection;
 

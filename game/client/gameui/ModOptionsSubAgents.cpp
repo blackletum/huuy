@@ -19,9 +19,6 @@
 #include "LabeledCommandComboBox.h"
 #include "tier1/convar.h"
 #include "BitmapImagePanel.h"
-#include "vgui_controls/ImagePanel.h"
-#include <vgui_controls/ScrollBar.h>
-#include "vgui_controls/PropertySheet.h"
 
 #include "cs_shareddefs.h"
 #include "GameUI_Interface.h"
@@ -132,55 +129,6 @@ static Agents agentsT[] =
 };
 
 //-----------------------------------------------------------------------------
-// ImageButton implementation
-//-----------------------------------------------------------------------------
-ImageButton::ImageButton( Panel *parent, const char *imageName )
-    : Button( parent, "", "" )
-{
-    m_textureID = surface()->CreateNewTextureID();
-    surface()->DrawSetTextureFile( m_textureID, imageName, true, false );
-
-    SetPaintBackgroundEnabled( false );
-    SetMouseInputEnabled( true );
-    SetKeyBoardInputEnabled( false );
-
-    m_bSelected = false;
-}
-
-void ImageButton::SetImage( const char *imageName )
-{
-    surface()->DrawSetTextureFile( m_textureID, imageName, true, false );
-}
-
-void ImageButton::Paint()
-{
-    int color = m_bSelected ? 120 : 160;
-
-    surface()->DrawSetColor( color, color, color, 100 );
-    surface()->DrawFilledRect( 0, 0, GetWide(), GetTall() );
-
-    surface()->DrawSetTexture( m_textureID );
-    surface()->DrawSetColor( 255, 255, 255, 255 );
-    surface()->DrawTexturedRect( 0, 0, GetWide(), GetTall() );
-}
-
-void ImageButton::OnMousePressed(vgui::MouseCode code)
-{
-    m_bSelected = true;
-    input()->SetMouseCapture(GetVPanel());
-    BaseClass::OnMousePressed(code);
-}
-
-void ImageButton::OnMouseReleased(vgui::MouseCode code)
-{
-    m_bSelected = false;
-    input()->SetMouseCapture(NULL);
-    
-    // Trigger the command
-    BaseClass::OnMouseReleased(code);
-}
-
-//-----------------------------------------------------------------------------
 // Purpose: Basic help dialog
 //-----------------------------------------------------------------------------
 CModOptionsSubAgents::CModOptionsSubAgents(vgui::Panel *parent) : vgui::PropertyPage(parent, "ModOptionsSubAgents") 
@@ -195,12 +143,6 @@ CModOptionsSubAgents::CModOptionsSubAgents(vgui::Panel *parent) : vgui::Property
 	apply->SetCommand( "Apply" );
 
 	//=========
-	
-	m_pScrollableChild = new EditablePanel(this, "ScrollableChild");
-    m_pScrollablePanel = new ScrollableEditablePanel(this, m_pScrollableChild, "ScrollablePanel");
-
-	m_pAgentButtonContainer = new CImageButtonContainer(m_pScrollableChild, "AgentButtonContainer");
-	m_pAgentButtonContainer->SetBounds( 0, 0, 2000, 2000 );
 
 	m_pLoadoutAgentCTComboBox = new CLabeledCommandComboBox( this, "AgentCTComboBox" );
 	m_pLoadoutAgentTComboBox = new CLabeledCommandComboBox( this, "AgentTComboBox" );
@@ -211,9 +153,7 @@ CModOptionsSubAgents::CModOptionsSubAgents(vgui::Panel *parent) : vgui::Property
 	m_pAgentImageCT->AddActionSignalTarget( this );
 	m_pAgentImageT = new CBitmapImagePanel( this, "AgentImageT", NULL );
 	m_pAgentImageT->AddActionSignalTarget( this );
-	
-	m_pPlayerModel = new CBasePlayerModelPanel(this, "PlayerModel");
-	
+
 	char command[64];
 	int i;
 	for ( i = 0; i < ARRAYSIZE( agentsCT ); i++ )
@@ -236,105 +176,18 @@ CModOptionsSubAgents::CModOptionsSubAgents(vgui::Panel *parent) : vgui::Property
 		Q_snprintf( command, sizeof( command ), "loadout_mainmenu_weapon_t %d", i );
 		m_pLoadoutMainMenuWeaponTComboBox->AddItem( GetCSMainMenuWeaponT( i )->m_pszName, command );
 	}
-	
-	// Populate agent buttons
-	PopulateAgentButtons();
 
-	LoadControlSettings("Resource/UI/ModOptionsSubAgents.res");
+	m_pLoadoutAgentCTComboBox->AddActionSignalTarget( this );
+	m_pLoadoutAgentTComboBox->AddActionSignalTarget( this );
+	m_pLoadoutMainMenuWeaponCTComboBox->AddActionSignalTarget( this );
+	m_pLoadoutMainMenuWeaponTComboBox->AddActionSignalTarget( this );
+
+	LoadControlSettings("Resource/ModOptionsSubAgents.res");
 }
 
 //-----------------------------------------------------------------------------
-// Purpose: Populate agent buttons using existing agent arrays
+// Purpose: 
 //-----------------------------------------------------------------------------
-void CModOptionsSubAgents::PopulateAgentButtons()
-{
-	if (!m_pAgentButtonContainer)
-		return;
-
-	m_pAgentButtonContainer->RemoveAll();
-
-	char texturePath[128];
-	char command[64];
-	
-	// Add CT agents
-	for (int i = 0; i < ARRAYSIZE(agentsCT); i++)
-	{
-		Q_snprintf(texturePath, sizeof(texturePath), "vgui/agents/%s", agentsCT[i].m_szImage);
-		Q_snprintf(command, sizeof(command), "loadout_slot_agent_ct %d", i);
-		
-		m_pAgentButtonContainer->AddImageButton(
-			texturePath, 
-			command, 
-			agentsCT[i].m_szUIName,
-			this  // Action signal target
-		);
-	}
-	
-	// Add T agents
-	for (int i = 0; i < ARRAYSIZE(agentsT); i++)
-	{
-		Q_snprintf(texturePath, sizeof(texturePath), "vgui/agents/%s", agentsT[i].m_szImage);
-		Q_snprintf(command, sizeof(command), "loadout_slot_agent_t %d", i);
-		
-		m_pAgentButtonContainer->AddImageButton(
-			texturePath, 
-			command, 
-			agentsT[i].m_szUIName,
-			this  // Action signal target
-		);
-	}
-	
-	m_pAgentButtonContainer->InvalidateLayout(true);
-}
-
-//-----------------------------------------------------------------------------
-// Purpose: Handle commands from buttons
-//-----------------------------------------------------------------------------
-void CModOptionsSubAgents::OnCommand( const char *command )
-{
-	if ( !command || !command[0] )
-	{
-		BaseClass::OnCommand( command );
-		return;
-	}
-
-	// Handle agent selection commands
-	if ( Q_strnicmp( command, "loadout_slot_agent_ct ", 22 ) == 0 )
-	{
-		int value = atoi( command + 22 );
-		ConVarRef var( "loadout_slot_agent_ct" );
-		if ( var.IsValid() )
-		{
-			var.SetValue( value );
-			m_iCTAgent = value;
-			
-			// Update combo box to reflect the change
-			m_pLoadoutAgentCTComboBox->SetInitialItem( value );
-			
-			OnControlModified();
-		}
-		return;
-	}
-	else if ( Q_strnicmp( command, "loadout_slot_agent_t ", 21 ) == 0 )
-	{
-		int value = atoi( command + 21 );
-		ConVarRef var( "loadout_slot_agent_t" );
-		if ( var.IsValid() )
-		{
-			var.SetValue( value );
-			m_iTAgent = value;
-			
-			// Update combo box to reflect the change
-			m_pLoadoutAgentTComboBox->SetInitialItem( value );
-			
-			OnControlModified();
-		}
-		return;
-	}
-
-	BaseClass::OnCommand( command );
-} 
-
 CModOptionsSubAgents::~CModOptionsSubAgents()
 {
 }
@@ -342,19 +195,48 @@ CModOptionsSubAgents::~CModOptionsSubAgents()
 //-----------------------------------------------------------------------------
 // Purpose: 
 //-----------------------------------------------------------------------------
-void CModOptionsSubAgents::OnControlModified()
+void CModOptionsSubAgents::RemapAgentsImage()
 {
-	PostActionSignal( new KeyValues("ApplyButtonEnable") );
-	UpdateAgentModel();
-	UpdateAgentImages();
+	const char *pImageNameCT = agentsCT[m_pLoadoutAgentCTComboBox->GetActiveItem()].m_szImage;
+	const char *pImageNameT = agentsT[m_pLoadoutAgentTComboBox->GetActiveItem()].m_szImage;
+
+	char texture[256];
+	if ( pImageNameCT != NULL )
+	{
+		Q_snprintf( texture, sizeof( texture ), "vgui/agents/%s", pImageNameCT );
+		m_pAgentImageCT->setTexture( texture );
+	}
+	else
+	{
+		m_pAgentImageCT->setTexture( "vgui/agents/ct_none" );
+	}
+
+	if ( pImageNameT != NULL )
+	{
+		Q_snprintf( texture, sizeof( texture ), "vgui/agents/%s", pImageNameT );
+		m_pAgentImageT->setTexture( texture );
+	}
+	else
+	{
+		m_pAgentImageT->setTexture( "vgui/agents/t_none" );
+	}
 }
 
 //-----------------------------------------------------------------------------
 // Purpose: 
 //-----------------------------------------------------------------------------
-void CModOptionsSubAgents::OnTextChanged(Panel *panel)
+void CModOptionsSubAgents::OnControlModified()
 {
-	OnControlModified();
+	PostMessage(GetParent(), new KeyValues("ApplyButtonEnable"));
+	InvalidateLayout();
+}
+
+//-----------------------------------------------------------------------------
+// Purpose: 
+//-----------------------------------------------------------------------------
+void CModOptionsSubAgents::OnTextChanged( vgui::Panel *panel )
+{
+	RemapAgentsImage();
 }
 
 //-----------------------------------------------------------------------------
@@ -362,126 +244,20 @@ void CModOptionsSubAgents::OnTextChanged(Panel *panel)
 //-----------------------------------------------------------------------------
 void CModOptionsSubAgents::OnResetData()
 {
-	ConVarRef var1( "loadout_slot_agent_ct" );
-	m_iCTAgent = var1.GetInt();
-	m_pLoadoutAgentCTComboBox->Reset();
+	ConVarRef loadout_slot_agent_ct( "loadout_slot_agent_ct" );
+	m_pLoadoutAgentCTComboBox->SetInitialItem( loadout_slot_agent_ct.GetInt() );
 
-	ConVarRef var2( "loadout_slot_agent_t" );
-	m_iTAgent = var2.GetInt();
-	m_pLoadoutAgentTComboBox->Reset();
-	
-	ConVarRef var3( "loadout_slot_gloves_ct" );
-	m_iCTGloves = var3.GetInt();
+	ConVarRef loadout_slot_agent_t( "loadout_slot_agent_t" );
+	m_pLoadoutAgentTComboBox->SetInitialItem( loadout_slot_agent_t.GetInt() );
 
-	ConVarRef var4( "loadout_slot_gloves_t" );
-	m_iTGloves = var4.GetInt();
-	
-	ConVarRef var5( "loadout_mainmenu_weapon_ct" );
-	m_iCTWeapon = var5.GetInt();
-	m_pLoadoutMainMenuWeaponCTComboBox->Reset();
+	ConVarRef loadout_mainmenu_weapon_ct( "loadout_mainmenu_weapon_ct" );
+	m_pLoadoutMainMenuWeaponCTComboBox->SetInitialItem( loadout_mainmenu_weapon_ct.GetInt() );
 
-	ConVarRef var6( "loadout_mainmenu_weapon_t" );
-	m_iTWeapon = var6.GetInt();
-	m_pLoadoutMainMenuWeaponTComboBox->Reset();
-	
-	ConVarRef var7( "loadout_mainmenu_agent_to_use" );
-	m_iAgentToUse = var7.GetInt();
+	ConVarRef loadout_mainmenu_weapon_t( "loadout_mainmenu_weapon_t" );
+	m_pLoadoutMainMenuWeaponTComboBox->SetInitialItem( loadout_mainmenu_weapon_t.GetInt() );
 
 	RemapAgentsImage();
-	UpdateAgentModel();
 }
-
-void CModOptionsSubAgents::RemapAgentsImage()
-{
-	char szImage[MAX_PATH];
-	Q_snprintf( szImage, sizeof( szImage ), "vgui/agents/%s", agentsCT[m_iCTAgent].m_szImage );
-	m_pAgentImageCT->setTexture( szImage );
-
-	Q_snprintf( szImage, sizeof( szImage ), "vgui/agents/%s", agentsT[m_iTAgent].m_szImage );
-	m_pAgentImageT->setTexture( szImage );
-}
-
-void CModOptionsSubAgents::UpdateAgentImages()
-{
-	ConVarRef var1( "loadout_slot_agent_ct" );
-	m_iCTAgent = var1.GetInt();
-
-	ConVarRef var2( "loadout_slot_agent_t" );
-	m_iTAgent = var2.GetInt();
-	
-	RemapAgentsImage();
-}
-
-void CModOptionsSubAgents::UpdateAgentModel()
-{
-	if ( m_pPlayerModel && m_pPlayerModel->IsVisible() )
-	{
-		ConVarRef var1( "loadout_slot_agent_ct" );
-		m_iCTAgent = var1.GetInt();
-		
-		ConVarRef var2( "loadout_slot_agent_t" );
-		m_iTAgent = var2.GetInt();
-		
-		ConVarRef var3( "loadout_slot_gloves_ct" );
-		m_iCTGloves = var3.GetInt();
-		
-		ConVarRef var4( "loadout_slot_gloves_t" );
-		m_iTGloves = var4.GetInt();
-		
-		ConVarRef var5( "loadout_mainmenu_weapon_ct" );
-		m_iCTWeapon = var5.GetInt();
-		
-		ConVarRef var6( "loadout_mainmenu_weapon_t" );
-		m_iTWeapon = var6.GetInt();
-		
-		ConVarRef var7( "loadout_mainmenu_agent_to_use" );
-		m_iAgentToUse = var7.GetInt();
-
-		if ( m_iAgentToUse == 1 )
-		{
-			const char* pszModel = GetCSAgentInfoT( m_iTAgent )->m_szModel;
-			m_pPlayerModel->SetMDL( pszModel );
-			m_pPlayerModel->SetMergeMDL( GetCSMainMenuWeaponT( m_iTWeapon )->m_pszModel );
-			m_pPlayerModel->PlaySequence( GetCSMainMenuWeaponT( m_iTWeapon )->m_pszSequence );
-
-			if ( m_iTGloves > 0 )
-			{
-				if ( m_pPlayerModel->SetBodygroup( "gloves", 1 ) )
-				{
-					CMDL* pGloves = m_pPlayerModel->SetMergeMDL( GetGlovesInfo( m_iTGloves )->szWorldModel );
-					if ( pGloves )
-						pGloves->m_nSkin = GetPlayerViewmodelArmConfigForPlayerModel( pszModel )->iSkintoneIndex;
-				}
-			}
-			else
-			{
-				m_pPlayerModel->SetBodygroup( "gloves", 0 );
-			}
-		}
-		else
-		{
-			const char* pszModel = GetCSAgentInfoCT( m_iCTAgent )->m_szModel;
-			m_pPlayerModel->SetMDL( pszModel );
-			m_pPlayerModel->SetMergeMDL( GetCSMainMenuWeaponCT( m_iCTWeapon )->m_pszModel );
-			m_pPlayerModel->PlaySequence( GetCSMainMenuWeaponCT( m_iCTWeapon )->m_pszSequence );
-
-			if ( m_iCTGloves > 0 )
-			{
-				if ( m_pPlayerModel->SetBodygroup( "gloves", 1 ) )
-				{
-					CMDL* pGloves = m_pPlayerModel->SetMergeMDL( GetGlovesInfo( m_iCTGloves )->szWorldModel );
-					if ( pGloves )
-						pGloves->m_nSkin = GetPlayerViewmodelArmConfigForPlayerModel( pszModel )->iSkintoneIndex;
-				}
-			}
-			else
-			{
-				m_pPlayerModel->SetBodygroup( "gloves", 0 );
-			}
-		}
-	}
-}
-
 
 //-----------------------------------------------------------------------------
 // Purpose: 
@@ -495,5 +271,4 @@ void CModOptionsSubAgents::OnApplyChanges()
 
 	// update agent on main menu
 	GameUI().UpdateAgentModel();
-	UpdateAgentModel();
 }

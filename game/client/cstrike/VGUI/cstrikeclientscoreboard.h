@@ -15,7 +15,7 @@
 #include <vgui_controls/ImagePanel.h>
 #include "cs_shareddefs.h"
 #include <vgui_controls/Frame.h>
-#include "vgui_avatarimage_nonsteam.h"
+#include "vgui_avatarimage.h"
 #include "c_cs_playerresource.h"
 
 #define SCOREBOARD_MOUSE_INPUT 0

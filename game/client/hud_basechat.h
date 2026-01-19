@@ -40,12 +40,10 @@ namespace vgui
 
 extern Color g_ColorBlue;
 extern Color g_ColorRed;
-extern Color g_ColorTer;
 extern Color g_ColorGreen;
 extern Color g_ColorDarkGreen;
 extern Color g_ColorYellow;
 extern Color g_ColorGrey;
-extern Color g_ColorWhite;
 
 extern ConVar cl_showtextmsg;
 
@@ -185,7 +183,6 @@ class CHudChatHistory : public vgui::RichText
 public:
 
 	CHudChatHistory( vgui::Panel *pParent, const char *panelName );
-    virtual void PaintBackground();
 
 	virtual void	ApplySchemeSettings(vgui::IScheme *pScheme);
 };

@@ -35,7 +35,6 @@ $Project "inputsystem"
 		$File	"key_translation.h"
 		$File	"steamcontroller.cpp"
 		$File	"touch_sdl.cpp"
-		$File    "gyro_sdl.cpp"
 	}
 
 	$Folder	"Public Headers"

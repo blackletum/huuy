@@ -407,17 +407,15 @@ void CTextWindow::ShowPanel( bool bShow )
 {
 	if ( BaseClass::IsVisible() == bShow )
 		return;
-        
-    if ( bShow )
+
+	m_pViewPort->ShowBackGround( bShow );
+
+	if ( bShow )
 	{
-		engine->ClientCmd_Unrestricted( "chooseteam" );
-			return;
+		Activate();
+		SetMouseInputEnabled( true );
 	}
-
-//	m_pViewPort->ShowBackGround( bShow );
-
-	
-/*	else
+	else
 	{
 		SetVisible( false );
 		SetMouseInputEnabled( false );
@@ -427,7 +425,7 @@ void CTextWindow::ShowPanel( bool bShow )
 			m_pHTMLMessage->OpenURL( "about:blank", NULL );
 			m_bShownURL = false;
 		}
-	}*/
+	}
 }
 
 bool CTextWindow::CMOTDHTML::OnStartRequest( const char *url, const char *target, const char *pchPostData, bool bIsRedirect )

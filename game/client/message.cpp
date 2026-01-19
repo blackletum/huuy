@@ -11,7 +11,6 @@
 // implementation of CHudMessage class
 //
 #include "cbase.h"
-#include "message.h"
 #include "hudelement.h"
 #include "hud_macros.h"
 #include "itextmessage.h"
@@ -44,8 +43,109 @@ using namespace vgui;
 
 static const char *s_NetworkMessageNames[MAX_NETMESSAGE] = { NETWORK_MESSAGE1, NETWORK_MESSAGE2, NETWORK_MESSAGE3, NETWORK_MESSAGE4, NETWORK_MESSAGE5, NETWORK_MESSAGE6 };
 
-// УДАЛЕНЫ ДУБЛИКАТЫ: const int maxHUDMessages и struct message_parms_t
-// Эти определения теперь находятся в message.h
+const int maxHUDMessages = 16;
+struct message_parms_t
+{
+	client_textmessage_t	*pMessage;
+	float	time;
+	int x, y;
+	int	totalWidth, totalHeight;
+	int width;
+	int lines;
+	int lineLength;
+	int length;
+	int r, g, b;
+	int text;
+	int fadeBlend;
+	float charTime;
+	float fadeTime;
+	const char *vguiFontName;
+	vgui::HFont	font;
+};
+
+//
+//-----------------------------------------------------
+//
+
+class CHudMessage: public CHudElement, public vgui::Panel, public ITextMessage 
+{
+	DECLARE_CLASS_SIMPLE( CHudMessage, vgui::Panel );
+public:
+
+	enum
+	{
+		TYPE_UNKNOWN = 0,
+		TYPE_POSITION,
+		TYPE_CHARACTER,
+		TYPE_FONT,
+	};
+
+	struct message_t
+	{
+		vgui::HFont	font;
+		short		x, y;
+		wchar_t		ch;
+		byte		type;
+		byte		r, g, b, a;
+	};
+
+	CHudMessage( const char *pElementName );
+	~CHudMessage();
+
+	void Init( void );
+	void VidInit( void );
+	bool ShouldDraw( void );
+	virtual void Paint();
+	void MsgFunc_HudText(bf_read &msg);
+	void MsgFunc_GameTitle(bf_read &msg);
+	void MsgFunc_HudMsg(bf_read &msg);
+
+	float FadeBlend( float fadein, float fadeout, float hold, float localTime );
+	int	XPosition( float x, int width, int lineWidth );
+	int YPosition( float y, int height );
+
+	void MessageAdd( const char *pName );
+	void MessageDrawScan( client_textmessage_t *pMessage, float time );
+	void MessageScanStart( void );
+	void MessageScanNextChar( void );
+	void Reset( void );
+
+	virtual void ApplySchemeSettings( IScheme *scheme );
+
+	void SetFont( HScheme scheme, const char *pFontName );
+
+public: // ITextMessage
+	virtual void		SetPosition( int x, int y );
+	virtual void		AddChar( int r, int g, int b, int a, wchar_t ch );
+
+	virtual void		GetLength( int *wide, int *tall, const char *string );
+	virtual int			GetFontInfo( FONTABC *pABCs, vgui::HFont hFont );
+
+	virtual void		SetFont( vgui::HFont hCustomFont );
+	virtual void		SetDefaultFont( void );
+
+private:
+
+	message_t			*AllocMessage( void );
+	void				ResetCharacters( void );
+	void				PaintCharacters();
+	virtual void		GetTextExtents( int *wide, int *tall, const char *string );
+
+
+	client_textmessage_t		*m_pMessages[maxHUDMessages];
+	float						m_startTime[maxHUDMessages];
+	message_parms_t				m_parms;
+	float						m_gameTitleTime;
+	client_textmessage_t		*m_pGameTitle;
+	bool						m_bHaveMessage;
+
+	CHudTexture *m_iconTitleLife;
+	CHudTexture *m_iconTitleHalf;
+
+	vgui::HFont					m_hFont;
+	vgui::HFont					m_hDefaultFont;
+	CUtlVector< message_t >		m_Messages;
+};
 
 //-----------------------------------------------------------------------------
 // Purpose: 

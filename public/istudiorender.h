@@ -147,7 +147,6 @@ enum OverrideType_t
 	OVERRIDE_BUILD_SHADOWS,
 	OVERRIDE_DEPTH_WRITE,
 	OVERRIDE_SSAO_DEPTH_WRITE,
-	OVERRIDE_FIRST_MATERIAL_ONLY,
 };
 
 
@@ -242,13 +241,6 @@ struct GetTriangles_Output_t
 	matrix3x4_t m_PoseToWorld[MAXSTUDIOBONES];
 };
 
-struct FlashlightInstance_t
-{
-	IMaterial *m_pDebugMaterial;
-	FlashlightState_t m_FlashlightState;
-	VMatrix m_WorldToTexture;
-	ITexture *m_pFlashlightDepthTexture;
-};
 
 struct model_array_instance_t 
 {

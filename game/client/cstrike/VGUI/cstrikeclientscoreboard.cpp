@@ -33,7 +33,7 @@
 #include "VGuiMatSurface/IMatSystemSurface.h"
 
 #include "voice_status.h"
-#include "vgui_avatarimage_nonsteam.h"
+#include "vgui_avatarimage.h"
 
 using namespace vgui;
 
@@ -880,13 +880,12 @@ void CCSClientScoreBoardDialog::UpdatePlayerAvatar( int playerIndex, KeyValues* 
 		return;
 
 	// Update their avatar
-	if ( kv && ShowAvatars() /*steamapicontext->SteamFriends() && steamapicontext->SteamUtils() */)
+	if ( kv && ShowAvatars() && steamapicontext->SteamFriends() && steamapicontext->SteamUtils() )
 	{
 		player_info_t pi;
 		if ( engine->GetPlayerInfo( playerIndex, &pi ) )
 		{
 			int iTeamNumber = g_PR->GetTeam( playerIndex );
-#if 0
 			int iImageIndex;
 			if ( pi.friendsID )
 			{
@@ -935,42 +934,7 @@ void CCSClientScoreBoardDialog::UpdatePlayerAvatar( int playerIndex, KeyValues* 
 
 				kv->SetInt( "avatar", iImageIndex );
 			}
-#else 
-				int iImageIndex = -1;
-				
-				IImage* pDefaultImage;
-				if ( iTeamNumber == TEAM_TERRORIST )
-				{
-					pDefaultImage = scheme()->GetImage( CSTRIKE_DEFAULT_T_AVATAR, true );
-				}
-				else
-				{
-					pDefaultImage = scheme()->GetImage( CSTRIKE_DEFAULT_CT_AVATAR, true );
-				}
-
-				// See if we already have that avatar in our list
-				int iMapIndex = m_mapAvatarsToImageList.Find( pi.userID );
-				if ( iMapIndex == m_mapAvatarsToImageList.InvalidIndex() )
-				{
-					CAvatarImage *pImage = new CAvatarImage();
-					pImage->SetDefaultImage( pDefaultImage );
-					pImage->SetAvatarFromPI( pi );
-					pImage->SetAvatarSize( 32, 32 );	// Deliberately non scaling
-					iImageIndex = m_pImageList->AddImage( pImage );
-
-					m_mapAvatarsToImageList.Insert( pi.userID, iImageIndex );
-				}
-				else
-				{
-					iImageIndex = m_mapAvatarsToImageList[iMapIndex];
-				}
-
-				kv->SetInt( "avatar", iImageIndex );
-
-				CAvatarImage *pAvIm = (CAvatarImage *)m_pImageList->GetImage( iImageIndex );
-				pAvIm->UpdateFriendStatus();
-				}
-#endif
+		}
 	}
 }
 

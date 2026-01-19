@@ -36,22 +36,15 @@ CCreateMultiplayerGameDialog::CCreateMultiplayerGameDialog(vgui::Panel *parent) 
 {
 	SetDeleteSelfOnClose(true);
 
-	int screenWidth, screenHeight;
-    vgui::surface()->GetScreenSize(screenWidth, screenHeight);
+	int w = 424;
+	int h = 460;
+	if (IsProportional())
+	{
+		w = scheme()->GetProportionalScaledValueEx(GetScheme(), w);
+		h = scheme()->GetProportionalScaledValueEx(GetScheme(), h);
+	}
 
-    int w = static_cast<int>(screenWidth * 0.9f); 
-    int h = static_cast<int>(screenHeight * 1.0f); 
-
-    w = MAX(w, 800); 
-    h = MAX(h, 600); 
-
-    
-    w = MIN(w, 2674); 
-    h = MIN(h, 1220); 
-
-    SetSize(w, h);
-	
-	SetSizeable( false );
+	SetSize(w, h);
 	
 	SetTitle("#GameUI_CreateServer", true);
 	SetOKButtonText("#GameUI_Start");

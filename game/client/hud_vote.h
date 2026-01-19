@@ -17,7 +17,7 @@
 #include <vgui_controls/Frame.h>
 #include <vgui_controls/Button.h>
 #include <networkstringtabledefs.h>
-#include "vgui_avatarimage_nonsteam.h"
+#include "vgui_avatarimage.h"
 
 extern INetworkStringTable *g_pStringTableServerMapCycle;
 

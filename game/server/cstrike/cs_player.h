@@ -248,9 +248,6 @@ public:
 	virtual void		Spawn();
 	virtual void		InitialSpawn( void );
 	virtual void		PostSpawnPointSelection( void );
-	void InitTeammatePreferredColor();
-	void SetTeammatePreferredColor( int nColor );
-	int GetTeammatePreferredColor( void ) const;
 	virtual void		UpdateOnRemove( void );
 
 	void SetCSSpawnLocation( Vector position, QAngle angle );
@@ -865,9 +862,6 @@ public:
 
 	Vector m_vecTotalBulletForce;	//Accumulator for bullet force in a single frame
 	
-	// preferred teammate color that user has set for themselves
-	int m_iTeammatePreferredColor;
-	
 	CNetworkVar( float, m_flFlashDuration );
 	CNetworkVar( float, m_flFlashMaxAlpha );
 	
@@ -1422,11 +1416,6 @@ inline void CCSPlayer::AllowAutoFollow( void )
 inline int CCSPlayer::GetClass( void ) const
 {
 	return m_iClass;
-}
-
-inline int CCSPlayer::GetTeammatePreferredColor( void ) const
-{
-	return m_iTeammatePreferredColor;
 }
 
 inline const char *CCSPlayer::GetClanTag( void ) const

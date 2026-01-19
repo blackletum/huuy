@@ -13,7 +13,7 @@
 #include <vgui/IScheme.h>
 #include "hud.h"
 #include "hudelement.h"
-#include "vgui_avatarimage_nonsteam.h"
+#include "vgui_avatarimage.h"
 #include "cs_shareddefs.h"
 #include <vgui_controls/EditablePanel.h>
 

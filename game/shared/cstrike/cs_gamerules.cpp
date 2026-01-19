@@ -93,10 +93,6 @@ ConVar sv_buy_status_override( "sv_buy_status_override", "-1", FCVAR_GAMEDLL | F
 
 ConVar mp_team_timeout_time( "mp_team_timeout_time", "60", FCVAR_GAMEDLL | FCVAR_REPLICATED, "Duration of each timeout." );
 ConVar mp_team_timeout_max( "mp_team_timeout_max", "1", FCVAR_GAMEDLL | FCVAR_REPLICATED, "Number of timeouts each team gets per match." );
-ConVar sv_competitive_official_5v5( "sv_competitive_official_5v5",
-	"0",
-	FCVAR_REPLICATED | FCVAR_NOTIFY,
-	"Enable to force the server to show 5v5 scoreboards and allows spectators to see characters through walls." );
 ConVar cl_music_enable("cl_music_enable", "1", FCVAR_ARCHIVE, "Enable or disable in-game music (1 = enable, 0 = disable).");
 #ifdef CLIENT_DLL
 CON_COMMAND( print_mapgroup, "Prints the current mapgroup and the contained maps" )
@@ -2934,9 +2930,6 @@ ConVar cl_autohelp(
 
 		// Figure out from the entities in the map what kind of map this is (bomb run, prison escape, etc).
 		CheckMapConditions();
-		#ifdef SERVER_DLL
-		SetupShadowControlFromSun();
-		#endif
 	}
 
 	float CCSGameRules::FlPlayerFallDamage( CBasePlayer *pPlayer )
@@ -4679,7 +4672,7 @@ ConVar cl_autohelp(
 			else if ( mp_timelimit.GetFloat() > 0.0f )
 			{
 				// if maxrounds is 0 then the server is relying on mp_timelimit rather than mp_maxrounds.
-				if ( (GetMapRemainingTime() <= ((mp_timelimit.GetInt() * 60) / 2))  && IsRoundOver() )
+				if ( (GetMapRemainingTime() <= ((mp_timelimit.GetInt() * 60) / 2)) && m_iRoundWinStatus != WINNER_NONE )
 				{
 					bhalftime = true;
 				}
@@ -4708,7 +4701,7 @@ ConVar cl_autohelp(
 			bool bEndMatch = false;
 
 			int numRoundToEndMatch = mp_maxrounds.GetInt() + GetOvertimePlaying()*mp_overtime_maxrounds.GetInt();
-			if ( numRoundToEndMatch > 0 && IsRoundOver() )
+			if ( numRoundToEndMatch > 0 )
 			{
 				if ( m_match.GetRoundsPlayed() >= numRoundToEndMatch || bTeamHasClinchedVictory )
 				{
@@ -4787,7 +4780,7 @@ ConVar cl_autohelp(
 					GoToIntermission();
 				}
 			}
-			else if ( GetMapRemainingTime() == 0  && IsRoundOver() )
+			else if ( GetMapRemainingTime() == 0 && m_iRoundWinStatus != WINNER_NONE )
 			{
 				m_phaseChangeAnnouncementTime = gpGlobals->curtime + mp_win_panel_display_time.GetInt();
 				GoToIntermission();
@@ -8125,11 +8118,6 @@ CAmmoDef* GetAmmoDef()
 	return &ammoDef;
 }
 
-bool CCSGameRules::IsRoundOver() const
-{
-    return m_iRoundWinStatus != WINNER_NONE;
-}
-
 bool CCSGameRules::IsPlayingGunGameProgressive( void ) const
 {
     return ( IsPlayingGunGame() &&
@@ -8843,6 +8831,7 @@ int CCSGameRules::GetStartMoney( void )
 
 // [menglish] Set up anything for all players that changes based on new players spawning mid-game
 //				Find and return fun fact data
+ 
 //-----------------------------------------------------------------------------
 // Purpose: Called when a player joins the game after it's started yet can still spawn in
 //-----------------------------------------------------------------------------
@@ -9452,21 +9441,6 @@ bool CCSGameRules::IsIntermission( void ) const
 int CCSGameRules::GetMaxSpectatorSlots( void ) const
 {
     return m_iSpectatorSlotCount;
-}
-
-int CCSGameRules::GetMaxPlayers()
-{
-	if ( sv_competitive_official_5v5.GetInt() )
-		return 10;
-
-#ifdef CLIENT_DLL
-	if ( engine->IsPlayingDemo() || !engine->IsConnected() )
-	{
-		return 0;
-	}
-#endif
-
-	return MIN( g_pGameTypes->GetCurrentServerNumSlots(), 24 );
 }
 
 int CCSGameRules::GetMinPlayers()

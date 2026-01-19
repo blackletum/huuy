@@ -19,8 +19,6 @@
 #include "beamdraw.h"
 #include "cs_gamerules.h"
 #include "csgo_playeranimstate.h"
-#include "glow_outline_effect.h"
-#include "c_env_projectedtexture.h"
 
 #include "cs_player_shared.h"
 
@@ -156,7 +154,6 @@ public:
 
 	virtual void Simulate();
 	virtual	void Spawn( void );
-    virtual void UpdateOnRemove( void );
 
 	void GiveCarriedHostage( EHANDLE hHostage );
 	void RefreshCarriedHostage( bool bForceCreate );
@@ -309,11 +306,6 @@ public:
 
 	virtual void CalcFreezeCamView( Vector& eyeOrigin, QAngle& eyeAngles, float& fov );
 	virtual void CalcDeathCamView( Vector& eyeOrigin, QAngle& eyeAngles, float& fov );
-    
-    void UpdateFreezeCamFlashlightEffect( C_BaseEntity *pTarget, float flAmount );
-	void CancelFreezeCamFlashlightEffect();
-	bool m_bFreezeCamFlashlightActive;
-	CTextureReference m_freezeCamSpotLightTexture;
 
 	virtual float GetDeathCamInterpolationTime();
 	float GetFreezeFrameInterpolant( void );
@@ -534,9 +526,6 @@ public:
 
 	void SurpressLadderChecks( const Vector& pos, const Vector& normal );
 	bool CanGrabLadder( const Vector& pos, const Vector& normal );
-	CNetworkVar( bool, m_bIsBuyMenuOpen );
-	void SetBuyMenuOpen( bool bOpen );
-	bool IsBuyMenuOpen( void ) { return m_bIsBuyMenuOpen; } 
 
 // [tj] checks if this player has another given player on their Steam friends list.
 	bool HasPlayerAsFriend( C_CSPlayer* player );
@@ -550,18 +539,8 @@ public:
 	bool IsAbleToInstantRespawn( void );
 
 	void ToggleRandomWeapons( void );
-	
-	bool ShouldShowTeamPlayerColors( int nOtherTeamNum );
-	bool ShouldShowTeamPlayerColorLetters( void );
-	
-	static void UpdateGlowsForAllPlayers( void );
-	CGlowObject m_GlowObject;
 
 private:
-    void AnimateGlows( void );
-	void UpdateGlows( void );
-	void UpdateFlashBangEffect( void );
-	
 	CountdownTimer m_ladderSurpressionTimer;
 	Vector m_lastLadderNormal;
 	Vector m_lastLadderPos;
@@ -580,22 +559,10 @@ private:
 	void UpdateAddonModels( bool bForce = false );
 	bool m_bAddonModelsAreOutOfDate;
 	void UpdateHostageCarryModels();
-	void CreateViewmodelLight();
-    void UpdateViewmodelLight();
 public:
 	const char *m_szPlayerDefaultGloves;
 
 private:
-
-	// Glow stuff
-	float	m_fNextGlowCheckUpdate;
-	float	m_fNextGlowCheckInterval;
-	float	m_fGlowAlpha;
-	float	m_fGlowAlphaTarget;
-	float	m_fGlowAlphaUpdateTime;
-	float	m_fGlowAlphaTargetTime;
-	CHandle<C_EnvProjectedTexture> m_hViewmodelLight;
-	
 
 	void PushawayThink();
 

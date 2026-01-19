@@ -123,8 +123,6 @@ public:
 	virtual void			SetPlayerUnderwater( bool state );
 	void					UpdateUnderwaterState( void );
 	bool					IsPlayerUnderwater( void ) { return m_bPlayerUnderwater; }
-	
-		virtual	C_BaseCombatCharacter *ActivePlayerCombatCharacter( void ) { return this; }
 
 	virtual Vector			Weapon_ShootPosition();
 	virtual void			Weapon_DropPrimary( void ) {}
@@ -187,16 +185,6 @@ public:
 	// Flashlight
 	void	Flashlight( void );
 	void	UpdateFlashlight( void );
-    virtual const char *GetFlashlightTextureName( void ) const { return NULL; } // TERROR
-	virtual float GetFlashlightFOV( void ) const { return 0.0f; } // TERROR
-	virtual float GetFlashlightFarZ( void ) const { return 0.0f; } // TERROR
-	virtual float GetFlashlightLinearAtten( void ) const { return 0.0f; } // TERROR
-	virtual bool CastsFlashlightShadows( void ) const { return true; } // TERROR
-	virtual void GetFlashlightOffset( const Vector &vecForward, const Vector &vecRight, const Vector &vecUp, Vector *pVecOffset ) const;
-	Vector	m_vecFlashlightOrigin;
-	Vector	m_vecFlashlightForward;
-	Vector	m_vecFlashlightUp;
-	Vector	m_vecFlashlightRight;
 
 	// Weapon selection code
 	virtual bool				IsAllowedToSwitchWeapons( void ) { return !IsObserver(); }
@@ -226,9 +214,6 @@ public:
 	// Makes sure s_pLocalPlayer is properly initialized
 	void						CheckForLocalPlayer();
 	void						SetAsLocalPlayer();
-	static bool					IsLocalPlayer( const C_BaseEntity *pl );
-	
-	int						GetAssociatedTeamNumber( void ) const;	
 	
 	/// is this player a local player ( call when you have already verified that your pointer really is a C_BasePlayer )
 	inline bool					IsLocalPlayer( void ) const;
@@ -576,9 +561,6 @@ private:
 	EHANDLE			m_pCurrentVguiScreen;
 
 	bool			m_bFiredWeapon;
-    
-    // Player flashlight dynamic light pointers
-	bool			m_bFlashlightEnabled;
 
 
 	// Player flashlight dynamic light pointers

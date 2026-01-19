@@ -3,7 +3,7 @@
 // Purpose:
 //
 //=============================================================================
-#ifdef STEAM_AVATARS
+
 #include "cbase.h"
 #include <vgui_controls/Controls.h>
 #include <vgui_controls/Panel.h>
@@ -454,4 +454,3 @@ void CAvatarImagePanel::ApplySettings( KeyValues *inResourceData )
 
 	BaseClass::ApplySettings(inResourceData);
 }
-#endif // STEAM_AVATARS

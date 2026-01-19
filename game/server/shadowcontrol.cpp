@@ -9,12 +9,38 @@
 
 // memdbgon must be the last include file in a .cpp file!!!
 #include "tier0/memdbgon.h"
-#include "shadowcontrol.h"
+
+//------------------------------------------------------------------------------
+// FIXME: This really should inherit from something	more lightweight
+//------------------------------------------------------------------------------
+
 
 //------------------------------------------------------------------------------
 // Purpose : Shadow control entity
 //------------------------------------------------------------------------------
+class CShadowControl : public CBaseEntity
+{
+public:
+	DECLARE_CLASS( CShadowControl, CBaseEntity );
 
+	CShadowControl();
+
+	void Spawn( void );
+	bool KeyValue( const char *szKeyName, const char *szValue );
+	int  UpdateTransmitState();
+	void InputSetAngles( inputdata_t &inputdata );
+
+	virtual int	ObjectCaps( void ) { return BaseClass::ObjectCaps() & ~FCAP_ACROSS_TRANSITION; }
+
+	DECLARE_SERVERCLASS();
+	DECLARE_DATADESC();
+
+private:
+	CNetworkVector( m_shadowDirection );
+	CNetworkColor32( m_shadowColor );
+	CNetworkVar( float, m_flShadowMaxDist );
+	CNetworkVar( bool, m_bDisableShadows );
+};
 
 LINK_ENTITY_TO_CLASS(shadow_control, CShadowControl);
 
@@ -44,9 +70,9 @@ END_SEND_TABLE()
 
 CShadowControl::CShadowControl()
 {
-	m_shadowDirection.Init( 45, 30, -2 );
-	m_flShadowMaxDist = 99999.0f;
-	m_shadowColor.Init( 0, 0, 0, 140 );
+	m_shadowDirection.Init( 0.2, 0.2, -2 );
+	m_flShadowMaxDist = 50.0f;
+	m_shadowColor.Init( 64, 64, 64, 0 );
 	m_bDisableShadows = false;
 }
 
@@ -77,7 +103,7 @@ bool CShadowControl::KeyValue( const char *szKeyName, const char *szValue )
 		UTIL_StringToVector( angles.Base(), szValue );
 		if (angles == vec3_angle)
 		{
-			angles.Init( 45, 30, 0 );
+			angles.Init( 80, 30, 0 );
 		}
 		Vector vForward;
 		AngleVectors( angles, &vForward );
@@ -108,52 +134,6 @@ void CShadowControl::Spawn( void )
 {
 	Precache();
 	SetSolid( SOLID_NONE );
-}
-
-void CShadowControl::SetupShadowControlFromSun()
-{
-    CShadowControl *pShadow = (CShadowControl*)gEntList.FindEntityByClassname(NULL, "shadow_control");
-    
-    if (!pShadow)
-    {
-        pShadow = (CShadowControl*)CreateEntityByName("shadow_control");
-        if (!pShadow)
-        {
-            DevMsg("Failed to create shadow_control\n");
-            return;
-        }
-        
-        DispatchSpawn(pShadow);
-        
-        DevMsg("Shadow control created\n");
-    }
-    
-    CBaseEntity *pLight = gEntList.FindEntityByClassname(NULL, "light_environment");
-    if (pLight)
-    {
-    	
-        QAngle lightAngles = pLight->GetAbsAngles();
-        Vector vDirection;
-        AngleVectors(lightAngles, &vDirection);
-        pShadow->m_shadowDirection = vDirection;
-        
-        DevMsg("Copied shadow direction from light_environment: %.2f %.2f %.2f\n", 
-               lightAngles.x, lightAngles.y, lightAngles.z);
-    }
-    else
-    {
-    	
-        QAngle defaultAngles(50, 40, 0);
-        Vector vDirection;
-        AngleVectors(defaultAngles, &vDirection);
-        pShadow->m_shadowDirection = vDirection;
-        
-        DevMsg("Light environment not found, using default angles: 50 40 0\n");
-    }
-    
-    pShadow->m_flShadowMaxDist = 9999.0f;
-    
-    DevMsg("Shadow max distance set to 9999\n");
 }
 
 //------------------------------------------------------------------------------

@@ -14,7 +14,7 @@
 #include "clientmode_shared.h"
 #include "c_playerresource.h"
 #include "voice_common.h"
-#include "vgui_avatarimage_nonsteam.h"
+#include "vgui_avatarimage.h"
 #include <vgui_controls/VectorImagePanel.h>
 
 ConVar *sv_alltalk = NULL;
@@ -243,18 +243,11 @@ void CHudVoiceStatus::OnThink( void )
 				player_info_t pi;
 				if ( engine->GetPlayerInfo( iPlayerIndex, &pi ) )
 				{
-#if 0
 					if ( steamapicontext != NULL && steamapicontext->SteamUtils() != NULL )
 					{
 						CSteamID steamIDForPlayer( pi.friendsID, 1, steamapicontext->SteamUtils()->GetConnectedUniverse(), k_EAccountTypeIndividual );
 						activeSpeaker.pAvatar->SetAvatarSteamID(steamIDForPlayer, k_EAvatarSize32x32);
 					}
-#else
-                    if ( !CRC_AVATAR_INVALID( CRC_AVATAR( pi ) ) )
-                    {
-                	activeSpeaker.pAvatar->SetAvatarFromPI( pi, k_EAvatarSize32x32 );
-                    }
-#endif
 				}
 
 				activeSpeaker.pAvatar->SetAvatarSize( avatar_wide, avatar_tall);

@@ -57,7 +57,6 @@ using namespace vgui;
 #include "SaveGameDialog.h"
 #include "OptionsDialog.h"
 #include "ModOptionsDialog.h"
-#include "InventoryDialog.h"
 #include "CreateMultiplayerGameDialog.h"
 #include "ChangeGameDialog.h"
 #include "BackgroundMenuButton.h"
@@ -1115,7 +1114,7 @@ void CBaseModPlayerPanel::OnThink()
 	{
 		m_MDL.m_flTime += gpGlobals->frametime;
 	}
-	
+
 	if ( m_flRotationTimeLeft > 0.0f )
 	{
 		float flPercentage = m_flRotationTimeLeft / ROTATION_TIME;
@@ -1363,12 +1362,6 @@ CBaseModPanel::CBaseModPanel() : EditablePanel(NULL, "BaseGameUIPanel")
 	m_hOptionsDialog->MarkForDeletion();
 	m_hModOptionsDialog = new CModOptionsDialog( this );
 	m_hModOptionsDialog->MarkForDeletion();
-	//Inventory Dialog
-	m_hInventoryDialog = new CInventoryDialog( this );
-	m_hInventoryDialog->MarkForDeletion();
-	//RSS Info Panel
-	m_pRSSFeedPanel = new RSSFeedPanel(this, "RSSFeedPanel");
-	
 	m_hCreateMultiplayerGameDialog = new CCreateMultiplayerGameDialog( this );
 	m_hCreateMultiplayerGameDialog->MarkForDeletion();
 
@@ -1488,11 +1481,6 @@ CBaseModPanel::~CBaseModPanel()
 			m_iLoadingImageID = -1;
 		}
 	}
-	if (m_pRSSFeedPanel)
-    {
-        delete m_pRSSFeedPanel;
-        m_pRSSFeedPanel = NULL;
-    }
 }
 
 static const char *g_rgValidCommands[] =
@@ -1506,7 +1494,6 @@ static const char *g_rgValidCommands[] =
 	"OpenCustomMapsDialog",
 	"OpenOptionsDialog",
 	"OpenModOptionsDialog",
-	"InventoryDialog",
 	"OpenBenchmarkDialog",
 	"OpenServerBrowser",
 	"OpenFriendsDialog",
@@ -1717,8 +1704,7 @@ void CBaseModPanel::SetBackgroundRenderState(EBackgroundState state)
 		SetMenuAlpha( 0 );
 
 		// update main menu music
-		//ATOMIC_REAKTOR: CSGO also don't stop music when during loading, i do it to
-		//GameUI().SetBackgroundMusicDesired( false );
+		GameUI().SetBackgroundMusicDesired( false );
 	}
 	else if ( state == BACKGROUND_LEVEL )
 	{
@@ -1791,7 +1777,6 @@ void CBaseModPanel::OnLevelLoadingStarted()
 		// frame buffer is about to be cleared, copy it off for ui backing purposes
 		m_bCopyFrameBuffer = true;
 	}
-    GameUI().SetBackgroundMusicDesired( true );
 }
 
 //-----------------------------------------------------------------------------
@@ -1805,8 +1790,6 @@ void CBaseModPanel::OnLevelLoadingFinished()
 	{
 		m_hMatchmakingBasePanel->OnCommand( "LevelLoadingFinished" );
 	}
-	//ATOMIC_REAKTOR: Stop music when loading finished
-	GameUI().SetBackgroundMusicDesired( false );
 }
 
 //-----------------------------------------------------------------------------
@@ -2797,10 +2780,6 @@ void CBaseModPanel::RunMenuCommand(const char *command)
 	{
 		OnOpenModOptionsDialog();
 	}
-	else if ( !Q_stricmp( command, "OpenInventoryDialog" ) )
-	{
-		OnOpenInventoryDialog();
-	}
 	else if ( !Q_stricmp( command, "OpenControllerDialog" ) )
 	{
 		if ( GameUI().IsConsoleUI() )
@@ -3098,7 +3077,6 @@ bool CBaseModPanel::IsPromptableCommand( const char *command )
 		 !Q_stricmp( command, "OpenBonusMapsDialog" ) ||
 		 !Q_stricmp( command, "OpenOptionsDialog" ) ||
 		 !Q_stricmp( command, "OpenModOptionsDialog" ) ||
-		!Q_stricmp( command, "OpenInventoryDialog" ) ||
 		 !Q_stricmp( command, "OpenControllerDialog" ) ||
 		 !Q_stricmp( command, "OpenLoadCommentaryDialog" ) ||
          !Q_stricmp( command, "OpenLoadSingleplayerCommentaryDialog" ) ||
@@ -3940,17 +3918,6 @@ void CBaseModPanel::OnOpenModOptionsDialog()
 	m_hModOptionsDialog->Activate();
 }
 
-void CBaseModPanel::OnOpenInventoryDialog()
-{
-	if ( !m_hInventoryDialog.Get() )
-	{
-		m_hInventoryDialog = new CInventoryDialog( this );
-		PositionDialog( m_hInventoryDialog );
-	}
-
-	m_hInventoryDialog->Activate();
-}
-
 //-----------------------------------------------------------------------------
 // Purpose: 
 //-----------------------------------------------------------------------------
@@ -3977,10 +3944,6 @@ void CBaseModPanel::ApplyOptionsDialogSettings()
 	if (m_hModOptionsDialog.Get())
 	{
 		m_hModOptionsDialog->ApplyChanges();
-	}
-	if (m_hInventoryDialog.Get())
-	{
-		m_hInventoryDialog->ApplyChanges();
 	}
 }
 
@@ -4518,10 +4481,6 @@ void CBaseModPanel::OnGameUIHidden()
 	if ( m_hModOptionsDialog.Get() )
 	{
 		PostMessage( m_hModOptionsDialog.Get(), new KeyValues( "GameUIHidden" ) );
-	}
-	if ( m_hInventoryDialog.Get() )
-	{
-		PostMessage( m_hInventoryDialog.Get(), new KeyValues( "GameUIHidden" ) );
 	}
 }
 

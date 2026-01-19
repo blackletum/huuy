@@ -13,11 +13,10 @@
 
 #include <vgui_controls/PropertyPage.h>
 #include <vgui_controls/ImagePanel.h>
-#include "BitmapImagePanel.h"
 #include "imageutils.h"
 
 class CLabeledCommandComboBox;
-//class CBitmapImagePanel;
+class CBitmapImagePanel;
 
 class CCvarToggleCheckButton;
 class CCvarTextEntry;
@@ -49,61 +48,54 @@ protected:
 	virtual void OnApplyChanges();
 
 	virtual void OnCommand( const char *command );
-public:
+
+private:
 	void InitModelList(CLabeledCommandComboBox *cb);
-	void RemapModel();
-
 	void InitLogoList(CLabeledCommandComboBox *cb);
+
+	void RemapModel();
 	void RemapLogo();
-	void SelectLogo(const char *logoName);
-	void OpenSprayImportDialog();
-	void OnSprayFileSelected(const char *fullpath);
-	void ShowSprayError(ConversionErrorType err);
 
-	void InitAvatarList(CLabeledCommandComboBox *cb);
-	void RemapAvatar();
-	void SelectAvatar(const char *avatarName);
-	void OpenAvatarImportDialog();
-	void OnAvatarFileSelected(const char *fullpath);
-	void ShowAvatarError(ConversionErrorType err);
-
-	void ColorForName(char const *pszColorName, int &r, int &g, int &b);
+	void ConversionError( ConversionErrorType nError );
 
 	MESSAGE_FUNC_PTR( OnTextChanged, "TextChanged", panel );
 	MESSAGE_FUNC_CHARPTR( OnFileSelected, "FileSelected", fullpath );
-	
-	CBitmapImagePanel *m_pModelImage = nullptr;
-	CLabeledCommandComboBox *m_pModelList = nullptr;
-	char m_ModelName[128] = {0};
 
-	vgui::ImagePanel *m_pLogoImage = nullptr;
-	CLabeledCommandComboBox *m_pLogoList = nullptr;
-	char m_LogoName[128] = {0};
-	vgui::FileOpenDialog *m_hImportSprayDialog = nullptr;
+	void ColorForName(char const *pszColorName, int &r, int &g, int &b);
 
-	vgui::ImagePanel *m_pAvatarImage = nullptr;
-	CLabeledCommandComboBox *m_pAvatarList = nullptr;
-	char m_AvatarName[128] = {0};
-	vgui::FileOpenDialog *m_hImportAvatarDialog = nullptr;
+	CBitmapImagePanel *m_pModelImage;
+	CLabeledCommandComboBox *m_pModelList;
+	char m_ModelName[128];
 
-	CCvarTextEntry *m_pNameEntry = nullptr;
+	vgui::ImagePanel *m_pLogoImage;
+	CLabeledCommandComboBox *m_pLogoList;
+    char m_LogoName[128];
 
-	CCvarSlider *m_pPrimaryColorSlider = nullptr;
-	CCvarSlider *m_pSecondaryColorSlider = nullptr;
-	CCvarToggleCheckButton *m_pHighQualityModelCheckBox = nullptr;
+    CCvarSlider *m_pPrimaryColorSlider;
+    CCvarSlider *m_pSecondaryColorSlider;
+	CCvarToggleCheckButton *m_pHighQualityModelCheckBox;
 
+	// Mod specific general checkboxes
 	vgui::Dar< CCvarToggleCheckButton * > m_cvarToggleCheckButtons;
 
-	CCvarToggleCheckButton *m_pLockRadarRotationCheckbox = nullptr;
-	vgui::ComboBox *m_pDownloadFilterCombo = nullptr;
+	CCvarToggleCheckButton *m_pLockRadarRotationCheckbox;
 
-	int m_nLogoR = 255;
-	int m_nLogoG = 255;
-	int m_nLogoB = 255;
-	
+	// --- client download filter
+	vgui::ComboBox	*m_pDownloadFilterCombo;
+
+	// Begin Spray Import Functions
+	ConversionErrorType WriteSprayVMT(const char *vtfPath);
+	void SelectLogo(const char *logoName);
+	// End Spray Import Functions
+
+	int	m_nLogoR;
+	int	m_nLogoG;
+	int	m_nLogoB;
+
 #ifndef _XBOX
 	vgui::DHANDLE<CMultiplayerAdvancedDialog> m_hMultiplayerAdvancedDialog;
 #endif
+	vgui::FileOpenDialog *m_hImportSprayDialog;
 };
 
 #endif // OPTIONSSUBMULTIPLAYER_H

@@ -151,8 +151,6 @@ public:
 	void ResetRotation();
 
 	bool DoesModelSupportGloves( const char* pszGlovesViewModelName, const char* pszDefaultViewModelName );
-	
-	void SetWeaponSkin( CSWeaponID weaponID ); 
 
 private:
 	int m_nFOV;
@@ -160,7 +158,6 @@ private:
 	Vector m_vecCameraPos;
 	QAngle m_angCameraAng;
 	Vector m_vecAmbientLight;
-	CSWeaponID m_nCurrentWeaponID;
 	LightDesc_t m_pLightDesc[MATERIAL_MAX_LIGHT_COUNT];
 
 	int m_nNumLightDescs;
@@ -242,7 +239,7 @@ public:
 
 	void ShowCategory( KeyValues* kvCategory );
 	void HideCategory();
-    void SetPlayerImageWeapon( const char* pszWeaponModel, const char* pszWeaponSequence, CSWeaponID weaponID );
+	void SetPlayerImageWeapon( const char* pszWeaponModel, const char* pszWeaponSequence );
 	void SetItemNameAndDescription( const char* pszName, const char* pszDescription );
 	void ResetWeapon();
 	void ShowSpecialMessage( const char* pszText, BuyMenuSpecialMessageType_t nMessageType );

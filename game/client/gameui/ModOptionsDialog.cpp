@@ -41,20 +41,15 @@ CModOptionsDialog::CModOptionsDialog(vgui::Panel *parent) : PropertyDialog(paren
 {
 	SetDeleteSelfOnClose(true);
 
-	int screenWidth, screenHeight;
-    vgui::surface()->GetScreenSize(screenWidth, screenHeight);
+	int w = 512;
+	int h = 406;
+	if (IsProportional())
+	{
+		w = scheme()->GetProportionalScaledValueEx(GetScheme(), w);
+		h = scheme()->GetProportionalScaledValueEx(GetScheme(), h);
+	}
 
-    int w = static_cast<int>(screenWidth * 0.9f); 
-    int h = static_cast<int>(screenHeight * 1.0f); 
-
-    w = MAX(w, 800); 
-    h = MAX(h, 600); 
-
-    
-    w = MIN(w, 2674); 
-    h = MIN(h, 1220); 
-
-    SetSize(w, h);
+	SetBounds(0, 0, w, h);
 	
 	SetSizeable( false );
 

@@ -105,7 +105,7 @@ public:
 	
 	virtual void Update( float eyeYaw, float eyePitch );
 
-	virtual void ModifyTauntDuration( float flTimingChange );
+	//virtual void ModifyTauntDuration( float flTimingChange );
 
 	void InitCS( CBaseAnimatingOverlay *pPlayer, ICSPlayerAnimStateHelpers *pHelpers, LegAnimType_t legAnimType, bool bUseAimSequences );
 	
@@ -129,10 +129,10 @@ protected:
 	int CalcFlinchLayerSequence( CBaseCombatCharacter *pBaseCombatCharacter );
 	void ComputeFlinchSequence( CStudioHdr *pStudioHdr );
 	
-//	int CalcTauntLayerSequence( CBaseCombatCharacter *pBaseCombatCharacter );
-//	void ComputeTauntSequence( CStudioHdr *pStudioHdr );
+	/*int CalcTauntLayerSequence( CBaseCombatCharacter *pBaseCombatCharacter );
+	void ComputeTauntSequence( CStudioHdr *pStudioHdr );
 	
-	void ComputeFootPlantSequence(CStudioHdr *pStudioHdr);
+	void ComputeFootPlantSequence(CStudioHdr *pStudioHdr);*/
 
 	bool IsOuterGrenadePrimed();
 	void ComputeGrenadeSequence( CStudioHdr *pStudioHdr );
@@ -182,12 +182,12 @@ private:
 	float m_flFlinchStartTime;
 	float m_flFlinchLength;
 	int m_nFlinchSequence;
-	
+	/*
 	// Sequence for taunts
 	float m_flTauntStartTime;
 	float m_flTauntLength;
 	int m_nTauntSequence;
-	
+	*/
 	// Deploy sequence
 	bool m_bDeploying;
 	int m_iDeploySequence;
@@ -376,11 +376,11 @@ CCSPlayerAnimState::CCSPlayerAnimState()
 	m_flFlinchStartTime = -1.0f;
 	m_flFlinchLength = 0.0f;
 	m_nFlinchSequence = 0;
-	
+	/*
 	m_flTauntStartTime = -1.0f;
 	m_flTauntLength = 0.0f;
 	m_nTauntSequence = 0;
-	
+	*/
 	m_bDeploying = false;
 	m_iDeploySequence = -1;
 	m_flDeployCycle = 0.0f;
@@ -439,13 +439,13 @@ void CCSPlayerAnimState::InitCS( CBaseAnimatingOverlay *pEntity, ICSPlayerAnimSt
 	//Since this value is intended to be more than m_flMaxBodyYawDegrees, it will set the new yaw PAST the midpoint.
 	//This looks a little more lifelike when the player is rapidly turning, and if the player halts, it makes the facefront that follows more obvious.
 	config.m_flMaxBodyYawDegreesCorrectionAmount = 90;
-	
+	/*
 	//Disable foot plant tunring if the feet are lagging behind by more than this angle
 	config.m_flIdleFootPlantMaxYaw = 110;
 
 	//Turning less than this amount? Don't lift the feet, just shuffle them over.
 	config.m_flIdleFootPlantFootLiftDelta = 25;
-	
+	*/
 	config.m_LegAnimType = legAnimType;
 	config.m_bUseAimSequences = bUseAimSequences;
 
@@ -455,7 +455,7 @@ void CCSPlayerAnimState::InitCS( CBaseAnimatingOverlay *pEntity, ICSPlayerAnimSt
 
 	BaseClass::Init( pEntity, config );
 }
-
+/*
 void CCSPlayerAnimState::ModifyTauntDuration( float flTimingChange )
 {
 	float flInterp = ( m_flTauntLength <= 0.0f ) ? ( -1.0f ) : ( ( gpGlobals->curtime - m_flTauntStartTime ) / m_flTauntLength );
@@ -467,7 +467,7 @@ void CCSPlayerAnimState::ModifyTauntDuration( float flTimingChange )
 		m_flTauntStartTime -= flTimingChange;
 	}
 }
-
+*/
 
 //--------------------------------------------------------------------------------------------------------------
 void CCSPlayerAnimState::CheckCachedSequenceValidity( void )
@@ -1311,7 +1311,7 @@ int CCSPlayerAnimState::CalcFlinchLayerSequence( CBaseCombatCharacter *pBaseComb
 
 	return nSequence;
 }
-
+/*
 void CCSPlayerAnimState::ComputeFootPlantSequence( CStudioHdr *pStudioHdr )
 {
 	if ( !m_bInFootPlantIdleTurn )
@@ -1326,7 +1326,7 @@ void CCSPlayerAnimState::ComputeFootPlantSequence( CStudioHdr *pStudioHdr )
 	int nSequence = SelectWeightedSequence( m_bFootPlantIdleNeedToLiftFeet ? ACT_TURN : ACT_STEP_FORE );
 	UpdateLayerSequenceGeneric( pStudioHdr, FOOTPLANTSEQUENCE_LAYER, m_bInFootPlantIdleTurn, m_flFootPlantIdleTurnCycle, nSequence, false );
 }
-
+*/
 void CCSPlayerAnimState::ComputeFlinchSequence( CStudioHdr *pStudioHdr )
 {
 	VPROF( "CCSPlayerAnimState::ComputeFlinchSequence" );
@@ -1488,6 +1488,7 @@ void CCSPlayerAnimState::ComputeTauntSequence( CStudioHdr *pStudioHdr )
 	UpdateLayerSequenceGeneric( pStudioHdr, TAUNTSEQUENCE_LAYER, bTaunt, flInterp, m_nTauntSequence, false );
 }
 */
+
 int CCSPlayerAnimState::CalcAimLayerSequence( float *flCycle, float *flAimSequenceWeight, bool bForceIdle )
 {
 	VPROF( "CCSPlayerAnimState::CalcAimLayerSequence" );
@@ -1882,8 +1883,8 @@ void CCSPlayerAnimState::ComputeSequences( CStudioHdr *pStudioHdr )
 	// not dispatched through weapon (normally)
 	ComputeFlashedSequence( pStudioHdr );
 	ComputeFlinchSequence( pStudioHdr );
-//	ComputeTauntSequence( pStudioHdr );
-	ComputeFootPlantSequence(pStudioHdr);
+	//ComputeTauntSequence( pStudioHdr );
+	//ComputeFootPlantSequence(pStudioHdr);
 }
 
 

@@ -274,7 +274,7 @@ public:
 	virtual bool					GetAttachment( int number, Vector &origin, QAngle &angles );
 	virtual bool					GetAttachment( int number, matrix3x4_t &matrix );
 	virtual bool					GetAttachmentVelocity( int number, Vector &originVel, Quaternion &angleVel );
-	virtual bool					ComputeLightingOrigin( int nAttachmentIndex, Vector modelLightingCenter, const matrix3x4_t &matrix, Vector &transformedLightingCenter );
+	virtual void					ComputeLightingOrigin( ClientModelRenderInfo_t *pInfo );
 	
 	// Returns the attachment in local space
 	bool							GetAttachmentLocal( int iAttachment, matrix3x4_t &attachmentToLocal );
@@ -478,7 +478,6 @@ public:
 	virtual void					UpdateOnRemove( void );
 
 	void							ScriptSetPoseParameter( const char *szName, float fValue );
-	void SetMaterialOverride( IMaterial* pMaterial );
 
 protected:
 	// View models scale their attachment positions to account for FOV. To get the unmodified

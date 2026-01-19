@@ -2203,22 +2203,22 @@ bool C_BaseAnimating::GetAttachmentVelocity( int number, Vector &originVel, Quat
 }
 
 
-bool C_BaseAnimating::ComputeLightingOrigin( int nAttachmentIndex, Vector modelLightingCenter, const matrix3x4_t &matrix, Vector &transformedLightingCenter )
+void C_BaseAnimating::ComputeLightingOrigin( ClientModelRenderInfo_t *pInfo )
 {
 	if ( m_bUseParentLightingOrigin )
 	{
- 		if ( GetMoveParent() != NULL )
+		if ( GetMoveParent() != NULL )
 		{
 			C_BaseAnimating *attachmentParent = GetMoveParent()->GetBaseAnimating();
 			if ( NULL != attachmentParent )
 			{
-				if ( attachmentParent->ComputeLightingOrigin(nAttachmentIndex, attachmentParent->GetModelPtr()->illumposition(), attachmentParent->RenderableToWorldTransform(), transformedLightingCenter) )
-					return true;
+				attachmentParent->ComputeLightingOrigin( pInfo );
+				return;
 			}
 		}
 	}
 
-    return BaseClass::ComputeLightingOrigin( nAttachmentIndex, modelLightingCenter, matrix, transformedLightingCenter );
+	pInfo->pLightingOrigin = &GetAbsOrigin();
 }
 
 
@@ -3411,10 +3411,19 @@ bool C_BaseAnimating::OnPostInternalDrawModel( ClientModelRenderInfo_t *pInfo )
 //-----------------------------------------------------------------------------
 bool C_BaseAnimating::OnInternalDrawModel( ClientModelRenderInfo_t *pInfo )
 {
+	ComputeLightingOrigin( pInfo );
+
+	if ( m_hLightingOriginRelative.Get() )
+	{
+		C_InfoLightingRelative *pInfoLighting = assert_cast<C_InfoLightingRelative*>(m_hLightingOriginRelative.Get());
+		pInfoLighting->GetLightingOffset( pInfo->lightingOffset );
+		pInfo->pLightingOffset = &pInfo->lightingOffset;
+	}
 	if ( m_hLightingOrigin )
 	{
 		pInfo->pLightingOrigin = &(m_hLightingOrigin->GetAbsOrigin());
 	}
+
 	return true;
 }
 
@@ -4550,10 +4559,7 @@ void C_BaseAnimating::GetRenderBounds( Vector& theMins, Vector& theMaxs )
 	theMins *= flScale;
 }
 
-void C_BaseAnimating::SetMaterialOverride(IMaterial* pMaterial)
-{
-	modelrender->ForcedMaterialOverride(pMaterial, OVERRIDE_FIRST_MATERIAL_ONLY );
-}
+
 //-----------------------------------------------------------------------------
 // implements these so ragdolls can handle frustum culling & leaf visibility
 //-----------------------------------------------------------------------------

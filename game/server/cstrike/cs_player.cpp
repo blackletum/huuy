@@ -66,7 +66,6 @@
 #include "weapon_decoy.h"
 #include "molotov_projectile.h"
 #include "cs_loadout.h"
-#include "cs_player_resource.h"
 #include "item_healthshot.h"
 #include "game.h"
 #include "weapon_basecsgloves.h"
@@ -539,8 +538,6 @@ CCSPlayer::CCSPlayer()
 	m_iLastWeaponFireUsercmd = 0;
 	m_iAddonBits = 0;
 	m_iAccount = 0;
-	
-		m_iTeammatePreferredColor = -1;
 
 	m_iClass = (int)CS_CLASS_NONE;
 	m_iSkin = 0;
@@ -2045,33 +2042,6 @@ void CCSPlayer::SetClanName( const char *pName )
 	{
 		Q_strncpy( m_szClanName, pName, sizeof( m_szClanName ) );
 	}
-}
-
-void CCSPlayer::InitTeammatePreferredColor()
-{
-	const char *pColor = engine->GetClientConVarValue( entindex(), "cl_color" );
-	int nColor = atoi( pColor ); // convar.cpp code parses strings wierdly and cannot enforce range on a value e.g. " 4343" with leading space
-	// so we have to just assume that whatever string user supplied would parse as zero
-
-	if ( nColor >= 0 && nColor <= 4 )
-	{
-		SetTeammatePreferredColor( nColor );
-	}
-	else
-	{
-		SetTeammatePreferredColor( 0 );
-	}
-}
-
-void CCSPlayer::SetTeammatePreferredColor( int nColor )
-{
-	if ( nColor < 0 || nColor > 4 )
-	{
-		AssertMsg( nColor >= 0 && nColor <= 4, "SetTeammatePreferredColor called with an invalid color (outside the range of 0 and 4)" );
-		return;
-	}
-
-	m_iTeammatePreferredColor = nColor;
 }
 
 void CCSPlayer::CreateRagdollEntity()
@@ -4702,28 +4672,6 @@ void CCSPlayer::Blind( float holdTime, float fadeTime, float startingAlpha )
 		event->SetInt( "userid", GetUserID() );
 		gameeventmanager->FireEvent( event );
 	}
-        // Magic numbers to reduce the fade time to within 'perceptible' range.
-        // Players can see well enough to shoot back somewhere around 50% white plus burn-in effect.
-        // Varies by player and amount of panic ;)
-        // So this makes raised arm goes down earlier, making it a better representation of actual blindness.
-        float flAdjustedHold = holdTime * 0.45f;
-        float flAdjustedEnd = fadeTime * 0.7f;
-        //DevMsg( "Flashing. Time is: %f. Params: holdTime: %f, fadeTime: %f, alpha: %f\n", gpGlobals->curtime, holdTime, fadeTime, m_flFlashMaxAlpha );
-        m_PlayerAnimStateCSGO->m_flFlashedAmountEaseOutStart = gpGlobals->curtime + flAdjustedHold;
-        m_PlayerAnimStateCSGO->m_flFlashedAmountEaseOutEnd = gpGlobals->curtime + flAdjustedEnd;
-        // This check moves the ease-out start and end to account for a non-255 starting alpha.
-        // However it looks like starting alpha is ALWAYS 255, since no current code path seems to ever pass in less.
-        if ( m_flFlashMaxAlpha < 255 )
-        {
-            float flScaleBack = 1.0f - (( flAdjustedEnd / 255.0f ) * m_flFlashMaxAlpha);
-            m_PlayerAnimStateCSGO->m_flFlashedAmountEaseOutStart -= flScaleBack;
-            m_PlayerAnimStateCSGO->m_flFlashedAmountEaseOutEnd -= flScaleBack;
-        }
-        // when fade out time is very soon, don't pull the arm up all the way. It looks silly and robotic.
-        if ( flAdjustedEnd < 1.5f )
-        {
-            m_PlayerAnimStateCSGO->m_flFlashedAmountEaseOutStart -= 1.0f;
-        }
 }
 
 void CCSPlayer::Deafen( float flDistance )
@@ -9783,17 +9731,6 @@ void CCSPlayer::ChangeTeam( int iTeamNum )
 	// Initialize the player counts now that a player has switched teams
 	int NumDeadCT, NumDeadTerrorist, NumAliveTerrorist, NumAliveCT;
 	CSGameRules()->InitializePlayerCounts( NumAliveTerrorist, NumAliveCT, NumDeadTerrorist, NumDeadCT );
-	
-		CCSPlayerResource *pResource = dynamic_cast< CCSPlayerResource * >( g_pPlayerResource );
-	if ( /*iTeamNum <= TEAM_SPECTATOR && */pResource )
-	{
-		for ( int i = 1; i <= gpGlobals->maxClients; i++ )
-		{
-			CCSPlayer* pPlayer = ( CCSPlayer* )UTIL_PlayerByIndex( i );
-			if ( pPlayer && pPlayer == this )
-				pResource->ResetPlayerTeammateColor( i );
-		}
-	}
 }
 
 //-----------------------------------------------------------------------------

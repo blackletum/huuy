@@ -420,42 +420,6 @@ struct MaterialVideoMode_t
 	int m_RefreshRate;		// 0 == default (ignored for windowed mode)
 };
 
-
-//--------------------------------------------------------------------------------
-// Uberlight parameters
-//--------------------------------------------------------------------------------
-struct UberlightState_t
-{
-	UberlightState_t()
-	{
-		m_fNearEdge 	= 2.0f;
-		m_fFarEdge  	= 100.0f;
-		m_fCutOn    	= 10.0f;
-		m_fCutOff   	= 650.0f;
-		m_fShearx   	= 0.0f;
-		m_fSheary   	= 0.0f;
-		m_fWidth    	= 0.3f;
-		m_fWedge    	= 0.05f;
-		m_fHeight		= 0.3f;
-		m_fHedge		= 0.05f;
-		m_fRoundness	= 0.8f;
-	}
-
-	float m_fNearEdge;
-	float m_fFarEdge;
-	float m_fCutOn;
-	float m_fCutOff;
-	float m_fShearx;
-	float m_fSheary;
-	float m_fWidth;
-	float m_fWedge;
-	float m_fHeight;
-	float m_fHedge;
-	float m_fRoundness;
-
-	IMPLEMENT_OPERATOR_EQUAL( UberlightState_t );
-};
-
 // fixme: should move this into something else.
 struct FlashlightState_t
 {
@@ -463,45 +427,18 @@ struct FlashlightState_t
 	{
 		m_bEnableShadows = false;						// Provide reasonable defaults for shadow depth mapping parameters
 		m_bDrawShadowFrustum = false;
-		m_flShadowMapResolution = 4096.0f;
-		m_flShadowFilterSize = 0.2f;
-		m_flShadowSlopeScaleDepthBias = 4.0f;
+		m_flShadowMapResolution = 1024.0f;
+		m_flShadowFilterSize = 3.0f;
+		m_flShadowSlopeScaleDepthBias = 16.0f;
 		m_flShadowDepthBias = 0.0005f;
 		m_flShadowJitterSeed = 0.0f;
 		m_flShadowAtten = 0.0f;
-		m_flAmbientOcclusion = 0.0f;
-		m_nShadowQuality = 0;
-		m_bShadowHighRes = false;
-
 		m_bScissor = false; 
 		m_nLeft = -1;
 		m_nTop = -1;
 		m_nRight = -1;
 		m_nBottom = -1;
-
-		m_bUberlight = false;
-
-		m_bVolumetric = false;
-		m_flNoiseStrength = 0.8f;
-		m_flFlashlightTime = 0.0f;
-		m_nNumPlanes = 64;
-		m_flPlaneOffset = 0.0f;
-		m_flVolumetricIntensity = 1.0f;
-
-		m_bOrtho = false;
-		m_fOrthoLeft = -1.0f;
-		m_fOrthoRight = 1.0f;
-		m_fOrthoTop = -1.0f;
-		m_fOrthoBottom = 1.0f;
-
-		m_fBrightnessScale = 1.0f;
-		m_pSpotlightTexture = NULL;
-		m_pProjectedMaterial = NULL;
-		m_bGlobalLight = false;
-
-		m_bSimpleProjection = false;
-		m_flProjectionSize = 500.0f;
-		m_flProjectionRotation = 0.0f;
+		m_nShadowQuality = 0;
 	}
 
 	Vector m_vecLightOrigin;
@@ -510,23 +447,12 @@ struct FlashlightState_t
 	float m_FarZ;
 	float m_fHorizontalFOVDegrees;
 	float m_fVerticalFOVDegrees;
-
-	bool  m_bOrtho;
-	float m_fOrthoLeft;
-	float m_fOrthoRight;
-	float m_fOrthoTop;
-	float m_fOrthoBottom;
-
 	float m_fQuadraticAtten;
 	float m_fLinearAtten;
 	float m_fConstantAtten;
-	float m_FarZAtten;
 	float m_Color[4];
-	float m_fBrightnessScale;
 	ITexture *m_pSpotlightTexture;
-	IMaterial *m_pProjectedMaterial;
 	int m_nSpotlightTextureFrame;
-	bool m_bGlobalLight;
 
 	// Shadow depth mapping parameters
 	bool  m_bEnableShadows;
@@ -537,32 +463,14 @@ struct FlashlightState_t
 	float m_flShadowDepthBias;
 	float m_flShadowJitterSeed;
 	float m_flShadowAtten;
-	float m_flAmbientOcclusion;
 	int   m_nShadowQuality;
-	bool  m_bShadowHighRes;
-
-	// simple projection
-	bool	m_bSimpleProjection;
-	float	m_flProjectionSize;
-	float	m_flProjectionRotation;
-
-	// Uberlight parameters
-	bool m_bUberlight;
-	UberlightState_t m_uberlightState;
-
-	bool m_bVolumetric;
-	float m_flNoiseStrength;
-	float m_flFlashlightTime;
-	int m_nNumPlanes;
-	float m_flPlaneOffset;
-	float m_flVolumetricIntensity;
 
 	// Getters for scissor members
-	bool DoScissor() const { return m_bScissor; }
-	int GetLeft()	 const { return m_nLeft; }
-	int GetTop()	 const { return m_nTop; }
-	int GetRight()	 const { return m_nRight; }
-	int GetBottom()	 const { return m_nBottom; }
+	bool DoScissor() { return m_bScissor; }
+	int GetLeft()	 { return m_nLeft; }
+	int GetTop()	 { return m_nTop; }
+	int GetRight()	 { return m_nRight; }
+	int GetBottom()	 { return m_nBottom; }
 
 private:
 
@@ -573,8 +481,6 @@ private:
 	int m_nTop;
 	int m_nRight;
 	int m_nBottom;
-
-	IMPLEMENT_OPERATOR_EQUAL( FlashlightState_t );
 };
 
 // Passed as the callback object to Async functions in the material system

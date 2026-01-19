@@ -240,10 +240,10 @@ public:
 	void					UpdateStatTrakGlow( void );
 	void					SetStatTrakGlowMultiplier( float flNewIdealGlow ) { m_flStatTrakGlowMultiplierIdeal = flNewIdealGlow; }
 	const float				GetStatTrakGlowMultiplier( void ) { return m_flStatTrakGlowMultiplier; }
-	CUtlVector< CHandle< C_ViewmodelAttachmentModel > > m_vecViewmodelArmModels; // gloves, sleeves, etc
 #endif
 private:
 #ifdef CLIENT_DLL
+	CUtlVector< CHandle< C_ViewmodelAttachmentModel > > m_vecViewmodelArmModels; // gloves, sleeves, etc
 	CHandle< C_ViewmodelAttachmentModel > m_viewmodelStatTrakAddon;
 
 	float					m_flStatTrakGlowMultiplierIdeal;

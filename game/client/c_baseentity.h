@@ -232,8 +232,6 @@ public:
 	bool							BlocksLOS( void );
 	void							SetAIWalkable( bool bBlocksLOS );
 	bool							IsAIWalkable( void );
-    
-    bool ComputeLightingOrigin( int nAttachmentIndex, Vector modelLightingCenter, const matrix3x4_t &matrix, Vector &transformedLightingCenter );
 
 
 	void							Interp_SetupMappings( VarMapping_t *map );
@@ -875,7 +873,6 @@ public:
 public:
 	void							SetSize( const Vector &vecMin, const Vector &vecMax ); // UTIL_SetSize( pev, mins, maxs );
 	char const						*GetClassname( void );
-	virtual const char				*GetPlayerName() const { return NULL; }
 	char const						*GetDebugName( void );
 	static int						PrecacheModel( const char *name ); 
 	static bool						PrecacheSound( const char *name );

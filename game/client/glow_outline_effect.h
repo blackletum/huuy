@@ -22,15 +22,6 @@ class CMatRenderContextPtr;
 
 static const int GLOW_FOR_ALL_SPLIT_SCREEN_SLOTS = -1;
 
-enum GlowRenderStyle_t
-{
-	GLOWRENDERSTYLE_DEFAULT = 0,
-	GLOWRENDERSTYLE_RIMGLOW3D,
-	GLOWRENDERSTYLE_EDGE_HIGHLIGHT,
-	GLOWRENDERSTYLE_EDGE_HIGHLIGHT_PULSE,
-	GLOWRENDERSTYLE_COUNT,
-};
-
 class CGlowObjectManager
 {
 public:
@@ -51,15 +42,14 @@ public:
 			nIndex = m_nFirstFreeSlot;
 			m_nFirstFreeSlot = m_GlowObjectDefinitions[nIndex].m_nNextFreeSlot;
 		}
-
-		m_GlowObjectDefinitions[nIndex].m_pEntity = pEntity;
+		
+		m_GlowObjectDefinitions[nIndex].m_hEntity = pEntity;
 		m_GlowObjectDefinitions[nIndex].m_vGlowColor = vGlowColor;
 		m_GlowObjectDefinitions[nIndex].m_flGlowAlpha = flGlowAlpha;
 		m_GlowObjectDefinitions[nIndex].m_bRenderWhenOccluded = bRenderWhenOccluded;
 		m_GlowObjectDefinitions[nIndex].m_bRenderWhenUnoccluded = bRenderWhenUnoccluded;
 		m_GlowObjectDefinitions[nIndex].m_nSplitScreenSlot = nSplitScreenSlot;
 		m_GlowObjectDefinitions[nIndex].m_nNextFreeSlot = GlowObjectDefinition_t::ENTRY_IN_USE;
-		m_GlowObjectDefinitions[nIndex].m_nRenderStyle = GLOWRENDERSTYLE_DEFAULT;
 
 		return nIndex;
 	}
@@ -69,14 +59,14 @@ public:
 		Assert( !m_GlowObjectDefinitions[nGlowObjectHandle].IsUnused() );
 
 		m_GlowObjectDefinitions[nGlowObjectHandle].m_nNextFreeSlot = m_nFirstFreeSlot;
-		m_GlowObjectDefinitions[nGlowObjectHandle].m_pEntity = NULL;
+		m_GlowObjectDefinitions[nGlowObjectHandle].m_hEntity = NULL;
 		m_nFirstFreeSlot = nGlowObjectHandle;
 	}
 
 	void SetEntity( int nGlowObjectHandle, C_BaseEntity *pEntity )
 	{
 		Assert( !m_GlowObjectDefinitions[nGlowObjectHandle].IsUnused() );
-		m_GlowObjectDefinitions[nGlowObjectHandle].m_pEntity = pEntity;
+		m_GlowObjectDefinitions[nGlowObjectHandle].m_hEntity = pEntity;
 	}
 
 	void SetColor( int nGlowObjectHandle, const Vector &vGlowColor ) 
@@ -98,18 +88,12 @@ public:
 		m_GlowObjectDefinitions[nGlowObjectHandle].m_bRenderWhenUnoccluded = bRenderWhenUnoccluded;
 	}
 
-	void SetRenderStyle( int nGlowObjectHandle, GlowRenderStyle_t nRenderStyle )
-	{
-		Assert( !m_GlowObjectDefinitions[nGlowObjectHandle].IsUnused() );
-		m_GlowObjectDefinitions[nGlowObjectHandle].m_nRenderStyle = nRenderStyle;
-	}
-
 	bool IsRenderingWhenOccluded( int nGlowObjectHandle ) const
 	{
 		Assert( !m_GlowObjectDefinitions[nGlowObjectHandle].IsUnused() );
 		return m_GlowObjectDefinitions[nGlowObjectHandle].m_bRenderWhenOccluded;
 	}
-
+	
 	bool IsRenderingWhenUnoccluded( int nGlowObjectHandle ) const
 	{
 		Assert( !m_GlowObjectDefinitions[nGlowObjectHandle].IsUnused() );
@@ -118,13 +102,14 @@ public:
 
 	bool HasGlowEffect( C_BaseEntity *pEntity ) const
 	{
-		for ( int i = 0; i < m_GlowObjectDefinitions.Count(); i++ )
+		for ( int i = 0; i < m_GlowObjectDefinitions.Count(); ++ i )
 		{
-			if ( !m_GlowObjectDefinitions[i].IsUnused() && m_GlowObjectDefinitions[i].m_pEntity == pEntity )
+			if ( !m_GlowObjectDefinitions[i].IsUnused() && m_GlowObjectDefinitions[i].m_hEntity.Get() == pEntity )
 			{
 				return true;
 			}
 		}
+
 		return false;
 	}
 
@@ -137,21 +122,24 @@ private:
 
 	struct GlowObjectDefinition_t
 	{
-		bool ShouldDraw( int nSlot ) const { 
-			return m_pEntity && ( m_nSplitScreenSlot == GLOW_FOR_ALL_SPLIT_SCREEN_SLOTS || m_nSplitScreenSlot == nSlot ) && ( m_bRenderWhenOccluded || m_bRenderWhenUnoccluded ) && m_pEntity->ShouldDraw(); 
+		bool ShouldDraw( int nSlot ) const
+		{
+			return m_hEntity.Get() && 
+				   ( m_nSplitScreenSlot == GLOW_FOR_ALL_SPLIT_SCREEN_SLOTS || m_nSplitScreenSlot == nSlot ) && 
+				   ( m_bRenderWhenOccluded || m_bRenderWhenUnoccluded ) && 
+				   m_hEntity->ShouldDraw() && 
+				   !m_hEntity->IsDormant();
 		}
-		bool IsUnused() const { 
-			return m_nNextFreeSlot != GlowObjectDefinition_t::ENTRY_IN_USE; 
-		}
+
+		bool IsUnused() const { return m_nNextFreeSlot != GlowObjectDefinition_t::ENTRY_IN_USE; }
 		void DrawModel();
 
-		C_BaseEntity* m_pEntity;
+		EHANDLE m_hEntity;
 		Vector m_vGlowColor;
 		float m_flGlowAlpha;
 
 		bool m_bRenderWhenOccluded;
 		bool m_bRenderWhenUnoccluded;
-		int m_nRenderStyle;
 		int m_nSplitScreenSlot;
 
 		// Linked list of free slots
@@ -199,11 +187,6 @@ public:
 	void SetRenderFlags( bool bRenderWhenOccluded, bool bRenderWhenUnoccluded )
 	{
 		g_GlowObjectManager.SetRenderFlags( m_nGlowObjectHandle, bRenderWhenOccluded, bRenderWhenUnoccluded );
-	}
-
-	void SetRenderStyle( GlowRenderStyle_t nRenderStyle )
-	{
-		g_GlowObjectManager.SetRenderStyle( m_nGlowObjectHandle, nRenderStyle );
 	}
 
 	bool IsRenderingWhenOccluded() const

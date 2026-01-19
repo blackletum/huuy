@@ -1038,11 +1038,11 @@ void PropertySheet::PerformLayout()
 			if (m_PageTabs[i] == _activeTab)
 			{
 				// active tab is taller
-				_activeTab->SetBounds(xtab, 30, wide, tabHeight);
+				_activeTab->SetBounds(xtab, 2, wide, tabHeight);
 			}
 			else
 			{
-				m_PageTabs[i]->SetBounds(xtab, 30, wide, tabHeight - 2);
+				m_PageTabs[i]->SetBounds(xtab, 4, wide, tabHeight - 2);
 			}
 			m_PageTabs[i]->SetVisible(true);
 			xtab += (wide + 1) + m_iTabXDelta;

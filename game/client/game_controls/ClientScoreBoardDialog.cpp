@@ -31,7 +31,7 @@
 #include <game/client/iviewport.h>
 #include <igameresources.h>
 
-#include "vgui_avatarimage_nonsteam.h"
+#include "vgui_avatarimage.h"
 
 // memdbgon must be the last include file in a .cpp file!!!
 #include "tier0/memdbgon.h"
@@ -79,8 +79,7 @@ CClientScoreBoardDialog::CClientScoreBoardDialog(IViewPort *pViewPort) : Editabl
 
 	m_pImageList = NULL;
 
-    m_mapAvatarsToImageList.SetLessFunc( DefLessFunc( int ) );
-
+	m_mapAvatarsToImageList.SetLessFunc( DefLessFunc( CSteamID ) );
 	m_mapAvatarsToImageList.RemoveAll();
 }
 
@@ -491,7 +490,6 @@ void CClientScoreBoardDialog::UpdatePlayerAvatar( int playerIndex, KeyValues *kv
 		player_info_t pi;
 		if ( engine->GetPlayerInfo( playerIndex, &pi ) )
 		{
-#if 0
 			if ( pi.friendsID )
 			{
 				CSteamID steamIDForPlayer( pi.friendsID, 1,  steamapicontext->SteamUtils()->GetConnectedUniverse(), k_EAccountTypeIndividual );
@@ -518,31 +516,6 @@ void CClientScoreBoardDialog::UpdatePlayerAvatar( int playerIndex, KeyValues *kv
 				CAvatarImage *pAvIm = (CAvatarImage *)m_pImageList->GetImage( iImageIndex );
 				pAvIm->UpdateFriendStatus();
 			}
-#else
-				int iImageIndex = -1;
-
-				// See if we already have that avatar in our list
-				int iMapIndex = m_mapAvatarsToImageList.Find( pi.userID );
-				if ( iMapIndex == m_mapAvatarsToImageList.InvalidIndex() )
-				{
-					CAvatarImage *pImage = new CAvatarImage();
-					pImage->SetAvatarFromPI( pi );
-					pImage->SetAvatarSize( 32, 32 );	// Deliberately non scaling
-					iImageIndex = m_pImageList->AddImage( pImage );
-
-					m_mapAvatarsToImageList.Insert( pi.userID, iImageIndex );
-				}
-				else
-				{
-					iImageIndex = m_mapAvatarsToImageList[iMapIndex];
-				}
-
-				kv->SetInt( "avatar", iImageIndex );
-
-				CAvatarImage *pAvIm = (CAvatarImage *)m_pImageList->GetImage( iImageIndex );
-				pAvIm->UpdateFriendStatus();
-			
-#endif
 		}
 	}
 }

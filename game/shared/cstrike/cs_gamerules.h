@@ -20,10 +20,6 @@
 #include "cs_shareddefs.h"
 #include "gamevars_shared.h"
 
-#ifdef SERVER_DLL
-#include "shadowcontrol.h"
-#endif
-
 #ifdef CLIENT_DLL
 	#include "c_cs_player.h"
 	#include "networkstringtable_clientdll.h"
@@ -259,8 +255,6 @@ public:
 	void SetWarmupPeriodStartTime( float fl )	{ m_fWarmupPeriodStart = fl; }
 	float GetWarmupPeriodStartTime( void )	{ return m_fWarmupPeriodStart; }
 	float GetWarmupRemainingTime();
-	
-	static int GetMaxPlayers(); // always available
 
 	bool IsTimeOutActive() const { return ( IsTerroristTimeOutActive() || IsCTTimeOutActive() ); }
 	bool IsTerroristTimeOutActive() const { return m_bTerroristTimeOutActive; }
@@ -324,8 +318,6 @@ public:
 	bool IsEnemySolid( void ) const;				// returns true if enemies are solid obstacles in the current game mode
 
 	bool HasHalfTime( void ) const;
-	
-	bool IsRoundOver() const;
 
 	int GetCustomBotDifficulty( void ) const;
 

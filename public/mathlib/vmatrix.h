@@ -1808,22 +1808,38 @@ inline void MatrixBuildScale( VMatrix &dst, const Vector& scale )
 }
 
 // nillerusr: optimize this bruh later
-inline void MatrixBuildPerspective(VMatrix &dst, float tanHalfFovX, float tanHalfFovY, float zNear, float zFar)
+inline void MatrixBuildPerspective( VMatrix &dst, float fovX, float fovY, float zNear, float zFar )
 {
-    float width  = 2.0f * zNear * tanHalfFovX;
-    float height = 2.0f * zNear * tanHalfFovY;
+	// FIXME: collapse all of this into one matrix after we figure out what all should be in here.
+	float width = 2 * zNear * tan( fovX * ( M_PI/180.0f ) * 0.5f );
+	float height = 2 * zNear * tan( fovY * ( M_PI/180.0f ) * 0.5f );
 
-    float a = 2.0f * zNear / width;
-    float b = 2.0f * zNear / height;
-    float c = -zFar / (zNear - zFar);
-    float d = zNear * zFar / (zNear - zFar);
+	dst.	Init(
+		2.0f * zNear / width, 0.f, 0.f, 0.f,
+		0.f, 2.0f * zNear / height, 0.f, 0.f,
+		0.f, 0.f, -zFar / ( zNear - zFar ), zNear * zFar / ( zNear - zFar ),
+		0.f, 0.f, 1.f, 0.f
+		);
 
-    dst.Init(
-        -a * 0.5f,  0.0f,       0.0f,  0.5f,     // X: negate + scale + shift
-         0.0f,      -b * 0.5f,  0.0f,  0.5f,     // Y: negate + scale + shift
-         0.0f,       0.0f,      c,     d,        // Z: perspective depth
-         0.0f,       0.0f,      1.0f,  0.0f      // W: perspective divide
-    );
+	// negate X and Y so that X points right, and Y points up.
+	VMatrix negateXY;
+	negateXY.Identity();
+	negateXY[0][0] = -1.0f;
+	negateXY[1][1] = -1.0f;
+	MatrixMultiply( negateXY, dst, dst );
+
+	VMatrix addW;
+	addW.Identity();
+	addW[0][3] = 1.0f;
+	addW[1][3] = 1.0f;
+	addW[2][3] = 0.0f;
+	MatrixMultiply( addW, dst, dst );
+	
+	VMatrix scaleHalf;
+	scaleHalf.Identity();
+	scaleHalf[0][0] = 0.5f;
+	scaleHalf[1][1] = 0.5f;
+	MatrixMultiply( scaleHalf, dst, dst );
 }
 
 static inline void CalculateAABBForNormalizedFrustum_Helper( float x, float y, float z, const VMatrix &volumeToWorld, Vector &mins, Vector &maxs )
@@ -1847,45 +1863,18 @@ static inline void CalculateAABBForNormalizedFrustum_Helper( float x, float y, f
 // Given an inverse projection matrix, take the extremes of the space in transformed into world space and
 // get a bounding box.
 //-----------------------------------------------------------------------------
-inline void CalculateAABBFromProjectionMatrixInverse(const VMatrix &volumeToWorld, Vector *pMins, Vector *pMaxs) {
-	
-    ClearBounds(*pMins, *pMaxs);
-
-    float m00 = volumeToWorld[0][0], m01 = volumeToWorld[0][1], m02 = volumeToWorld[0][2], m03 = volumeToWorld[0][3];
-    float m10 = volumeToWorld[1][0], m11 = volumeToWorld[1][1], m12 = volumeToWorld[1][2], m13 = volumeToWorld[1][3];
-    float m20 = volumeToWorld[2][0], m21 = volumeToWorld[2][1], m22 = volumeToWorld[2][2], m23 = volumeToWorld[2][3];
-    float m30 = volumeToWorld[3][0], m31 = volumeToWorld[3][1], m32 = volumeToWorld[3][2], m33 = volumeToWorld[3][3];
-
-    Vector points[8];
-    float w;
-
-    w = m33;
-    points[0].Init(m03 / w, m13 / w, m23 / w);
-
-    w = m32 + m33;
-    points[1].Init((m02 + m03) / w, (m12 + m13) / w, (m22 + m23) / w);
-    
-    w = m31 + m33;
-    points[2].Init((m01 + m03) / w, (m11 + m13) / w, (m21 + m23) / w);
-
-    w = m31 + m32 + m33;
-    points[3].Init((m01 + m02 + m03) / w, (m11 + m12 + m13) / w, (m21 + m22 + m23) / w);
-
-    w = m30 + m33;
-    points[4].Init((m00 + m03) / w, (m10 + m13) / w, (m20 + m23) / w);
-
-    w = m30 + m32 + m33;
-    points[5].Init((m00 + m02 + m03) / w, (m10 + m12 + m13) / w, (m20 + m22 + m23) / w);
-
-    w = m30 + m31 + m33;
-    points[6].Init((m00 + m01 + m03) / w, (m10 + m11 + m13) / w, (m20 + m21 + m23) / w);
-
-    w = m30 + m31 + m32 + m33;
-    points[7].Init((m00 + m01 + m02 + m03) / w, (m10 + m11 + m12 + m13) / w, (m20 + m21 + m22 + m23) / w);
-
-    for (int i = 0; i < 8; ++i) {
-        AddPointToBounds(points[i], *pMins, *pMaxs);
-    }
+inline void CalculateAABBFromProjectionMatrixInverse( const VMatrix &volumeToWorld, Vector *pMins, Vector *pMaxs )
+{
+	// FIXME: Could maybe do better than the compile with all of these multiplies by 0 and 1.
+	ClearBounds( *pMins, *pMaxs );
+	CalculateAABBForNormalizedFrustum_Helper( 0, 0, 0, volumeToWorld, *pMins, *pMaxs );
+	CalculateAABBForNormalizedFrustum_Helper( 0, 0, 1, volumeToWorld, *pMins, *pMaxs );
+	CalculateAABBForNormalizedFrustum_Helper( 0, 1, 0, volumeToWorld, *pMins, *pMaxs );
+	CalculateAABBForNormalizedFrustum_Helper( 0, 1, 1, volumeToWorld, *pMins, *pMaxs );
+	CalculateAABBForNormalizedFrustum_Helper( 1, 0, 0, volumeToWorld, *pMins, *pMaxs );
+	CalculateAABBForNormalizedFrustum_Helper( 1, 0, 1, volumeToWorld, *pMins, *pMaxs );
+	CalculateAABBForNormalizedFrustum_Helper( 1, 1, 0, volumeToWorld, *pMins, *pMaxs );
+	CalculateAABBForNormalizedFrustum_Helper( 1, 1, 1, volumeToWorld, *pMins, *pMaxs );
 }
 
 inline void CalculateAABBFromProjectionMatrix( const VMatrix &worldToVolume, Vector *pMins, Vector *pMaxs )
@@ -1899,41 +1888,38 @@ inline void CalculateAABBFromProjectionMatrix( const VMatrix &worldToVolume, Vec
 // Given an inverse projection matrix, take the extremes of the space in transformed into world space and
 // get a bounding sphere.
 //-----------------------------------------------------------------------------
-inline void CalculateSphereFromProjectionMatrixInverse(const VMatrix &volumeToWorld, Vector *pCenter, float *pflRadius) {
-   
-    float m00 = volumeToWorld[0][0], m01 = volumeToWorld[0][1], m02 = volumeToWorld[0][2], m03 = volumeToWorld[0][3];
-    float m10 = volumeToWorld[1][0], m11 = volumeToWorld[1][1], m12 = volumeToWorld[1][2], m13 = volumeToWorld[1][3];
-    float m20 = volumeToWorld[2][0], m21 = volumeToWorld[2][1], m22 = volumeToWorld[2][2], m23 = volumeToWorld[2][3];
-    float m30 = volumeToWorld[3][0], m31 = volumeToWorld[3][1], m32 = volumeToWorld[3][2], m33 = volumeToWorld[3][3];
+inline void CalculateSphereFromProjectionMatrixInverse( const VMatrix &volumeToWorld, Vector *pCenter, float *pflRadius )
+{
+	// FIXME: Could maybe do better than the compile with all of these multiplies by 0 and 1.
 
-    float wNear = 0.5f * m30 + 0.5f * m31 + m33;
-    Vector vecCenterNear(
-        (0.5f * m00 + 0.5f * m01 + m03) / wNear,
-        (0.5f * m10 + 0.5f * m11 + m13) / wNear,
-        (0.5f * m20 + 0.5f * m21 + m23) / wNear
-    );
+	// Need 3 points: the endpoint of the line through the center of the near + far planes,
+	// and one point on the far plane. From that, we can derive a point somewhere on the center	line
+	// which would produce the smallest bounding sphere.
+	Vector vecCenterNear, vecCenterFar, vecNearEdge, vecFarEdge;
+	Vector3DMultiplyPositionProjective( volumeToWorld, Vector( 0.5f, 0.5f, 0.0f ), vecCenterNear );
+	Vector3DMultiplyPositionProjective( volumeToWorld, Vector( 0.5f, 0.5f, 1.0f ), vecCenterFar );
+	Vector3DMultiplyPositionProjective( volumeToWorld, Vector( 0.0f, 0.0f, 0.0f ), vecNearEdge );
+	Vector3DMultiplyPositionProjective( volumeToWorld, Vector( 0.0f, 0.0f, 1.0f ), vecFarEdge );
 
-    float wFar = 0.5f * m30 + 0.5f * m31 + m32 + m33;
-    Vector vecCenterFar(
-        (0.5f * m00 + 0.5f * m01 + m02 + m03) / wFar,
-        (0.5f * m10 + 0.5f * m11 + m12 + m13) / wFar,
-        (0.5f * m20 + 0.5f * m21 + m22 + m23) / wFar
-    );
-
-    float wNearEdge = m33;
-    Vector vecNearEdge(m03 / wNearEdge, m13 / wNearEdge, m23 / wNearEdge);
-
-    float wFarEdge = m32 + m33;
-    Vector vecFarEdge((m02 + m03) / wFarEdge, (m12 + m13) / wFarEdge, (m22 + m23) / wFarEdge);
-
-    Vector vecDelta = vecCenterFar - vecCenterNear;
-    float l = vecDelta.Length();
-    float h1Sqr = vecCenterNear.DistToSqr(vecNearEdge);
-    float h2Sqr = vecCenterFar.DistToSqr(vecFarEdge);
-    float x = (l * l + h2Sqr - h1Sqr) / (2.0f * l);
-
-    VectorMA(vecCenterNear, x / l, vecDelta, *pCenter);
-    *pflRadius = sqrt(h1Sqr + x * x);
+	// Let the distance between the near + far center points = l
+	// Let the distance between the near center point + near edge point = h1
+	// Let the distance between the far center point + far edge point = h2
+	// Let the distance along the center line from the near point to the sphere center point = x
+	// Then let the distance between the sphere center point + near edge point == 
+	//	the distance between the sphere center point + far edge point == r == radius of sphere
+	// Then h1^2 + x^2 == r^2 == (l-x)^2 + h2^2
+	// h1^x + x^2 = l^2 - 2 * l * x + x^2 + h2^2
+	// 2 * l * x = l^2 + h2^2 - h1^2
+	// x = (l^2 + h2^2 - h1^2) / (2 * l)
+	// r = sqrt( hl^1 + x^2 )
+	Vector vecDelta;
+	VectorSubtract( vecCenterFar, vecCenterNear, vecDelta );
+	float l = vecDelta.Length();
+	float h1Sqr = vecCenterNear.DistToSqr( vecNearEdge );
+	float h2Sqr = vecCenterFar.DistToSqr( vecFarEdge );
+	float x = (l*l + h2Sqr - h1Sqr) / (2.0f * l);
+	VectorMA( vecCenterNear, (x / l), vecDelta, *pCenter );
+	*pflRadius = sqrt( h1Sqr + x*x );
 }
 
 //-----------------------------------------------------------------------------

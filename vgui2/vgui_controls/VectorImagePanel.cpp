@@ -14,7 +14,6 @@
 #include "tier2/fileutils.h"
 
 #include "lunasvg/lunasvg.h"
-#include <vgui_controls/SVGEdgeEffects.h>
 
 // memdbgon must be the last include file in a .cpp file!!!
 #include "tier0/memdbgon.h"
@@ -42,7 +41,7 @@ VectorImagePanel::~VectorImagePanel()
 	DestroyTexture();
 }
 
-void VectorImagePanel::SetTexture( const char *szFilePath, bool bBlurEdges, int blurRadius, Color edgeColor )
+void VectorImagePanel::SetTexture( const char *szFilePath )
 {
 	// don't even bother doing anything without a file
 	if ( !szFilePath )
@@ -85,23 +84,6 @@ void VectorImagePanel::SetTexture( const char *szFilePath, bool bBlurEdges, int 
 	{
 		Warning( "VectorImagePanel: %s failed to render file \"%s\".\n", GetName(), szFilePath );
 		return;
-	}
-	
-	if ( bBlurEdges && blurRadius > 0 )
-	{
-		
-		SVGEffects::OutwardGlow( 
-			bitmap.data(),           
-			bitmap.width(),          
-			bitmap.height(),         
-			edgeColor.r(),           
-			edgeColor.g(),           
-			edgeColor.b(),           
-			blurRadius               
-		);
-		
-		DevMsg( "[VectorImagePanel] Applied outward glow to %s: radius=%d color=(%d,%d,%d)\n", 
-			GetName(), blurRadius, edgeColor.r(), edgeColor.g(), edgeColor.b() );
 	}
 
 	if ( m_nTextureId == -1 )
