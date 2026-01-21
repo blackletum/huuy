@@ -478,7 +478,9 @@ IMPLEMENT_SERVERCLASS_ST( CCSPlayer, DT_CSPlayer )
 	SendPropInt( SENDINFO( m_iLoadoutSlotGlovesCT ) ),
 	SendPropInt( SENDINFO( m_iLoadoutSlotGlovesT ) ),
 	SendPropInt( SENDINFO( m_iLoadoutSlotKnifeWeaponCT ) ),
+    SendPropInt( SENDINFO( m_iLoadoutSlotKnifeWeaponSkinCT ) ),
 	SendPropInt( SENDINFO( m_iLoadoutSlotKnifeWeaponT ) ),
+    SendPropInt( SENDINFO( m_iLoadoutSlotKnifeWeaponSkinT ) ),
 	SendPropInt( SENDINFO( m_iLoadoutSlotAgentCT ) ),
 	SendPropInt( SENDINFO( m_iLoadoutSlotAgentT ) ),
 	SendPropEHandle( SENDINFO( m_hLoadoutGloves ) ),
@@ -706,7 +708,9 @@ CCSPlayer::CCSPlayer()
 	m_iLoadoutSlotAgentCT = 0;
 	m_iLoadoutSlotAgentT = 0;
 	m_iLoadoutSlotKnifeWeaponCT = 0;
+    m_iLoadoutSlotKnifeWeaponSkinCT = 0;
 	m_iLoadoutSlotKnifeWeaponT = 0;
+    m_iLoadoutSlotKnifeWeaponSkinT = 0;
 	m_iLoadoutSlotGlovesCT = 0;
 	m_iLoadoutSlotGlovesT = 0;
 	m_bLoadoutStatTrak = false;
@@ -9166,6 +9170,13 @@ CBaseEntity	*CCSPlayer::GiveNamedItem( const char *pszName, int iSubType )
 			pWeapon->SetOriginalOwnerIndex( GetControlledBot()->entindex() );
 		}
 	}
+    
+    //ATOMIC_REAKTOR: Placing skin apply here btw we change skin after respawning or buying weapon...
+    if (pWeapon)
+    {
+        int paintID = g_pCSLoadout->GetWeaponSkinForPlayerWeaponid(this, pWeapon->GetCSWeaponID());
+        pWeapon->SetPaintKit(paintID);
+    }
 
 	StockPlayerAmmo( pWeapon );
 

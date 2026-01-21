@@ -328,6 +328,9 @@ public:
 	// keep track of a player who bought it
 	void SetOriginalOwnerIndex( int index ) { m_nOriginalOwnerIndex = index; }
 	int GetOriginalOwnerIndex() { return m_nOriginalOwnerIndex; }
+    
+    void SetPaintKit(int paintID) { m_iPaintKit = paintID; }
+    int GetPaintKit() const { return m_iPaintKit; }
 
 protected:
 
@@ -362,6 +365,7 @@ private:
 	CNetworkVar( float, m_fLastShotTime );
 
 	CNetworkVar( bool, m_bStatTrak );
+    CNetworkVar( int, m_iPaintKit );
 	CNetworkVar( int, m_nOriginalOwnerIndex );
 
 #ifdef CLIENT_DLL

@@ -158,6 +158,7 @@ public:
 	virtual bool OnInternalDrawModel( ClientModelRenderInfo_t *pInfo );
 	virtual bool OnPostInternalDrawModel( ClientModelRenderInfo_t *pInfo );
 	void		DoInternalDrawModel( ClientModelRenderInfo_t *pInfo, DrawModelState_t *pState, matrix3x4_t *pBoneToWorldArray = NULL );
+    void SetMaterialOverride(IMaterial* pMaterial);
 
 	//
 	virtual CMouthInfo *GetMouth();

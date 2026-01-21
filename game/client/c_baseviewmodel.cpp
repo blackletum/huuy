@@ -27,6 +27,8 @@
 	#include "cs_shareddefs.h"
 	#include "c_cs_player.h"
 	#include "cs_loadout.h"
+    #include "SkinProcessor.h"
+    #include "cs_skin_database.h"
 #endif
 
 #if defined( REPLAY_ENABLED )
@@ -470,6 +472,35 @@ int C_BaseViewModel::DrawModel( int flags )
 			m_viewmodelStatTrakAddon->DrawModel( flags );
 		}
 	}
+    
+    CWeaponCSBase* pCSWeapon = dynamic_cast<CWeaponCSBase*>( pPlayer->GetActiveWeapon() );
+        if ( !CSLoadout()->IsKnife( pCSWeapon->GetCSWeaponID() ) )
+        {
+            C_CSPlayer *pPlayer = dynamic_cast<C_CSPlayer*>( GetOwner() );
+            int iPaintKit = pCSWeapon->GetPaintKit();
+            IMaterial* pMat = g_SkinDatabase.GetSkinMaterial( iPaintKit );
+            if ( !pMat )
+            return ret;
+            
+            pWeapon->SetMaterialOverride( pMat );
+            BaseClass::DrawModel(flags);
+            pWeapon->SetMaterialOverride(nullptr);
+        }
+        else
+        {
+            C_CSPlayer *pPlayer = dynamic_cast<C_CSPlayer*>( GetOwner() );
+            if ( !pPlayer )
+            return ret;
+            int iPaintKit = g_pCSLoadout->ApplyKnifeSkin( pPlayer, pPlayer->GetTeamNumber() );
+            IMaterial* pMat = g_SkinDatabase.GetSkinMaterial( iPaintKit );
+        
+            if ( !pMat )
+            return ret;
+
+            pWeapon->SetMaterialOverride( pMat );
+            BaseClass::DrawModel(flags);
+            pWeapon->SetMaterialOverride(nullptr);
+        }
 
 	return ret;
 }
