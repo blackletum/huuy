@@ -15,6 +15,7 @@
 #include <vgui_controls/Label.h>
 #include "hudelement.h"
 #include "cs_weapon_selection.h"
+#include "cs_skin_database.h"
 #include "weapon_csbase.h"
 
 using namespace vgui;
@@ -35,6 +36,12 @@ struct WeaponSelectPanel
 		hWeapon = NULL;
 		bInitialized = false;
 		bSelected = false;
+        bNew = true;
+        flAnimationEndTime = 0.0f;
+        JustPickedUp = false;
+        nTargetX = 0;
+        nTargetY = 0;
+        bAnimating = false;
 	}
 
 	VectorImagePanel *pSVGPanel;
@@ -44,8 +51,18 @@ struct WeaponSelectPanel
 	EHANDLE hWeapon;
 	bool bInitialized;
 	bool bSelected;
+    bool bNew;
+    float flAnimationEndTime;
+    bool JustPickedUp;
+    int nTargetX;
+    int nTargetY;
+    bool bAnimating;
 };
 
+inline bool IsValidColor( const Color &c )
+{
+    return c.a() > 0;
+}
 
 // CHudWeaponSelection is already taken :(
 class CCSHudWeaponSelection: public CHudElement, public EditablePanel
@@ -61,6 +78,7 @@ public:
 	virtual bool ShouldDraw();
 
 	void AddWeapon( C_BaseCombatWeapon *pWeapon, bool bSelected );
+    static void BuildWeaponSkinName( CWeaponCSBase *pWeapon, const SkinDefinition_t *pSkinDef, wchar_t *out, int outSizeBytes );
 	void RemoveWeapon( int nSlot, int nPos );
 	void RemoveAllItems( void );
 	WeaponSelectPanel CreateNewPanel( int nSlot, int nPos, C_BaseCombatWeapon *pWeapon = NULL, bool bSelected = false );
