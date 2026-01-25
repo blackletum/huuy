@@ -433,33 +433,12 @@ struct FlashlightState_t
 		m_flShadowDepthBias = 0.0005f;
 		m_flShadowJitterSeed = 0.0f;
 		m_flShadowAtten = 0.0f;
-		m_flAmbientOcclusion = 0.0f;
-		m_nShadowQuality = 0;
-		m_bShadowHighRes = false;
-
 		m_bScissor = false; 
 		m_nLeft = -1;
 		m_nTop = -1;
 		m_nRight = -1;
 		m_nBottom = -1;
-
-		m_bVolumetric = false;
-		m_flNoiseStrength = 0.8f;
-		m_flFlashlightTime = 0.0f;
-		m_nNumPlanes = 64;
-		m_flPlaneOffset = 0.0f;
-		m_flVolumetricIntensity = 1.0f;
-
-		m_bOrtho = false;
-		m_fOrthoLeft = -1.0f;
-		m_fOrthoRight = 1.0f;
-		m_fOrthoTop = -1.0f;
-		m_fOrthoBottom = 1.0f;
-
-		m_fBrightnessScale = 1.0f;
-		m_pSpotlightTexture = NULL;
-		m_pProjectedMaterial = NULL;
-		m_bShareBetweenSplitscreenPlayers = false;
+		m_nShadowQuality = 0;
 	}
 
 	Vector m_vecLightOrigin;
@@ -468,19 +447,11 @@ struct FlashlightState_t
 	float m_FarZ;
 	float m_fHorizontalFOVDegrees;
 	float m_fVerticalFOVDegrees;
-	bool  m_bOrtho;
-	float m_fOrthoLeft;
-	float m_fOrthoRight;
-	float m_fOrthoTop;
-	float m_fOrthoBottom;
 	float m_fQuadraticAtten;
 	float m_fLinearAtten;
 	float m_fConstantAtten;
-	float m_FarZAtten;
 	float m_Color[4];
-	float m_fBrightnessScale;
 	ITexture *m_pSpotlightTexture;
-	IMaterial *m_pProjectedMaterial;
 	int m_nSpotlightTextureFrame;
 
 	// Shadow depth mapping parameters
@@ -492,28 +463,14 @@ struct FlashlightState_t
 	float m_flShadowDepthBias;
 	float m_flShadowJitterSeed;
 	float m_flShadowAtten;
-	float m_flAmbientOcclusion;
 	int   m_nShadowQuality;
-	bool  m_bShadowHighRes;
-
-	// simple projection
-	float m_flProjectionSize;
-	float m_flProjectionRotation;
-
-	bool m_bVolumetric;
-	float m_flNoiseStrength;
-	float m_flFlashlightTime;
-	int m_nNumPlanes;
-	float m_flPlaneOffset;
-	float m_flVolumetricIntensity;
-	bool m_bShareBetweenSplitscreenPlayers;	// When true, this flashlight will render for all splitscreen players
 
 	// Getters for scissor members
-	bool DoScissor() const { return m_bScissor; }
-	int GetLeft()	 const { return m_nLeft; }
-	int GetTop()	 const { return m_nTop; }
-	int GetRight()	 const { return m_nRight; }
-	int GetBottom()	 const { return m_nBottom; }
+	bool DoScissor() { return m_bScissor; }
+	int GetLeft()	 { return m_nLeft; }
+	int GetTop()	 { return m_nTop; }
+	int GetRight()	 { return m_nRight; }
+	int GetBottom()	 { return m_nBottom; }
 
 private:
 
@@ -524,8 +481,6 @@ private:
 	int m_nTop;
 	int m_nRight;
 	int m_nBottom;
-
-	IMPLEMENT_OPERATOR_EQUAL( FlashlightState_t );
 };
 
 // Passed as the callback object to Async functions in the material system

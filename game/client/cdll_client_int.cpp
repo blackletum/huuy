@@ -126,8 +126,6 @@
 #include "mumble.h"
 
 #include "gametypes.h"
-#include "SkinProcessor.h"
-#include "cs_skin_database.h"
 
 // NVNT includes
 #include "hud_macros.h"
@@ -1081,9 +1079,6 @@ int CHLClient::Init( CreateInterfaceFn appSystemFactory, CreateInterfaceFn physi
 	ClientWorldFactoryInit();
 
 	C_BaseAnimating::InitBoneSetupThreadPool();
-    
-    g_SkinDatabase.Initialize();
-    g_SkinProcessor.Initialize();
 
 #if defined( CSTRIKE_DLL )
 	// Load the game types.

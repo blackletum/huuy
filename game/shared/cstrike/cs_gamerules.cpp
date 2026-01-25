@@ -8368,9 +8368,7 @@ void CCSGameRules::ClientSettingsChanged( CBasePlayer *pPlayer )
 		}
 
 		pCSPlayer->m_iLoadoutSlotKnifeWeaponCT = atoi( engine->GetClientConVarValue( engine->IndexOfEdict( pCSPlayer->edict() ), "loadout_slot_knife_weapon_ct" ) );
-        pCSPlayer->m_iLoadoutSlotKnifeWeaponSkinCT = atoi( engine->GetClientConVarValue( engine->IndexOfEdict( pCSPlayer->edict() ), "loadout_slot_knife_weapon_skin_ct" ) );
 		pCSPlayer->m_iLoadoutSlotKnifeWeaponT = atoi( engine->GetClientConVarValue( engine->IndexOfEdict( pCSPlayer->edict() ), "loadout_slot_knife_weapon_t" ) );
-        pCSPlayer->m_iLoadoutSlotKnifeWeaponSkinT = atoi( engine->GetClientConVarValue( engine->IndexOfEdict( pCSPlayer->edict() ), "loadout_slot_knife_weapon_skin_t" ) );
 
 		int m_iNewAgentCT = atoi( engine->GetClientConVarValue( engine->IndexOfEdict( pCSPlayer->edict() ), "loadout_slot_agent_ct" ) );
 		int m_iNewAgentT = atoi( engine->GetClientConVarValue( engine->IndexOfEdict( pCSPlayer->edict() ), "loadout_slot_agent_t" ) );

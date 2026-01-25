@@ -69,218 +69,183 @@ FORCEINLINE StudioModelLighting_t CStudioRender::R_StudioComputeLighting( IMater
 
 
 IMaterial* CStudioRender::R_StudioSetupSkinAndLighting( IMatRenderContext *pRenderContext, int index, IMaterial **ppMaterials, int materialFlags,  
-    void /*IClientRenderable*/ *pClientRenderable, ColorMeshInfo_t *pColorMeshes, StudioModelLighting_t &lighting )
+	void /*IClientRenderable*/ *pClientRenderable, ColorMeshInfo_t *pColorMeshes, StudioModelLighting_t &lighting )
 {
-    VPROF( "R_StudioSetupSkin" );
-    IMaterial *pMaterial = NULL;
-    bool bCheckForConVarDrawTranslucentSubModels = false;
-    
-    if( m_pRC->m_Config.bWireframe && !m_pRC->m_pForcedMaterial )
-    {
-        if ( m_pRC->m_Config.bDrawZBufferedWireframe )
-            pMaterial = m_pMaterialMRMWireframeZBuffer;
-        else
-            pMaterial = m_pMaterialMRMWireframe;
-    }
-    else if( m_pRC->m_Config.bShowEnvCubemapOnly )
-    {
-        pMaterial = m_pMaterialModelEnvCubemap;
-    }
-    else
-    {
-        if ( m_pRC->m_pForcedMaterial && m_pRC->m_nForcedMaterialType == OVERRIDE_FIRST_MATERIAL_ONLY )
-        {
-            if ( index == 0 )
-            {
-                // override first material
-                pMaterial = m_pRC->m_pForcedMaterial;
-            }
-            else
-            {
-                // skip else 
-                pMaterial = ppMaterials[index];
-                if ( !pMaterial )
-                {
-                    Assert( 0 );
-                    return 0;
-                }
-            }
-            
-            // Set this bool to check after the bind below
-            bCheckForConVarDrawTranslucentSubModels = true;
-            
-            // Apply alpha and color modulation
-            pMaterial->AlphaModulate( m_pRC->m_AlphaMod );
-            pMaterial->ColorModulate( m_pRC->m_ColorMod[0], m_pRC->m_ColorMod[1], m_pRC->m_ColorMod[2] );
-        }
-        else if ( !m_pRC->m_pForcedMaterial && ( m_pRC->m_nForcedMaterialType != OVERRIDE_DEPTH_WRITE && m_pRC->m_nForcedMaterialType != OVERRIDE_SSAO_DEPTH_WRITE ) )
-        {
-            pMaterial = ppMaterials[index];
-            if ( !pMaterial )
-            {
-                Assert( 0 );
-                return 0;
-            }
-            
-            // Set this bool to check after the bind below
-            bCheckForConVarDrawTranslucentSubModels = true;
+	VPROF( "R_StudioSetupSkin" );
+	IMaterial *pMaterial = NULL;
+	bool bCheckForConVarDrawTranslucentSubModels = false;
+	if( m_pRC->m_Config.bWireframe && !m_pRC->m_pForcedMaterial )
+	{
+		if ( m_pRC->m_Config.bDrawZBufferedWireframe )
+			pMaterial = m_pMaterialMRMWireframeZBuffer;
+		else
+			pMaterial = m_pMaterialMRMWireframe;
+	}
+	else if( m_pRC->m_Config.bShowEnvCubemapOnly )
+	{
+		pMaterial = m_pMaterialModelEnvCubemap;
+	}
+	else
+	{
+		if ( !m_pRC->m_pForcedMaterial && ( m_pRC->m_nForcedMaterialType != OVERRIDE_DEPTH_WRITE && m_pRC->m_nForcedMaterialType != OVERRIDE_SSAO_DEPTH_WRITE ) )
+		{
+			pMaterial = ppMaterials[index];
+			if ( !pMaterial )
+			{
+				Assert( 0 );
+				return 0;
+			}
+		}
+		else
+		{
+			materialFlags = 0;
+			pMaterial = m_pRC->m_pForcedMaterial;
+			if (m_pRC->m_nForcedMaterialType == OVERRIDE_BUILD_SHADOWS)
+			{
+				// Connect the original material up to the shadow building material
+				// Also bind the original material so its proxies are in the correct state
+				static unsigned int translucentCache = 0;
+				IMaterialVar* pOriginalMaterialVar = pMaterial->FindVarFast( "$translucent_material", &translucentCache );
+				Assert( pOriginalMaterialVar );
+				IMaterial *pOriginalMaterial = ppMaterials[index];
+				if ( pOriginalMaterial )
+				{
+					// Disable any alpha modulation on the original material that was left over from when it was last rendered
+					pOriginalMaterial->AlphaModulate( 1.0f );
+					pRenderContext->Bind( pOriginalMaterial, pClientRenderable );
+					if ( pOriginalMaterial->IsTranslucent() || pOriginalMaterial->IsAlphaTested() )
+					{
+						if ( pOriginalMaterialVar )
+							pOriginalMaterialVar->SetMaterialValue( pOriginalMaterial );
+					}
+					else
+					{
+						if ( pOriginalMaterialVar )
+							pOriginalMaterialVar->SetMaterialValue( NULL );
+					}
+				}
+				else
+				{
+					if ( pOriginalMaterialVar )
+						pOriginalMaterialVar->SetMaterialValue( NULL );
+				}
+			}
+			else if ( m_pRC->m_nForcedMaterialType == OVERRIDE_DEPTH_WRITE || m_pRC->m_nForcedMaterialType == OVERRIDE_SSAO_DEPTH_WRITE )
+			{
+				// Disable any alpha modulation on the original material that was left over from when it was last rendered
+				ppMaterials[index]->AlphaModulate( 1.0f );
 
-            // Try to set the alpha based on the blend
-            pMaterial->AlphaModulate( m_pRC->m_AlphaMod );
+				// Bail if the material is still considered translucent after setting the AlphaModulate to 1.0
+				if ( ppMaterials[index]->IsTranslucent() )
+				{
+					return NULL;
+				}
 
-            // Try to set the color based on the colormod
-            pMaterial->ColorModulate( m_pRC->m_ColorMod[0], m_pRC->m_ColorMod[1], m_pRC->m_ColorMod[2] );
-        }
-        else
-        {
-            materialFlags = 0;
-            pMaterial = m_pRC->m_pForcedMaterial;
-            if (m_pRC->m_nForcedMaterialType == OVERRIDE_BUILD_SHADOWS)
-            {
-                // Connect the original material up to the shadow building material
-                // Also bind the original material so its proxies are in the correct state
-                static unsigned int translucentCache = 0;
-                IMaterialVar* pOriginalMaterialVar = pMaterial->FindVarFast( "$translucent_material", &translucentCache );
-                Assert( pOriginalMaterialVar );
-                IMaterial *pOriginalMaterial = ppMaterials[index];
-                if ( pOriginalMaterial )
-                {
-                    // Disable any alpha modulation on the original material that was left over from when it was last rendered
-                    pOriginalMaterial->AlphaModulate( 1.0f );
-                    pRenderContext->Bind( pOriginalMaterial, pClientRenderable );
-                    if ( pOriginalMaterial->IsTranslucent() || pOriginalMaterial->IsAlphaTested() )
-                    {
-                        if ( pOriginalMaterialVar )
-                            pOriginalMaterialVar->SetMaterialValue( pOriginalMaterial );
-                    }
-                    else
-                    {
-                        if ( pOriginalMaterialVar )
-                            pOriginalMaterialVar->SetMaterialValue( NULL );
-                    }
-                }
-                else
-                {
-                    if ( pOriginalMaterialVar )
-                        pOriginalMaterialVar->SetMaterialValue( NULL );
-                }
-            }
-            else if ( m_pRC->m_nForcedMaterialType == OVERRIDE_DEPTH_WRITE || m_pRC->m_nForcedMaterialType == OVERRIDE_SSAO_DEPTH_WRITE )
-            {
-                // Disable any alpha modulation on the original material that was left over from when it was last rendered
-                ppMaterials[index]->AlphaModulate( 1.0f );
+				static unsigned int originalTextureVarCache = 0;
+				IMaterialVar *pOriginalTextureVar = ppMaterials[index]->FindVarFast( "$basetexture", &originalTextureVarCache );
 
-                // Bail if the material is still considered translucent after setting the AlphaModulate to 1.0
-                if ( ppMaterials[index]->IsTranslucent() )
-                {
-                    return NULL;
-                }
+				// Select proper override material
+				int nAlphaTest = (int) ( ppMaterials[index]->IsAlphaTested() && pOriginalTextureVar->IsTexture() ); // alpha tested base texture
+				int nNoCull = (int) ppMaterials[index]->IsTwoSided();
+				if ( m_pRC->m_nForcedMaterialType == OVERRIDE_SSAO_DEPTH_WRITE )
+				{
+					pMaterial = m_pSSAODepthWrite[nAlphaTest][nNoCull];
+				}
+				else
+				{
+					pMaterial = m_pDepthWrite[nAlphaTest][nNoCull];
+				}
 
-                static unsigned int originalTextureVarCache = 0;
-                IMaterialVar *pOriginalTextureVar = ppMaterials[index]->FindVarFast( "$basetexture", &originalTextureVarCache );
+				// If we're alpha tested, we should set up the texture variables from the original material
+				if ( nAlphaTest != 0 )
+				{
+					static unsigned int originalTextureFrameVarCache = 0;
+					IMaterialVar *pOriginalTextureFrameVar = ppMaterials[index]->FindVarFast( "$frame", &originalTextureFrameVarCache );
+					static unsigned int originalAlphaRefCache = 0;
+					IMaterialVar *pOriginalAlphaRefVar = ppMaterials[index]->FindVarFast( "$AlphaTestReference", &originalAlphaRefCache );
 
-                // Select proper override material
-                int nAlphaTest = (int) ( ppMaterials[index]->IsAlphaTested() && pOriginalTextureVar->IsTexture() ); // alpha tested base texture
-                int nNoCull = (int) ppMaterials[index]->IsTwoSided();
-                if ( m_pRC->m_nForcedMaterialType == OVERRIDE_SSAO_DEPTH_WRITE )
-                {
-                    pMaterial = m_pSSAODepthWrite[nAlphaTest][nNoCull];
-                }
-                else
-                {
-                    pMaterial = m_pDepthWrite[nAlphaTest][nNoCull];
-                }
+					static unsigned int textureVarCache = 0;
+					IMaterialVar *pTextureVar = pMaterial->FindVarFast( "$basetexture", &textureVarCache );
+					static unsigned int textureFrameVarCache = 0;
+					IMaterialVar *pTextureFrameVar = pMaterial->FindVarFast( "$frame", &textureFrameVarCache );
+					static unsigned int alphaRefCache = 0;
+					IMaterialVar *pAlphaRefVar = pMaterial->FindVarFast( "$AlphaTestReference", &alphaRefCache );
 
-                // If we're alpha tested, we should set up the texture variables from the original material
-                if ( nAlphaTest != 0 )
-                {
-                    static unsigned int originalTextureFrameVarCache = 0;
-                    IMaterialVar *pOriginalTextureFrameVar = ppMaterials[index]->FindVarFast( "$frame", &originalTextureFrameVarCache );
-                    static unsigned int originalAlphaRefCache = 0;
-                    IMaterialVar *pOriginalAlphaRefVar = ppMaterials[index]->FindVarFast( "$AlphaTestReference", &originalAlphaRefCache );
+					if ( pOriginalTextureVar->IsTexture() ) // If $basetexture is defined
+					{
+						if( pTextureVar && pOriginalTextureVar )
+						{
+							pTextureVar->SetTextureValue( pOriginalTextureVar->GetTextureValue() );
+						}
 
-                    static unsigned int textureVarCache = 0;
-                    IMaterialVar *pTextureVar = pMaterial->FindVarFast( "$basetexture", &textureVarCache );
-                    static unsigned int textureFrameVarCache = 0;
-                    IMaterialVar *pTextureFrameVar = pMaterial->FindVarFast( "$frame", &textureFrameVarCache );
-                    static unsigned int alphaRefCache = 0;
-                    IMaterialVar *pAlphaRefVar = pMaterial->FindVarFast( "$AlphaTestReference", &alphaRefCache );
+						if( pTextureFrameVar && pOriginalTextureFrameVar )
+						{
+							pTextureFrameVar->SetIntValue( pOriginalTextureFrameVar->GetIntValue() );
+						}
 
-                    if ( pOriginalTextureVar->IsTexture() ) // If $basetexture is defined
-                    {
-                        if( pTextureVar && pOriginalTextureVar )
-                        {
-                            pTextureVar->SetTextureValue( pOriginalTextureVar->GetTextureValue() );
-                        }
+						if( pAlphaRefVar && pOriginalAlphaRefVar )
+						{
+							pAlphaRefVar->SetFloatValue( pOriginalAlphaRefVar->GetFloatValue() );
+						}
+					}
+				}
+			}
+		}
 
-                        if( pTextureFrameVar && pOriginalTextureFrameVar )
-                        {
-                            pTextureFrameVar->SetIntValue( pOriginalTextureFrameVar->GetIntValue() );
-                        }
+		// Set this bool to check after the bind below
+		bCheckForConVarDrawTranslucentSubModels = true;
 
-                        if( pAlphaRefVar && pOriginalAlphaRefVar )
-                        {
-                            pAlphaRefVar->SetFloatValue( pOriginalAlphaRefVar->GetFloatValue() );
-                        }
-                    }
-                }
-            }
-            
-            // Set this bool to check after the bind below
-            bCheckForConVarDrawTranslucentSubModels = true;
+		if ( m_pRC->m_nForcedMaterialType != OVERRIDE_DEPTH_WRITE && m_pRC->m_nForcedMaterialType != OVERRIDE_SSAO_DEPTH_WRITE)
+		{
+			// Try to set the alpha based on the blend
+			pMaterial->AlphaModulate( m_pRC->m_AlphaMod );
 
-            if ( m_pRC->m_nForcedMaterialType != OVERRIDE_DEPTH_WRITE && m_pRC->m_nForcedMaterialType != OVERRIDE_SSAO_DEPTH_WRITE)
-            {
-                // Try to set the alpha based on the blend
-                pMaterial->AlphaModulate( m_pRC->m_AlphaMod );
+			// Try to set the color based on the colormod
+			pMaterial->ColorModulate( m_pRC->m_ColorMod[0], m_pRC->m_ColorMod[1], m_pRC->m_ColorMod[2] );
+		}
+	}
 
-                // Try to set the color based on the colormod
-                pMaterial->ColorModulate( m_pRC->m_ColorMod[0], m_pRC->m_ColorMod[1], m_pRC->m_ColorMod[2] );
-            }
-        }
-    }
+	lighting = R_StudioComputeLighting( pMaterial, materialFlags, pColorMeshes );
+	if ( lighting == LIGHTING_MOUTH )
+	{
+		if ( !m_pRC->m_Config.bTeeth || !R_TeethAreVisible() )
+			return NULL;
+		// skin it and light it, but only if we need to.
+		if ( m_pRC->m_Config.m_bSupportsVertexAndPixelShaders )
+		{
+			R_MouthSetupVertexShader( pMaterial );
+		}
+	}
 
-    lighting = R_StudioComputeLighting( pMaterial, materialFlags, pColorMeshes );
-    if ( lighting == LIGHTING_MOUTH )
-    {
-        if ( !m_pRC->m_Config.bTeeth || !R_TeethAreVisible() )
-            return NULL;
-        // skin it and light it, but only if we need to.
-        if ( m_pRC->m_Config.m_bSupportsVertexAndPixelShaders )
-        {
-            R_MouthSetupVertexShader( pMaterial );
-        }
-    }
+	// TODO: It's possible we don't want to use the color texels--for example because of a convar. 
+	// We should check that here in addition to whether or not we have the data available.
+	static unsigned int lightmapVarCache = 0;
+	IMaterialVar *pLightmapVar = pMaterial->FindVarFast( "$lightmap", &lightmapVarCache );
+	if ( pLightmapVar )
+	{
+		ITexture* newTex = pColorMeshes ? pColorMeshes->m_pLightmap : NULL;
 
-    // TODO: It's possible we don't want to use the color texels--for example because of a convar. 
-    // We should check that here in addition to whether or not we have the data available.
-    static unsigned int lightmapVarCache = 0;
-    IMaterialVar *pLightmapVar = pMaterial->FindVarFast( "$lightmap", &lightmapVarCache );
-    if ( pLightmapVar )
-    {
-        ITexture* newTex = pColorMeshes ? pColorMeshes->m_pLightmap : NULL;
+		if (newTex)
+			pLightmapVar->SetTextureValue(newTex);
+		else 
+			pLightmapVar->SetUndefined();
+	}
+	
+	pRenderContext->Bind( pMaterial, pClientRenderable );
 
-        if (newTex)
-            pLightmapVar->SetTextureValue(newTex);
-        else 
-            pLightmapVar->SetUndefined();
-    }
-    
-    pRenderContext->Bind( pMaterial, pClientRenderable );
+	if ( bCheckForConVarDrawTranslucentSubModels )
+	{
+		bool translucent = pMaterial->IsTranslucent();
 
-    if ( bCheckForConVarDrawTranslucentSubModels )
-    {
-        bool translucent = pMaterial->IsTranslucent();
+		if (( m_bDrawTranslucentSubModels && !translucent ) ||
+			( !m_bDrawTranslucentSubModels && translucent ))
+		{
+			m_bSkippedMeshes = true;
+			return NULL;
+		}
+	}
 
-        if (( m_bDrawTranslucentSubModels && !translucent ) ||
-            ( !m_bDrawTranslucentSubModels && translucent ))
-        {
-            m_bSkippedMeshes = true;
-            return NULL;
-        }
-    }
-
-    return pMaterial;
+	return pMaterial;
 }
 
 

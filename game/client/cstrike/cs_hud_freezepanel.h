@@ -21,8 +21,6 @@
 #include "hud.h"
 #include "hudelement.h"
 #include "vgui_borderprogress.h"
-#include "weapon_csbase.h"
-#include "cs_skin_database.h"
 
 #include "cs_shareddefs.h"
 
@@ -48,7 +46,6 @@ public:
 	virtual void FireGameEvent( IGameEvent * event );
 	virtual bool ShouldDraw();
 	virtual void OnScreenSizeChanged(int nOldWide, int nOldTall);
-    void BuildWeaponSkinName( CWeaponCSBase *pWeapon, const SkinDefinition_t *pSkinDef, wchar_t *out, int outSizeBytes );
 
 	virtual void SetActive( bool bActive );
 
@@ -56,6 +53,8 @@ public:
 	void Hide();
 
 	int	HudElementKeyInput( int down, ButtonCode_t keynum, const char *pszCurrentBinding );
+
+protected:
 
 private:
 	CAvatarImagePanel*						m_pAvatar;
@@ -66,7 +65,6 @@ private:
 	Label*									m_pDamageTakenLabel;
 	Label*									m_pDamageGivenLabel;
 	Label*									m_pScreenshotLabel;
-    vgui::ImagePanel *m_pWeaponImage;
 
 	bool					m_bShouldBeVisible;
 

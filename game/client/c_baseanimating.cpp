@@ -3549,11 +3549,6 @@ int C_BaseAnimating::InternalDrawModel( int flags )
 	return bMarkAsDrawn;
 }
 
-void C_BaseAnimating::SetMaterialOverride(IMaterial* pMaterial)
-{
-	modelrender->ForcedMaterialOverride(pMaterial, OVERRIDE_FIRST_MATERIAL_ONLY );
-}
-
 extern ConVar muzzleflash_light;
 
 void C_BaseAnimating::ProcessMuzzleFlashEvent()

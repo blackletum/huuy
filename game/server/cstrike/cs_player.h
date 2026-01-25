@@ -895,9 +895,7 @@ public:
 	CNetworkVar( int, m_iLoadoutSlotAgentCT );
 	CNetworkVar( int, m_iLoadoutSlotAgentT );
 	CNetworkVar( int, m_iLoadoutSlotKnifeWeaponCT );
-    CNetworkVar( int, m_iLoadoutSlotKnifeWeaponSkinCT );
 	CNetworkVar( int, m_iLoadoutSlotKnifeWeaponT );
-    CNetworkVar( int, m_iLoadoutSlotKnifeWeaponSkinT );
 	CNetworkVar( int, m_iLoadoutSlotGlovesCT );
 	CNetworkVar( int, m_iLoadoutSlotGlovesT );
 	CNetworkHandle( CBaseCSGloves, m_hLoadoutGloves );

@@ -154,7 +154,6 @@ public:
 
 	virtual void Simulate();
 	virtual	void Spawn( void );
-    virtual void UpdateOnRemove( void );
 
 	void GiveCarriedHostage( EHANDLE hHostage );
 	void RefreshCarriedHostage( bool bForceCreate );
@@ -307,11 +306,6 @@ public:
 
 	virtual void CalcFreezeCamView( Vector& eyeOrigin, QAngle& eyeAngles, float& fov );
 	virtual void CalcDeathCamView( Vector& eyeOrigin, QAngle& eyeAngles, float& fov );
-    
-    void UpdateFreezeCamFlashlightEffect( C_BaseEntity *pTarget, float flAmount );
-	void CancelFreezeCamFlashlightEffect();
-	bool m_bFreezeCamFlashlightActive;
-	CTextureReference m_freezeCamSpotLightTexture;
 
 	virtual float GetDeathCamInterpolationTime();
 	float GetFreezeFrameInterpolant( void );
@@ -643,9 +637,7 @@ public:
 	CNetworkVar( int, m_iLoadoutSlotAgentCT );
 	CNetworkVar( int, m_iLoadoutSlotAgentT );
 	CNetworkVar( int, m_iLoadoutSlotKnifeWeaponCT );
-    CNetworkVar( int, m_iLoadoutSlotKnifeWeaponSkinCT );
 	CNetworkVar( int, m_iLoadoutSlotKnifeWeaponT );
-    CNetworkVar( int, m_iLoadoutSlotKnifeWeaponSkinT );
 	CNetworkVar( int, m_iLoadoutSlotGlovesCT );
 	CNetworkVar( int, m_iLoadoutSlotGlovesT );
 	EHANDLE	m_hLoadoutGloves;
