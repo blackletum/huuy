@@ -27,6 +27,7 @@
 	#include "c_te_effect_dispatch.h"
 	#include "c_te_legacytempents.h"
 	#include "weapon_selection.h"
+    #include "cs_skin_database.h"
 
 	extern IVModelInfoClient* modelinfo;
 
@@ -328,6 +329,7 @@ CWeaponCSBase::CWeaponCSBase()
 	m_iCrosshairTextureID = 0;
 	m_flGunAccuracyPosition = 0;
 	m_flLastClientFireBulletTime = 0;
+    UpdateCustomMaterial();
 #else
 	m_iDefaultExtraAmmo = 0;
 	m_numRemoveUnownedWeaponThink = 0;
@@ -1285,6 +1287,8 @@ void CWeaponCSBase::Drop(const Vector &vecVelocity)
 	{
 		pHudSelection->OnWeaponDrop( this );
 	}
+    
+    UpdateCustomMaterial();
 
 	return;
 #else
@@ -1763,6 +1767,13 @@ ConVar cl_cam_driver_compensation_scale( "cl_cam_driver_compensation_scale", "0.
 				}
 			}
 		}
+        
+        if ( type == DATA_UPDATE_CREATED )
+	    {
+		    // this will trigger the custom material to start making itself (if needed) the weapon will render with 
+		    // the original material for a few frames, then switch to the custom material when it's ready
+		    UpdateCustomMaterial();
+	    }
 
 		BaseClass::OnDataChanged( type );
 
@@ -3244,3 +3255,13 @@ void CWeaponCSBase::SetSilencer( bool state )
 		SetBodygroup( FindBodygroupByName( "silencer" ), state ? 0 : 1 );
 	}
 }
+
+#ifdef CLIENT_DLL
+void CWeaponCSBase::UpdateCustomMaterial()
+{
+    int iPaintKit = this->GetPaintKit();
+    IMaterial* pMaterial = g_SkinDatabase.GetSkinMaterial( iPaintKit );
+
+    SetMaterialOverride( pMaterial, 0 );
+}
+#endif

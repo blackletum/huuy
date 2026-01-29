@@ -14,6 +14,8 @@ class IMaterial;
 class ITexture;
 class KeyValues;
 
+#define MAX_DESCRIPTION_NAME 512
+
 // =============================================================================
 // SKIN DEFINITION (Client-side data)
 // =============================================================================
@@ -23,6 +25,7 @@ struct SkinDefinition_t
     int             iPaintKit;
     CSWeaponID      weaponID;
     char            szName[MAX_SKIN_NAME];
+    char            szDescription[MAX_DESCRIPTION_NAME];
     char            szIconPath[256];
     ESkinRarity     rarity;
     
@@ -224,6 +227,7 @@ struct SkinDefinition_t
         iPaintKit = 0;
         weaponID = WEAPON_NONE;
         szName[0] = '\0';
+        szDescription[0] = '\0';
         szBaseMaterial[0] = '\0';
         szIconPath[0] = '\0';
         rarity = SKIN_RARITY_COMMON;

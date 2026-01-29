@@ -876,6 +876,11 @@ ConVar mp_use_official_map_factions(
 	"0",
 	FCVAR_REPLICATED | FCVAR_NOTIFY,
 	"Determines wheter to use official factions for the current map or make faction selections free for everyone.\n 0 - Disable\n 1 - Enable for everyone\n 2 - Enable for bots only" );
+    
+ConVar mp_endmatch_votenextleveltime(
+	"mp_endmatch_votenextleveltime",
+	"20", FCVAR_REPLICATED | FCVAR_NOTIFY,
+	"If mp_endmatch_votenextmap is set, players have this much time to vote on the next map at match end." );
 
 // [jason] Can the dead speak to the living?
 ConVar sv_deadtalk( "sv_deadtalk", "0",	FCVAR_REPLICATED | FCVAR_NOTIFY, "Dead players can speak (voice, text) to the living" );
@@ -5001,14 +5006,11 @@ ConVar cl_autohelp(
 			// [Forrest] Calling ChangeLevel multiple times was causing IncrementMapCycleIndex
 			// to skip over maps in the list.  Avoid this using a technique from CTeamplayRoundBasedRules::Think.
 			// check to see if we should change levels now
-			if ( m_flIntermissionStartTime && ( m_flIntermissionStartTime + GetIntermissionDuration() < gpGlobals->curtime ) )
-			{
-				ChangeLevel(); // intermission is over
-
-                // Don't run this code again
+			if ( m_flIntermissionStartTime > 0.0f && gpGlobals->curtime >= m_flIntermissionStartTime + GetIntermissionDuration() + mp_endmatch_votenextleveltime.GetInt() )
+            {
+                ChangeLevel();
                 m_flIntermissionStartTime = 0.f;
-			}
-
+            }
 			return true;
 		}
 

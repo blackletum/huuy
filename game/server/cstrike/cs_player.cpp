@@ -415,8 +415,11 @@ IMPLEMENT_SERVERCLASS_ST( CCSPlayer, DT_CSPlayer )
 	SendPropInt( SENDINFO( m_iThrowGrenadeCounter ), THROWGRENADE_COUNTER_BITS, SPROP_UNSIGNED ),
 	SendPropInt( SENDINFO( m_iAddonBits ), NUM_ADDON_BITS, SPROP_UNSIGNED ),
 	SendPropInt( SENDINFO( m_iPrimaryAddon ), 8, SPROP_UNSIGNED ),
+    SendPropInt( SENDINFO( m_iPrimaryAddonPaintKit ), 8, SPROP_UNSIGNED ),
 	SendPropInt( SENDINFO( m_iSecondaryAddon ), 8, SPROP_UNSIGNED ),
+    SendPropInt( SENDINFO( m_iSecondaryAddonPaintKit ), 8, SPROP_UNSIGNED ),
 	SendPropInt( SENDINFO( m_iKnifeAddon ), 8, SPROP_UNSIGNED ),
+    SendPropInt( SENDINFO( m_iKnifeAddonPaintKit ), 8, SPROP_UNSIGNED ),
 	SendPropInt( SENDINFO( m_iPlayerState ), Q_log2( NUM_PLAYER_STATES )+1, SPROP_UNSIGNED ),
 	SendPropInt( SENDINFO( m_iAccount ), 16, SPROP_UNSIGNED ),
 	SendPropBool( SENDINFO( m_bInBombZone ) ),
@@ -3097,6 +3100,7 @@ void CCSPlayer::UpdateAddonBits()
 	{
 		iNewBits |= ADDON_PRIMARY;
 		m_iPrimaryAddon = weapon->GetWeaponID();
+        m_iPrimaryAddonPaintKit = weapon->GetPaintKit();
 	}
 	else
 	{
@@ -3112,6 +3116,7 @@ void CCSPlayer::UpdateAddonBits()
 			iNewBits |= ADDON_PISTOL2;
 		}
 		m_iSecondaryAddon = weapon->GetWeaponID();
+        m_iSecondaryAddonPaintKit = weapon->GetPaintKit();
 	}
 	else if ( weapon && weapon->GetWeaponID() == WEAPON_ELITE )
 	{
@@ -3119,6 +3124,7 @@ void CCSPlayer::UpdateAddonBits()
 		// to display the empty holster.
 		iNewBits |= ADDON_PISTOL2;
 		m_iSecondaryAddon = weapon->GetWeaponID();
+        m_iSecondaryAddonPaintKit = weapon->GetPaintKit();
 	}
 	else
 	{
@@ -3130,6 +3136,7 @@ void CCSPlayer::UpdateAddonBits()
 	{
 		iNewBits |= ADDON_KNIFE;
 		m_iKnifeAddon = weapon->GetWeaponID();
+        m_iKnifeAddonPaintKit = weapon->GetPaintKit();
 	}
 	else
 	{

@@ -814,7 +814,7 @@ class CModelRender : public IVModelRender,
 {
 public:
 	// members of the IVModelRender interface
-	virtual void ForcedMaterialOverride( IMaterial *newMaterial, OverrideType_t nOverrideType = OVERRIDE_NORMAL );
+	virtual void ForcedMaterialOverride( IMaterial *newMaterial, OverrideType_t nOverrideType = OVERRIDE_NORMAL, int m_nForcedMaterialIndex = 0 );
 	virtual int DrawModel( 	
 					int flags, IClientRenderable *cliententity,
 					ModelInstanceHandle_t instance, int entity_index, const model_t *model, 
@@ -1825,7 +1825,7 @@ void CModelRender::SetupLighting( const Vector &vecCenter )
 //-----------------------------------------------------------------------------
 // Uses this material instead of the one the model was compiled with
 //-----------------------------------------------------------------------------
-void CModelRender::ForcedMaterialOverride( IMaterial *newMaterial, OverrideType_t nOverrideType )
+void CModelRender::ForcedMaterialOverride( IMaterial *newMaterial, OverrideType_t nOverrideType, int m_nForcedMaterialIndex )
 {
 	tmZone( TELEMETRY_LEVEL0, TMZF_NONE, "%s", __FUNCTION__ );
 

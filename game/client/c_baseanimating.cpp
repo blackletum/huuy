@@ -53,6 +53,7 @@
 #include "prediction.h"
 #include "replay/replay_ragdoll.h"
 #include "studio_stats.h"
+#include "datacache/imdlcache.h"
 #include "tier1/callqueue.h"
 
 #ifdef TF_CLIENT_DLL
@@ -65,6 +66,8 @@
 
 static ConVar cl_SetupAllBones( "cl_SetupAllBones", "0" );
 ConVar r_sequence_debug( "r_sequence_debug", "" );
+
+extern IMDLCache *g_pMDLCache;
 
 bool C_BaseAnimating::s_bEnableInvalidateBoneCache = true;
 bool C_BaseAnimating::s_bEnableNewBoneSetupRequest = true;
@@ -816,6 +819,8 @@ C_BaseAnimating::~C_BaseAnimating()
 		m_pAttachedTo->RemoveBoneAttachment( this );
 		m_pAttachedTo = NULL;
 	}
+    
+    ClearMaterialOverride();
 }
 
 bool C_BaseAnimating::UsesPowerOfTwoFrameBufferTexture( void )
@@ -3541,17 +3546,37 @@ int C_BaseAnimating::InternalDrawModel( int flags )
 			VectorScale( (*pBoneToWorld)[2], flScale, (*pBoneToWorld)[2] );
 		}
 	}
+    
+    bool bHasOverride = m_MaterialOverride.HasOverride();
 
-	DoInternalDrawModel( pInfo, ( bMarkAsDrawn && ( pInfo->flags & STUDIO_RENDER ) ) ? &state : NULL, pBoneToWorld );
+	if (bHasOverride && m_MaterialOverride.Get())
+	{
+		modelrender->ForcedMaterialOverride(m_MaterialOverride.Get(), OVERRIDE_SELECTIVE, m_MaterialOverride.GetIndex());
+	}
 
+	DoInternalDrawModel(pInfo, (bMarkAsDrawn && (pInfo->flags & STUDIO_RENDER)) ? &state : NULL, pBoneToWorld);
+
+	if (bHasOverride)
+	{
+		modelrender->ForcedMaterialOverride(nullptr, OVERRIDE_NORMAL);
+	}
+    
 	OnPostInternalDrawModel( pInfo );
 
 	return bMarkAsDrawn;
 }
 
-void C_BaseAnimating::SetMaterialOverride(IMaterial* pMaterial)
+void C_BaseAnimating::SetMaterialOverride(IMaterial *pMaterial, int nMaterialIndex)
 {
-	modelrender->ForcedMaterialOverride(pMaterial, OVERRIDE_FIRST_MATERIAL_ONLY );
+	if (!pMaterial)
+		return;
+
+	m_MaterialOverride.Set(pMaterial, nMaterialIndex);
+}
+
+void C_BaseAnimating::ClearMaterialOverride()
+{
+	m_MaterialOverride.Clear();
 }
 
 extern ConVar muzzleflash_light;

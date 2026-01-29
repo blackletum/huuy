@@ -24,6 +24,7 @@
 #include <vgui/IVGui.h>
 #include <vgui/ILocalize.h>
 #include <vgui/VGUI.h>
+#include <ienginevgui.h>
 
 // client dll/engine defines
 #include "hud.h"
@@ -36,6 +37,7 @@
 #include "cstrikebuymenu.h"
 #include "cstrikespectatorgui.h"
 #include "cstrikeclientscoreboard.h"
+#include "vgui_endgame_panel.h"
 #include "clientmode_csnormal.h"
 #include "IGameUIFuncs.h"
 
@@ -143,6 +145,21 @@ CON_COMMAND_F( togglescores, "Toggles score panel", FCVAR_CLIENTCMD_CAN_EXECUTE)
 void CounterStrikeViewport::Start( IGameUIFuncs *pGameUIFuncs, IGameEventManager2 * pGameEventManager )
 {
 	BaseClass::Start( pGameUIFuncs, pGameEventManager );
+	
+	extern CGameResultPanel *g_pGameResultPanel;
+	if (!g_pGameResultPanel)
+	{
+		g_pGameResultPanel = new CGameResultPanel(enginevgui->GetPanel(PANEL_CLIENTDLL));
+		if (g_pGameResultPanel)
+		{
+			vgui::ivgui()->AddTickSignal(g_pGameResultPanel->GetVPanel(), 100);
+			Msg("[ENDGAME] Panel initialized successfully in viewport\n");
+		}
+		else
+		{
+			Warning("[ENDGAME] Failed to create panel!\n");
+		}
+	}
 }
 
 void CounterStrikeViewport::ApplySchemeSettings( vgui::IScheme *pScheme )

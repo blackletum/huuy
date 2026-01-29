@@ -49,6 +49,7 @@
 #include <engine/IEngineSound.h>
 #include <inetchannel.h>
 #include <netmessages.h>
+#include "cs_skin_database.h"
 
 #include "eventlist.h"
 #include "npcevent.h"
@@ -137,23 +138,24 @@ public:
 	const char *m_pWeaponClassName;	// The addon uses the w_ model from this weapon.
 	const char *m_pModelName;		//If this is present, will use this model instead of looking up the weapon
 	const char *m_pHolsterName;
+    const char *m_pPaintKit;
 };
 
 
 // These must follow the ADDON_ ordering.
 CAddonInfo g_AddonInfo[] =
 {
-	{ "grenade0",	"weapon_flashbang",		0, 0 },
-	{ "grenade1",	"weapon_flashbang",		0, 0 },
-	{ "grenade2",	"weapon_hegrenade",		0, 0 },
-	{ "grenade3",	"weapon_smokegrenade",	0, 0 },
-	{ "c4",			"weapon_c4",			0, 0 },
-	{ "defusekit",	0,						"models/weapons/w_defuser.mdl", 0 },
-	{ "primary",	0,						0, 0 },	// Primary addon model is looked up based on m_iPrimaryAddon
-	{ "pistol",		0,						0, 0 },	// Pistol addon model is looked up based on m_iSecondaryAddon
-	{ "eholster",	0,						"models/weapons/w_eq_eholster_elite.mdl", "models/weapons/w_eq_eholster.mdl" },
-	{ "knife",		0,						0, 0 },	// Knife addon model is looked up based on m_iKnifeAddon
-	{ "grenade4",	"weapon_decoy",			0, 0 },
+	{ "grenade0",	"weapon_flashbang",		0, 0, 0 },
+	{ "grenade1",	"weapon_flashbang",		0, 0, 0 },
+	{ "grenade2",	"weapon_hegrenade",		0, 0, 0 },
+	{ "grenade3",	"weapon_smokegrenade",	0, 0, 0 },
+	{ "c4",			"weapon_c4",			0, 0, 0 },
+	{ "defusekit",	0,						"models/weapons/w_defuser.mdl", 0, 0 },
+	{ "primary",	0,						0, 0, 0 },	// Primary addon model is looked up based on m_iPrimaryAddon
+	{ "pistol",		0,						0, 0, 0 },	// Pistol addon model is looked up based on m_iSecondaryAddon
+	{ "eholster",	0,						"models/weapons/w_eq_eholster_elite.mdl", "models/weapons/w_eq_eholster.mdl", 0 },
+	{ "knife",		0,						0, 0, 0 },	// Knife addon model is looked up based on m_iKnifeAddon
+	{ "grenade4",	"weapon_decoy",			0, 0, 0 },
 };
 
 CUtlVector<EHANDLE> g_SmokeGrenadeHandles;
@@ -1045,8 +1047,11 @@ IMPLEMENT_CLIENTCLASS_DT( C_CSPlayer, DT_CSPlayer, CCSPlayer )
 	RecvPropInt( RECVINFO( m_iThrowGrenadeCounter ) ),
 	RecvPropInt( RECVINFO( m_iAddonBits ) ),
 	RecvPropInt( RECVINFO( m_iPrimaryAddon ) ),
+    RecvPropInt( RECVINFO( m_iPrimaryAddonPaintKit ) ),
 	RecvPropInt( RECVINFO( m_iSecondaryAddon ) ),
+    RecvPropInt( RECVINFO( m_iSecondaryAddonPaintKit ) ),
 	RecvPropInt( RECVINFO( m_iKnifeAddon ) ),
+    RecvPropInt( RECVINFO( m_iKnifeAddonPaintKit ) ),
 	RecvPropInt( RECVINFO( m_iPlayerState ) ),
 	RecvPropInt( RECVINFO( m_iAccount ) ),
 	RecvPropBool( RECVINFO( m_bInBombZone ) ),
@@ -1909,6 +1914,26 @@ int C_CSPlayer::GetTargetedWeapon( void ) const
 	return m_iTargetedWeaponEntIndex;
 }
 
+int C_CSPlayer::GetAddonPaintKit( int addonIndex ) const
+{
+    int addonType = ( 1 << addonIndex );
+
+    switch ( addonType )
+    {
+        case ADDON_PRIMARY:
+            return m_iPrimaryAddonPaintKit.Get();
+
+        case ADDON_PISTOL:
+        case ADDON_PISTOL2:
+            return m_iSecondaryAddonPaintKit.Get();
+
+        case ADDON_KNIFE:
+            return m_iKnifeAddonPaintKit.Get();
+    }
+
+    return 0;
+}
+
 
 class C_PlayerAddonModel : public C_BreakableProp
 {
@@ -1971,7 +1996,7 @@ void C_CSPlayer::CreateAddonModel( int i )
 	{
 		CCSWeaponInfo *weaponInfo;
 		if ( addonType == ADDON_PRIMARY )
-			weaponInfo = GetWeaponInfo( (CSWeaponID) m_iPrimaryAddon.Get() );
+			weaponInfo = GetWeaponInfo( (CSWeaponID) m_iPrimaryAddon.Get()  );
 		else if ( addonType == ADDON_PISTOL )
 			weaponInfo = GetWeaponInfo( (CSWeaponID) m_iSecondaryAddon.Get() );
 		else
@@ -2069,7 +2094,10 @@ void C_CSPlayer::CreateAddonModel( int i )
 	pAddon->m_hEnt = pEnt;
 	pAddon->m_iAddon = i;
 	pAddon->m_iAttachmentPoint = iAttachment;
-	pEnt->SetParent( this, pAddon->m_iAttachmentPoint );
+	pEnt->SetParent( this, pAddon->m_iAttachmentPoint ); 
+    int iPaintKit = GetAddonPaintKit( i );
+    IMaterial* pMaterial = g_SkinDatabase.GetSkinMaterial( iPaintKit );
+    pEnt->SetMaterialOverride( pMaterial, 0 );
 
 	int iHolsterAttachment = pEnt->LookupAttachment( "weapon_holster_center" );
 	if ( iHolsterAttachment > 0 )
@@ -2226,6 +2254,7 @@ void C_CSPlayer::UpdateAddonModels( bool bForce )
 		if ( !( iCurAddonBits & addonBit ) || (rebuildPistol2Addon && addonBit == ADDON_PISTOL2 ) || ( rebuildPrimaryAddon && addonBit == ADDON_PRIMARY ) )
 		{
 			if ( pModel->m_hEnt.Get() )
+                pModel->m_hEnt->ClearMaterialOverride();
 				pModel->m_hEnt->Release();
 
 			m_AddonModels.Remove( i );
@@ -2269,6 +2298,7 @@ void C_CSPlayer::RemoveAddonModels()
 
 		if ( pModel->m_hEnt.Get() )
 		{
+            pModel->m_hEnt->ClearMaterialOverride();
 			pModel->m_hEnt->Release();
 		}
 
@@ -4200,9 +4230,14 @@ void C_CSPlayer::DropPhysicsMag( const char *options )
 
 	if ( !pEntity->Initialize() )
 	{
+        pEntity->ClearMaterialOverride();
 		pEntity->Release();
 		return;
 	}
+    
+	int iPaintKit = pWeapon->GetPaintKit();
+    IMaterial* pMaterial = g_SkinDatabase.GetSkinMaterial( iPaintKit );
+    pEntity->SetMaterialOverride( pMaterial, 0 );
 
 	// fade out after set time
 	pEntity->StartFadeOut( sv_magazine_drop_time );

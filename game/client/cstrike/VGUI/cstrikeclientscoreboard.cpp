@@ -1087,7 +1087,7 @@ void CCSClientScoreBoardDialog::FireGameEvent( IGameEvent *event )
     }
 	else if ( Q_strcmp( pEventName, "announce_phase_end" ) == 0 )
 	{
-		m_bForceShow = true;
+		m_bForceShow = false;
 		ShowPanel( m_bForceShow );
 	}
 	else if ( Q_strcmp( pEventName, "round_start" ) == 0 )

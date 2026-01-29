@@ -472,14 +472,19 @@ public:
 	virtual void NotifyOnLayerChangeCycle( const CAnimationLayer* pLayer, const float flNewCycle ) OVERRIDE;
 
 	bool IsInHostageRescueZone( void );
+    
+    int GetAddonPaintKit( int addonIndex ) const;
 
 	// This is a combination of the ADDON_ flags in cs_shareddefs.h.
 	CNetworkVar( int, m_iAddonBits );
 
 	// Clients don't know about holstered weapons, so we need to be told about them here
 	CNetworkVar( int, m_iPrimaryAddon );
+    CNetworkVar( int, m_iPrimaryAddonPaintKit );
 	CNetworkVar( int, m_iSecondaryAddon );
+    CNetworkVar( int, m_iSecondaryAddonPaintKit );
 	CNetworkVar( int, m_iKnifeAddon );
+    CNetworkVar( int, m_iKnifeAddonPaintKit );
 
 	// How long the progress bar takes to get to the end. If this is 0, then the progress bar
 	// should not be drawn.

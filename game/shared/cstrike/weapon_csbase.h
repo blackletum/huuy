@@ -212,6 +212,7 @@ public:
 	virtual int GetMuzzleAttachmentIndex( C_BaseAnimating* pAnimating, bool isThirdPerson = false );
 	virtual const char* GetMuzzleFlashEffectName( bool bThirdPerson );
 	virtual int GetEjectBrassAttachmentIndex( C_BaseAnimating* pAnimating, bool isThirdPerson = false );
+    void    UpdateCustomMaterial();
 #endif
 
 	virtual void SetWeaponModelIndex( const char *pName );
@@ -330,7 +331,7 @@ public:
 	int GetOriginalOwnerIndex() { return m_nOriginalOwnerIndex; }
     
     void SetPaintKit(int paintID) { m_iPaintKit = paintID; }
-    int GetPaintKit() const { return m_iPaintKit; }
+    virtual int GetPaintKit() const override { return m_iPaintKit; }
 
 protected:
 

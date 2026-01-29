@@ -26,6 +26,7 @@
 #include "ragdoll_shared.h"
 #include "tier0/threadtools.h"
 #include "datacache/idatacache.h"
+#include "materialsystem/imaterial.h"
 
 #define LIPSYNC_POSEPARAM_NAME "mouth"
 #define NUM_HITBOX_FIRES	10
@@ -92,6 +93,50 @@ typedef unsigned int			ClientSideAnimationListHandle_t;
 
 #define		INVALID_CLIENTSIDEANIMATION_LIST_HANDLE	(ClientSideAnimationListHandle_t)~0
 
+class CMaterialOverrideController
+{
+public:
+    CMaterialOverrideController()
+        : m_pOverrideMaterial(nullptr)
+        , m_nMaterialIndex(0)
+    {}
+
+    void Set(IMaterial *pMaterial, int nMaterialIndex = 0)
+    {
+        m_pOverrideMaterial = pMaterial;
+        m_nMaterialIndex = nMaterialIndex;
+    }
+
+    void Clear()
+    {
+        m_pOverrideMaterial = nullptr;
+        m_nMaterialIndex = 0;
+    }
+
+    IMaterial *Get() const
+    {
+        return m_pOverrideMaterial;
+    }
+
+    int GetIndex() const
+    {
+        return m_nMaterialIndex;
+    }
+
+    bool HasOverride() const
+    {
+        return m_pOverrideMaterial != nullptr;
+    }
+
+    bool ShouldOverride(int nCurrentIndex) const
+    {
+        return m_pOverrideMaterial != nullptr && m_nMaterialIndex == nCurrentIndex;
+    }
+
+private:
+    IMaterial *m_pOverrideMaterial;
+    int m_nMaterialIndex;
+};
 
 class C_BaseAnimating : public C_BaseEntity, private IModelLoadCallback
 {
@@ -158,9 +203,10 @@ public:
 	virtual bool OnInternalDrawModel( ClientModelRenderInfo_t *pInfo );
 	virtual bool OnPostInternalDrawModel( ClientModelRenderInfo_t *pInfo );
 	void		DoInternalDrawModel( ClientModelRenderInfo_t *pInfo, DrawModelState_t *pState, matrix3x4_t *pBoneToWorldArray = NULL );
-    void SetMaterialOverride(IMaterial* pMaterial);
+    void SetMaterialOverride(IMaterial *pMaterial, int nMaterialIndex);
+    void ClearMaterialOverride();
 
-	//
+	
 	virtual CMouthInfo *GetMouth();
 	virtual void	ControlMouth( CStudioHdr *pStudioHdr );
 
@@ -512,6 +558,8 @@ private:
 	void							UpdateRelevantInterpolatedVars();
 	void							AddBaseAnimatingInterpolatedVars();
 	void							RemoveBaseAnimatingInterpolatedVars();
+    
+    CMaterialOverrideController m_MaterialOverride;
 
 public:
 	CRagdoll						*m_pRagdoll;

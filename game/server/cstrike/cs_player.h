@@ -1066,8 +1066,11 @@ private:
 
 	// Clients don't know about holstered weapons, so we need to tell them the weapon type here
 	CNetworkVar( int, m_iPrimaryAddon );
+    CNetworkVar( int, m_iPrimaryAddonPaintKit );
 	CNetworkVar( int, m_iSecondaryAddon );
+    CNetworkVar( int, m_iSecondaryAddonPaintKit );
 	CNetworkVar( int, m_iKnifeAddon );
+    CNetworkVar( int, m_iKnifeAddonPaintKit );
 
 //Damage record functions
 public:

@@ -88,16 +88,17 @@ IMaterial* CStudioRender::R_StudioSetupSkinAndLighting( IMatRenderContext *pRend
     }
     else
     {
-        if ( m_pRC->m_pForcedMaterial && m_pRC->m_nForcedMaterialType == OVERRIDE_FIRST_MATERIAL_ONLY )
+        if ( m_pRC->m_pForcedMaterial && m_pRC->m_nForcedMaterialType == OVERRIDE_SELECTIVE )
         {
-            if ( index == 0 )
+            // Override all materials from index 0 up to and including m_nForcedMaterialIndex
+            if ( index <= m_pRC->m_nForcedMaterialIndex )
             {
-                // override first material
+                // override material
                 pMaterial = m_pRC->m_pForcedMaterial;
             }
             else
             {
-                // skip else 
+                // use original material for indices beyond the specified index
                 pMaterial = ppMaterials[index];
                 if ( !pMaterial )
                 {

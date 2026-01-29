@@ -1950,7 +1950,7 @@ void CStudioRenderContext::GetCurrentConfig( StudioRenderConfig_t& config )
 //-----------------------------------------------------------------------------
 // Material overrides
 //-----------------------------------------------------------------------------
-void CStudioRenderContext::ForcedMaterialOverride( IMaterial *newMaterial, OverrideType_t nOverrideType )
+void CStudioRenderContext::ForcedMaterialOverride( IMaterial *newMaterial, OverrideType_t nOverrideType, int m_nForcedMaterialIndex )
 {
 	m_RC.m_pForcedMaterial = newMaterial;
 	m_RC.m_nForcedMaterialType = nOverrideType;

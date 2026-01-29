@@ -176,6 +176,9 @@ bool CCSkinDatabase::ParseSkinDefinition(KeyValues* pKV, SkinDefinition_t& def)
     }
     Q_strncpy(def.szName, pszName, sizeof(def.szName));
     
+    const char* szDescription = pKV->GetString("description", nullptr);
+    Q_strncpy(def.szDescription, szDescription, sizeof(def.szDescription));
+    
     // Оружие (ОБЯЗАТЕЛЬНОЕ)
     const char* pszWeapon = pKV->GetString("weapon", nullptr);
     if (!pszWeapon || !pszWeapon[0])
@@ -609,10 +612,6 @@ IMaterial* CCSkinDatabase::LoadMaterial(const SkinDefinition_t* pDef)
         return nullptr;
     }
     
-    // Получаем KeyValues из базового материала
-    KeyValues* pBaseKV = new KeyValues("Patch");
-    bool bSuccess = pBaseMat->GetMaterialVarFlag(MATERIAL_VAR_VERTEXCOLOR); // Dummy call
-    
     // Копируем параметры базового материала
     KeyValues* pVMT = CloneBaseMaterialKeyValues(pBaseMat);
     if (!pVMT)
@@ -624,17 +623,33 @@ IMaterial* CCSkinDatabase::LoadMaterial(const SkinDefinition_t* pDef)
     // Применяем patch (override параметры)
     ApplyVMTPatch(pVMT, pDef->vmtParams);
     
-    // Создаем уникальное имя для материала
-    char szMaterialName[256];
-    Q_snprintf(szMaterialName, sizeof(szMaterialName), 
-               "__skin_%d_%s", pDef->iPaintKit, pDef->szName);
+    // ИСПРАВЛЕНО: Извлекаем только имя файла из пути базового материала
+    // Например: "models\weapons\v_models\pist_deagle\pist_deagle" -> "pist_deagle"
     
-    // Создаем новый материал
-    IMaterial* pMat = materials->CreateMaterial(szMaterialName, pVMT);
+    char szBaseMaterialPath[256];
+    Q_strncpy(szBaseMaterialPath, pDef->szBaseMaterial, sizeof(szBaseMaterialPath));
+    
+    // Заменяем все обратные слеши на прямые
+    for (char* p = szBaseMaterialPath; *p; p++)
+    {
+        if (*p == '\\')
+            *p = '/';
+    }
+    
+    // Находим последний слеш
+    const char* pLastSlash = Q_strrchr(szBaseMaterialPath, '/');
+    const char* pMaterialName = pLastSlash ? (pLastSlash + 1) : szBaseMaterialPath;
+    
+    DevMsg("[SkinDB] Extracted material name '%s' from base path '%s'\n", 
+           pMaterialName, pDef->szBaseMaterial);
+    
+    // Создаем новый материал с именем файла базового материала
+    IMaterial* pMat = materials->CreateMaterial(pMaterialName, pVMT);
     
     if (!pMat || IsErrorMaterial(pMat))
     {
-        Warning("[SkinDB] Failed to create patched material for paint kit %d\n", pDef->iPaintKit);
+        Warning("[SkinDB] Failed to create patched material '%s' for paint kit %d\n", 
+                pMaterialName, pDef->iPaintKit);
         pVMT->deleteThis();
         return nullptr;
     }
@@ -650,8 +665,8 @@ IMaterial* CCSkinDatabase::LoadMaterial(const SkinDefinition_t* pDef)
         materials->Unlock(hLock);
     }
     
-    DevMsg("[SkinDB] Created patched material for paint kit %d (%s) from base: %s\n", 
-           pDef->iPaintKit, pDef->szName, pDef->szBaseMaterial);
+    DevMsg("[SkinDB] Successfully created material '%s' for paint kit %d (%s)\n", 
+           pMaterialName, pDef->iPaintKit, pDef->szName);
     
     return pMat;
 }
@@ -1076,6 +1091,8 @@ bool CCSkinDatabase::SaveSkinToFile(const SkinDefinition_t& skin, const char* ps
     if (!pszFilePath || !pszFilePath[0])
         return false;
     
+    DevMsg("[SkinDB] SaveSkinToFile called for paint kit %d\n", skin.iPaintKit);
+    
     // Загружаем существующий файл
     KeyValues* pKV = new KeyValues("Skins");
     
@@ -1105,10 +1122,13 @@ bool CCSkinDatabase::SaveSkinToFile(const SkinDefinition_t& skin, const char* ps
     // Очищаем существующие данные
     pSkinKV->Clear();
     
+    DevMsg("[SkinDB] Writing skin data...\n");
+    
     // ========================================
     // ОБЩИЕ ПАРАМЕТРЫ
     // ========================================
     pSkinKV->SetString("name", skin.szName);
+    DevMsg("[SkinDB] Name: %s\n", skin.szName);
     
     // Конвертируем weapon ID в строку
     const char* pszWeaponAlias = WeaponIDToAlias(skin.weaponID);
@@ -1117,9 +1137,13 @@ bool CCSkinDatabase::SaveSkinToFile(const SkinDefinition_t& skin, const char* ps
         pszWeaponAlias += 7; // Убираем префикс "weapon_"
     }
     pSkinKV->SetString("weapon", pszWeaponAlias);
+    DevMsg("[SkinDB] Weapon: %s\n", pszWeaponAlias);
     
     if (skin.szBaseMaterial[0])
+    {
         pSkinKV->SetString("base", skin.szBaseMaterial);
+        DevMsg("[SkinDB] Base: %s\n", skin.szBaseMaterial);
+    }
     
     if (skin.szIconPath[0])
         pSkinKV->SetString("icon", skin.szIconPath);
@@ -1133,16 +1157,22 @@ bool CCSkinDatabase::SaveSkinToFile(const SkinDefinition_t& skin, const char* ps
     
     // Текстуры
     if (params.szBaseTexture[0])
+    {
         pSkinKV->SetString("$basetexture", params.szBaseTexture);
-    
-    if (params.szBaseTexture2[0])
-        pSkinKV->SetString("$basetexture2", params.szBaseTexture2);
+        DevMsg("[SkinDB] $basetexture: %s\n", params.szBaseTexture);
+    }
     
     if (params.szBumpMap[0])
+    {
         pSkinKV->SetString("$bumpmap", params.szBumpMap);
+        DevMsg("[SkinDB] $bumpmap: %s\n", params.szBumpMap);
+    }
     
-    if (params.szBumpMap2[0])
-        pSkinKV->SetString("$bumpmap2", params.szBumpMap2);
+    if (params.szPhongExponentTexture[0])
+    {
+        pSkinKV->SetString("$phongexponenttexture", params.szPhongExponentTexture);
+        DevMsg("[SkinDB] $phongexponenttexture: %s\n", params.szPhongExponentTexture);
+    }
     
     if (params.szDetailTexture[0])
         pSkinKV->SetString("$detail", params.szDetailTexture);
@@ -1150,13 +1180,7 @@ bool CCSkinDatabase::SaveSkinToFile(const SkinDefinition_t& skin, const char* ps
     if (params.szEnvMap[0])
         pSkinKV->SetString("$envmap", params.szEnvMap);
     
-    if (params.szPhongExponentTexture[0])
-        pSkinKV->SetString("$phongexponenttexture", params.szPhongExponentTexture);
-    
-    if (params.szPhongWarpTexture[0])
-        pSkinKV->SetString("$phongwarptexture", params.szPhongWarpTexture);
-    
-    // Phong
+    // Phong (только если явно установлено)
     if (params.bPhong >= 0)
         pSkinKV->SetInt("$phong", params.bPhong);
     
@@ -1165,12 +1189,6 @@ bool CCSkinDatabase::SaveSkinToFile(const SkinDefinition_t& skin, const char* ps
     
     if (params.flPhongExponent >= 0.0f)
         pSkinKV->SetFloat("$phongexponent", params.flPhongExponent);
-    
-    if (params.flPhongAlbedoTint >= 0.0f)
-        pSkinKV->SetFloat("$phongalbedotint", params.flPhongAlbedoTint);
-    
-    if (params.bPhongAlbedoBoost >= 0)
-        pSkinKV->SetInt("$phongalbedoboost", params.bPhongAlbedoBoost);
     
     if (params.flPhongFresnelRanges[0] >= 0.0f)
     {
@@ -1193,38 +1211,9 @@ bool CCSkinDatabase::SaveSkinToFile(const SkinDefinition_t& skin, const char* ps
         pSkinKV->SetString("$envmaptint", szValue);
     }
     
-    if (params.flEnvMapSaturation >= 0.0f)
-        pSkinKV->SetFloat("$envmapsaturation", params.flEnvMapSaturation);
-    
-    if (params.flEnvMapContrast >= 0.0f)
-        pSkinKV->SetFloat("$envmapcontrast", params.flEnvMapContrast);
-    
-    if (params.flEnvMapFresnel >= 0.0f)
-        pSkinKV->SetFloat("$envmapfresnel", params.flEnvMapFresnel);
-    
-    if (params.flFresnelReflection >= 0.0f)
-        pSkinKV->SetFloat("$fresnelreflection", params.flFresnelReflection);
-    
-    // Alpha & Transparency
-    if (params.bAlphaTest >= 0)
-        pSkinKV->SetInt("$alphatest", params.bAlphaTest);
-    
-    if (params.flAlphaTestReference >= 0.0f)
-        pSkinKV->SetFloat("$alphatestreference", params.flAlphaTestReference);
-    
-    if (params.bTranslucent >= 0)
-        pSkinKV->SetInt("$translucent", params.bTranslucent);
-    
-    if (params.bAdditive >= 0)
-        pSkinKV->SetInt("$additive", params.bAdditive);
-    
-    // Texture modifiers
-    if (params.bBaseTextureNoEnvMap >= 0)
-        pSkinKV->SetInt("$basemapalphaphongmask", params.bBaseTextureNoEnvMap);
-    
     if (params.bNormalMapAlphaPhongMask >= 0)
         pSkinKV->SetInt("$normalmapalphaenvmapmask", params.bNormalMapAlphaPhongMask);
-    
+        
     if (params.bBaseAlphaEnvMapMask >= 0)
         pSkinKV->SetInt("$basealphaenvmapmask", params.bBaseAlphaEnvMapMask);
     
@@ -1294,6 +1283,8 @@ bool CCSkinDatabase::SaveSkinToFile(const SkinDefinition_t& skin, const char* ps
         pSkinKV->SetInt("$halflambert", params.bHalfLambert);
     
     // Сохраняем в файл
+    DevMsg("[SkinDB] Saving to file: %s\n", pszFilePath);
+    
     bool bSuccess = pKV->SaveToFile(filesystem, pszFilePath, "MOD");
     
     if (bSuccess)
@@ -1303,7 +1294,7 @@ bool CCSkinDatabase::SaveSkinToFile(const SkinDefinition_t& skin, const char* ps
     }
     else
     {
-        Warning("[SkinDB] Failed to save skin %d to %s\n", skin.iPaintKit, pszFilePath);
+        Warning("[SkinDB] Failed to save to file: %s\n", pszFilePath);
     }
     
     pKV->deleteThis();

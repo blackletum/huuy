@@ -14,6 +14,7 @@
 #include "activitylist.h"
 #include "npcevent.h"
 #include "eventlist.h"
+#include "cs_loadout.h" 
 
 // NVNT start extra includes
 #include "haptics/haptic_utils.h"
@@ -21,7 +22,19 @@
 	#include "prediction.h"
 	#include "npcevent.h"
 	#include "eventlist.h"
+    #include "SkinProcessor.h"
+    #include "cs_skin_database.h"
 #endif
+
+//extra includes
+#ifdef CLIENT_DLL
+    #include "c_cs_player.h"
+    #include "weapon_csbase.h"
+#else
+    #include "cs_player.h"
+    #include "weapon_csbase.h"
+#endif
+
 // NVNT end extra includes
 
 #if defined ( TF_DLL ) || defined ( TF_CLIENT_DLL )
@@ -122,10 +135,30 @@ void RecvProxy_WeaponWorldmodel( const CRecvProxyData *pData, void *pStruct, voi
 
 int CBaseWeaponWorldModel::DrawModel( int flags )
 {
-	if ( IsEffectActive(EF_NODRAW) || !ShouldDraw() )
-		return 0;
+    if ( IsEffectActive(EF_NODRAW) || !ShouldDraw() )
+        return 0;
+        
+    int ret = BaseClass::DrawModel( flags );
+    
+    ApplyCustomMaterialsAndStickers();
+    
+    return ret;
+}
 
-	return BaseClass::DrawModel( flags );
+void CBaseWeaponWorldModel::ApplyCustomMaterialsAndStickers()
+{
+	CBaseCombatWeapon *pWeaponParent = m_hCombatWeaponParent->Get();
+	if ( !pWeaponParent )
+		return;
+        
+    int iPaintKit = pWeaponParent->GetPaintKit();
+
+	// inherit custom materials
+	if ( pWeaponParent )
+	{
+        IMaterial* pMat = g_SkinDatabase.GetSkinMaterial( iPaintKit );
+	    SetMaterialOverride( pMat, 0 );
+	}
 }
 
 void CBaseWeaponWorldModel::OnDataChanged( DataUpdateType_t type )
@@ -335,22 +368,6 @@ bool CBaseWeaponWorldModel::HoldsPlayerAnimations( void )
 	return ( m_nHoldsPlayerAnims == WEAPON_PLAYER_ANIMS_AVAILABLE );
 }
 
-#ifndef CLIENT_DLL
-void CBaseWeaponWorldModel::HandleAnimEvent( animevent_t *pEvent )
-{
-	int nEvent = pEvent->event;
-	
-	if ( nEvent == AE_CL_EJECT_MAG )
-	{
-		SetBodygroup( FindBodygroupByName( "magazine" ), 1 );
-	}
-	else if ( nEvent == AE_CL_EJECT_MAG_UNHIDE )
-	{
-		SetBodygroup( FindBodygroupByName( "magazine" ), 0 );
-	}
-}
-#endif
-
 #ifdef CLIENT_DLL
 
 void CBaseWeaponWorldModel::FireEvent( const Vector& origin, const QAngle& angles, int event, const char *options )
@@ -408,6 +425,20 @@ bool CBaseWeaponWorldModel::ShouldDraw( void )
 }
 
 #else
+
+void CBaseWeaponWorldModel::HandleAnimEvent( animevent_t *pEvent )
+{
+	int nEvent = pEvent->event;
+	
+	if ( nEvent == AE_CL_EJECT_MAG )
+	{
+		SetBodygroup( FindBodygroupByName( "magazine" ), 1 );
+	}
+	else if ( nEvent == AE_CL_EJECT_MAG_UNHIDE )
+	{
+		SetBodygroup( FindBodygroupByName( "magazine" ), 0 );
+	}
+}
 
 int CBaseWeaponWorldModel::ShouldTransmit( const CCheckTransmitInfo *pInfo )
 {
