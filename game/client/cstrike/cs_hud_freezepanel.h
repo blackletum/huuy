@@ -17,7 +17,7 @@
 #include <vgui_controls/AnimationController.h>
 #include <vgui_controls/EditablePanel.h>
 #include "vgui/ILocalize.h"
-#include "vgui_avatarimage.h"
+#include "vgui_avatarimage_nonsteam.h"
 #include "hud.h"
 #include "hudelement.h"
 #include "vgui_borderprogress.h"

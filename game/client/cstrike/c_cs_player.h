@@ -22,6 +22,9 @@
 
 #include "cs_player_shared.h"
 
+#define SPEECH_VOIP_PARTICLE_EFFECT_NAME "speech_voice"
+#define RADIO_VOICE_PARTICLE_EFFECT_NAME "radio_voice"
+
 class C_PhysicsProp;
 
 extern ConVar cl_disablefreezecam;
@@ -264,7 +267,11 @@ public:
 
 	virtual bool IsLookingAtWeapon( void ) const { return m_bIsLookingAtWeapon; }
 	virtual bool IsHoldingLookAtWeapon( void ) const { return m_bIsHoldingLookAtWeapon; }
-
+    
+    virtual const char			*GetVOIPParticleEffectName() const { return SPEECH_VOIP_PARTICLE_EFFECT_NAME; }
+	virtual const char			*GetRadioHeadParticleEffectName() const { return RADIO_VOICE_PARTICLE_EFFECT_NAME; }
+	virtual Vector				GetParticleHeadLabelOffset( void );
+	
 	virtual int DrawModel( int flags );
 
 	virtual bool ShouldReceiveProjectedTextures( int flags )
@@ -653,7 +660,10 @@ public:
     CNetworkVar( int, m_iLoadoutSlotKnifeWeaponSkinT );
 	CNetworkVar( int, m_iLoadoutSlotGlovesCT );
 	CNetworkVar( int, m_iLoadoutSlotGlovesT );
+    CNetworkVar( int, m_iGlovePaintKitID );
 	EHANDLE	m_hLoadoutGloves;
+    
+    int GetGlovePlayer( int GlovePaintKit ) { return m_iGlovePaintKitID = GlovePaintKit; }
 
 	float m_flThirdpersonRecoil;
 

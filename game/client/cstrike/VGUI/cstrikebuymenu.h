@@ -256,7 +256,7 @@ private:
 	Label* m_pBuyTimeLeftLabel;
 	Label* m_pItemNameLabel;
 	Label* m_pItemDescriptionLabel;
-	Panel* m_pBuyItemsBackground;
+	ImagePanel* m_pBuyItemsBackground;
 	CCSBuyMenuPlayerImage* m_pPlayerModel;
 
 	KeyValues* m_kvBuyMenuConfig;

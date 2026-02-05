@@ -21,7 +21,12 @@
 #include "tier1/CommandBuffer.h"
 #include "tier2/camerautils.h"
 #include "tier3/mdlutils.h"
+#include "studio.h"
+#include "datacache/idatacache.h"
+#include "bone_accessor.h"
 #include "materialsystem/MaterialSystemUtil.h"
+#include "rss_feed_panel.h"
+#include <vgui_controls/VectorImagePanel.h>
 
 #include "ixboxsystem.h"
 
@@ -187,6 +192,128 @@ public:
 	virtual void ApplySettings( KeyValues *inResourceData );
 };
 
+namespace vgui
+{
+
+//-----------------------------------------------------------------------------
+// Purpose: SVG-based button with customizable commands and visibility modes
+//-----------------------------------------------------------------------------
+class CSVGButton : public EditablePanel
+{
+	DECLARE_CLASS_SIMPLE( CSVGButton, EditablePanel );
+
+public:
+	CSVGButton( Panel *parent, const char *panelName );
+	virtual ~CSVGButton();
+
+	// Setup methods
+	virtual void ApplySettings( KeyValues *inResourceData );
+	virtual void ApplySchemeSettings( IScheme *pScheme );
+	
+	// Input handling
+	virtual void OnMousePressed( MouseCode code );
+	virtual void OnMouseReleased( MouseCode code );
+	virtual void OnCursorEntered();
+	virtual void OnCursorExited();
+	
+	// Rendering
+	virtual void Paint();
+	virtual void PaintBackground();
+	
+	// Visibility control based on game state
+	virtual void OnThink();
+	void UpdateVisibility();
+	
+	// Command execution
+	void ExecuteCommand();
+	
+	// Setters
+	void SetSVGImage( const char *szFilePath );
+	void SetHoverSVGImage( const char *szHoverFilePath );
+	void SetCommand( const char *command );
+	void SetInGame( bool bInGame ) { m_bShowInGame = bInGame; UpdateVisibility(); }
+	void SetInMenu( bool bInMenu ) { m_bShowInMenu = bInMenu; UpdateVisibility(); }
+	void SetEnabled( bool bEnabled );
+	
+	// Getters
+	bool IsInGame() const { return m_bShowInGame; }
+	bool IsInMenu() const { return m_bShowInMenu; }
+	const char* GetCommand() const { return m_szCommand; }
+
+private:
+	// Visual components
+	VectorImagePanel *m_pSVGImage;
+	VectorImagePanel *m_pSVGHoverImage;
+	
+	// Button properties
+	char m_szSVGPath[MAX_PATH];
+	char m_szSVGHoverPath[MAX_PATH];
+	char m_szCommand[256];
+	
+	// Visibility flags
+	bool m_bShowInGame;		// Show button when in game
+	bool m_bShowInMenu;		// Show button when in main menu
+	bool m_bEnabled;		// Is button enabled
+	
+	// State tracking
+	bool m_bMouseOver;
+	bool m_bMousePressed;
+	bool m_bWasInGame;		// Cache last game state
+	
+	// Visual customization
+	Color m_NormalColor;
+	Color m_HoverColor;
+	Color m_PressedColor;
+	Color m_DisabledColor;
+	
+	// Hover effects
+	bool m_bUseHoverImage;
+	bool m_bUseColorTint;
+	bool m_bUseScale;
+	float m_flHoverScale;
+	float m_flCurrentScale;
+	
+	// Glow effects
+	bool m_bEnableGlow;
+	int m_iGlowRadius;
+	Color m_GlowColor;
+};
+
+//-----------------------------------------------------------------------------
+// Purpose: Container panel for multiple SVG buttons
+//-----------------------------------------------------------------------------
+class CSVGButtonsPanel : public EditablePanel
+{
+	DECLARE_CLASS_SIMPLE( CSVGButtonsPanel, EditablePanel );
+
+public:
+	CSVGButtonsPanel( Panel *parent, const char *panelName );
+	virtual ~CSVGButtonsPanel();
+
+	virtual void ApplySettings( KeyValues *inResourceData );
+	virtual void OnThink();
+	
+	// Button management
+	CSVGButton* AddButton( const char *name, KeyValues *buttonData );
+	CSVGButton* FindButton( const char *name );
+	void RemoveButton( const char *name );
+	void RemoveAllButtons();
+	
+	// Update all buttons visibility based on game state
+	void UpdateAllButtonsVisibility();
+	
+	// Layout
+	void PerformLayout();
+
+private:
+	CUtlVector<CSVGButton*> m_Buttons;
+	bool m_bAutoLayout;
+	int m_iButtonSpacing;
+	int m_iLayoutDirection; // 0 = horizontal, 1 = vertical
+};
+
+} // namespace vgui
+
 //-----------------------------------------------------------------------------
 // Purpose: This is the panel at the top of the panel hierarchy for GameUI
 //			It handles all the menus, background images, and loading dialogs
@@ -217,6 +344,7 @@ public:
 	void ClearMergeMDLs();
 	bool SetBodygroup( const char* pBodygroupName, int nValue );
 	void PlaySequence( const char* pszSequenceName );
+    void SetCycle( float flCycle );
 
 private:
 	Camera_t m_Camera;
@@ -232,6 +360,8 @@ private:
 	int m_nLastMouseY;
 	float m_flRotationAngleLeft;
 	float m_flRotationTimeLeft;
+    float m_flFadeOutOverride;
+    float m_flCycle;
 	bool m_bMousePressed;
 };
 
@@ -377,6 +507,8 @@ public:
 	bool HandleSignInRequest( const char *command );
 	bool HandleStorageDeviceRequest( const char *command );
 	void ClearPostPromptCommand( const char *pCompletedCommand );
+    void UpdateAvatarImage();
+    virtual void OnCommand(const char *command);
 
 private:
 	enum EBackgroundState
@@ -420,7 +552,6 @@ private:
 	void RunQueuedCommands();
 	void ClearQueuedCommands();
 
-	virtual void OnCommand(const char *command);
 	virtual void PerformLayout();
 	MESSAGE_FUNC_INT( OnActivateModule, "ActivateModule", moduleIndex);
 
@@ -539,6 +670,12 @@ private:
 	int m_iCTWeapon;
 	int m_iTWeapon;
 	int m_iAgentToUse;
+    
+    vgui::ImagePanel *m_pAvatarImage;
+    
+    RSSFeedPanel *m_pRSSFeedPanel;
+    
+    vgui::CSVGButtonsPanel *m_pSVGButtonsPanel;
 
 public:
 	MESSAGE_FUNC_CHARPTR( RunMenuCommand, "RunMenuCommand", command );

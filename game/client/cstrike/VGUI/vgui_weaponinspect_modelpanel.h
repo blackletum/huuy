@@ -6,6 +6,8 @@
 
 #include "PlayerModelPanel.h"
 #include "SkinProcessor.h"
+#include "renderparm.h"
+#include "animation.h"
 
 //-----------------------------------------------------------------------------
 // Weapon model display panel with SkinProcessor integration
@@ -41,6 +43,7 @@ public:
 	void ClearWeaponMaterialOverride( int nWeaponIndex );
 	void ClearWeaponMaterialOverride( const char* pWeaponName );
 	void ClearAllMaterialOverrides();
+    void SetMaterialOverride( IMaterial *pMaterial );
 	
 	// Global material override (applies to all weapons)
 	void SetGlobalMaterialOverride( const char* pMaterialName );
@@ -58,6 +61,8 @@ public:
 
 	virtual void OnThink() OVERRIDE;
 	virtual void ApplySettings( KeyValues* inResourceData ) OVERRIDE;
+    virtual void PlaySequence( const char* pszSequenceName );
+    void SetOffset(const Vector& vec);
     
     void UpdateWeaponTransform();
 	void ExtractWeaponName( const char* pPath, char* pOutName, int nMaxLen );
@@ -85,14 +90,12 @@ public:
 	bool m_bAutoRotate;
 	float m_flAutoRotateSpeed;
 	Vector m_vecWeaponOffset;
+    Vector m_vecOffset;
 	float m_flWeaponScale;
 	matrix3x4_t m_WeaponTransform;
 
 protected:
 	virtual void OnPaint3D();
-
-private:
-	
 };
 
-#endif // WEAPONMODELPANEL_H
+#endif // WEAPONMODELPANEL_H 

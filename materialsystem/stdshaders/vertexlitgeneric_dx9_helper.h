@@ -61,6 +61,7 @@ struct VertexLitGeneric_DX9_Vars_t
 	int m_nSelfIllumFresnelMinMaxExp;
 
 	int m_nPhongExponent;
+    int m_nPhongAlbedoBoost;
 	int m_nPhongTint;
 	int m_nPhongAlbedoTint;
 	int m_nPhongExponentTexture;
@@ -129,11 +130,14 @@ struct VertexLitGeneric_DX9_Vars_t
 	int m_nReceiveFlashlight;
 
 	int m_nBlendTintByBaseAlpha;
+    int m_nNoTint;
 
 	int m_nTintReplacesBaseColor;
 
 	int m_nEnvMapLightScale;
 	int m_nEnvMapLightScaleMinMax;
+    
+    int m_nPhongDisableHalfLambert;
 };
 
 void InitParamsVertexLitGeneric_DX9( CBaseVSShader *pShader, IMaterialVar** params, const char *pMaterialName, bool bVertexLitGeneric, VertexLitGeneric_DX9_Vars_t &info );

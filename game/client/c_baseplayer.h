@@ -686,6 +686,8 @@ private:
 	StepSoundCache_t		m_StepSoundCache[ 2 ];
 
 public:
+    
+    CUtlReference< CNewParticleEffect > m_speechVOIPParticleEffect;
 	// HACK: Only used for cstrike players, making virtual here because a ton of base player code needs to know about that state. 
 	enum eObserverInterpState
 	{

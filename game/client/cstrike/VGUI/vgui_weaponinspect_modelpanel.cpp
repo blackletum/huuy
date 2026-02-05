@@ -22,6 +22,7 @@ CWeaponModelPanel::CWeaponModelPanel( Panel* parent, const char* panelName )
 	m_bAutoRotate = false;
 	m_flAutoRotateSpeed = 45.0f;
 	m_vecWeaponOffset.Init( 0, 0, 0 );
+    m_vecOffset = Vector(-25, 0, 0); 
 	m_flWeaponScale = 1.0f;
 	SetIdentityMatrix( m_WeaponTransform );
 
@@ -39,6 +40,8 @@ CWeaponModelPanel::~CWeaponModelPanel()
 	ClearAllMaterialOverrides();
 	m_WeaponList.Purge();
 }
+
+void CWeaponModelPanel::SetOffset(const Vector& vec) { m_vecOffset = vec; }
 
 void CWeaponModelPanel::ApplySettings( KeyValues* inResourceData )
 {
@@ -271,7 +274,7 @@ void CWeaponModelPanel::ClearWeaponMaterialOverride( int nWeaponIndex )
 	if ( nWeaponIndex < 0 || nWeaponIndex >= m_WeaponList.Count() )
 		return;
 
-	m_WeaponList[nWeaponIndex].pMaterialOverride.Init( (IMaterial*)NULL );
+	m_WeaponList[nWeaponIndex].pMaterialOverride.Init( (IMaterial*)NULL ); 
 }
 
 void CWeaponModelPanel::ClearWeaponMaterialOverride( const char* pWeaponName )
@@ -417,58 +420,74 @@ void CWeaponModelPanel::OnThink()
 
 void CWeaponModelPanel::UpdateWeaponTransform()
 {
-	// Создаем матрицу трансформации с учетом вращения, масштаба и смещения
-	matrix3x4_t matRotation, matScale, matTranslation;
-	
-	AngleMatrix( m_angPlayerModel, matRotation );
-	SetScaleMatrix( m_flWeaponScale, m_flWeaponScale, m_flWeaponScale, matScale );
-	SetIdentityMatrix( matTranslation );
-	MatrixSetColumn( m_vecWeaponOffset, 3, matTranslation );
+    if ( m_MDL.GetMDL() == MDLHANDLE_INVALID )
+        return;
 
-	// Комбинируем трансформации
-	matrix3x4_t matTemp;
-	ConcatTransforms( matScale, matRotation, matTemp );
-	ConcatTransforms( matTranslation, matTemp, m_WeaponTransform );
+    matrix3x4_t matRotate;
+    AngleMatrix( m_angPlayerModel, matRotate );
 
-	// Устанавливаем итоговую матрицу
-	MatrixCopy( m_WeaponTransform, m_MDLToWorld );
+    Vector vecLocalOffset = m_vecWeaponOffset;
+
+    matrix3x4_t matOffset;
+    SetIdentityMatrix(matOffset);
+    MatrixSetColumn(vecLocalOffset, 3, matOffset);
+
+    matrix3x4_t matTemp;
+    ConcatTransforms(matRotate, matOffset, matTemp);
+
+    m_MDLToWorld = matTemp;
 }
 
 void CWeaponModelPanel::OnPaint3D()
 {
-	if ( m_MDL.GetMDL() == MDLHANDLE_INVALID || m_nCurrentWeapon < 0 )
-		return;
+    if ( m_MDL.GetMDL() == MDLHANDLE_INVALID || m_nCurrentWeapon < 0 )
+        return;
 
-	MDLCACHE_CRITICAL_SECTION();
+    MDLCACHE_CRITICAL_SECTION();
 
-	CMatRenderContextPtr pRenderContext( vgui::MaterialSystem() );
-	pRenderContext->BindLocalCubemap( m_DefaultEnvCubemap );
+    CMatRenderContextPtr pRenderContext( vgui::MaterialSystem() );
+    pRenderContext->BindLocalCubemap( m_DefaultEnvCubemap );
 
-	// Получаем material override для текущего оружия
-	IMaterial* pMaterialOverride = GetMaterialOverrideForCurrentWeapon();
+    // --- material override ---
+    IMaterial* pMaterialOverride = GetMaterialOverrideForCurrentWeapon();
+    if ( pMaterialOverride )
+        modelrender->ForcedMaterialOverride( pMaterialOverride );
 
-	// Применяем material override если есть
-	if ( pMaterialOverride )
-	{
-		modelrender->ForcedMaterialOverride( pMaterialOverride );
-	}
+    // --- подготовка студии ---
+    CStudioHdr studioHdr( g_pMDLCache->GetStudioHdr( m_MDL.GetMDL() ), g_pMDLCache );
+    matrix3x4_t* pBoneToWorld = g_pStudioRender->LockBoneMatrices( studioHdr.numbones() );
 
-	// Отрисовка модели оружия
-	CStudioHdr studioHdr( g_pMDLCache->GetStudioHdr( m_MDL.GetMDL() ), g_pMDLCache );
+    // --- центрирование pivot ---
+    matrix3x4_t matToCenter, matFromCenter, matTemp;
 
-	matrix3x4_t* pBoneToWorld = g_pStudioRender->LockBoneMatrices( studioHdr.numbones() );
-	m_MDL.SetUpBones( m_MDLToWorld, studioHdr.numbones(), pBoneToWorld );
-	g_pStudioRender->UnlockBoneMatrices();
+    // Сдвигаем модель к (0,0,0)
+    SetIdentityMatrix( matToCenter );
+    MatrixSetColumn( -m_vecModelCenter, 3, matToCenter );
 
-	m_MDL.Draw( m_MDLToWorld, pBoneToWorld );
+    // Возвращаем обратно + offset
+    SetIdentityMatrix( matFromCenter );
+    MatrixSetColumn( m_vecModelCenter + m_vecWeaponOffset, 3, matFromCenter );
 
-	// Очищаем material override после отрисовки
-	if ( pMaterialOverride )
-	{
-		modelrender->ForcedMaterialOverride( NULL );
-	}
+    // Комбинируем с текущей матрицей m_MDLToWorld (вращение/масштаб)
+    ConcatTransforms( matToCenter, m_MDLToWorld, matTemp );
+    ConcatTransforms( matFromCenter, matTemp, m_MDLToWorld );
 
-	pRenderContext->Flush();
+    // --- Setup bones и отрисовка ---
+    m_MDL.SetUpBones( m_MDLToWorld, studioHdr.numbones(), pBoneToWorld );
+    g_pStudioRender->UnlockBoneMatrices();
+
+    m_MDL.Draw( m_MDLToWorld, pBoneToWorld );
+
+    // --- сброс override ---
+    if ( pMaterialOverride )
+        modelrender->ForcedMaterialOverride( nullptr );
+
+    pRenderContext->Flush();
+}
+
+void CWeaponModelPanel::SetMaterialOverride( IMaterial *pMaterial )
+{
+    modelrender->ForcedMaterialOverride( pMaterial, OVERRIDE_SELECTIVE, 0 );
 }
 
 void CWeaponModelPanel::ExtractWeaponName( const char* pPath, char* pOutName, int nMaxLen )
@@ -478,4 +497,15 @@ void CWeaponModelPanel::ExtractWeaponName( const char* pPath, char* pOutName, in
 	
 	// Копируем без расширения
 	V_StripExtension( pFileName, pOutName, nMaxLen );
+}
+
+void CWeaponModelPanel::PlaySequence( const char* pszSequenceName )
+{
+	CStudioHdr studioHDR( m_MDL.GetStudioHdr(), g_pMDLCache );
+	int iSeq = ::LookupSequence( &studioHDR, pszSequenceName );
+	if ( iSeq != ACT_INVALID )
+	{
+		m_MDL.m_nSequence = iSeq;
+		m_MDL.m_flTime = 0.0f;
+	}
 }

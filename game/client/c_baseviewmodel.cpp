@@ -18,6 +18,7 @@
 #include "tools/bonelist.h"
 #include <KeyValues.h>
 #include "hltvcamera.h"
+#include "weapon_basecsgloves.h"
 #ifdef TF_CLIENT_DLL
 	#include "tf_weaponbase.h"
 #endif
@@ -701,18 +702,28 @@ void C_BaseViewModel::UpdateAllViewmodelAddons( void )
             pPlayer->m_pViewmodelArmConfig->bHideBareArms
         );
         
+        int iPaintKit = pPlayer->m_iGlovePaintKitID;
+            
         if ( pGloveModel )
         {
-            
-            int iPaintKit = CSLoadout()->GetGlovesSkinForPlayer(pPlayer, pPlayer->GetTeamNumber());
-            IMaterial* pGloveMaterial = g_SkinDatabase.GetSkinMaterial( iPaintKit );
-            
-            if (pGloveMaterial && !pGloveMaterial->IsErrorMaterial())
+            IMaterial* pRightGloveMaterial = g_SkinDatabase.GetSkinMaterial( iPaintKit );
+            IMaterial* pLeftGloveMaterial = g_SkinDatabase.GetSkinMaterial( iPaintKit + 1 );
+    
+            DevMsg("[GLOVES] Right material: %s (%p)\n", pRightGloveMaterial ? pRightGloveMaterial->GetName() : "NULL", pRightGloveMaterial);
+            DevMsg("[GLOVES] Left material: %s (%p)\n", pLeftGloveMaterial ? pLeftGloveMaterial->GetName() : "NULL", pLeftGloveMaterial);
+    
+            if (pRightGloveMaterial && !pRightGloveMaterial->IsErrorMaterial() && pLeftGloveMaterial && !pLeftGloveMaterial->IsErrorMaterial())
             {
-                DevMsg("[GLOVES] Applying material: %s\n", 
-                       pGloveMaterial->GetName());
+                DevMsg("[GLOVES] Setting materials...\n");
                 
-                pGloveModel->SetMaterialOverride( pGloveMaterial, 1 );
+                pGloveModel->SetMaterialOverride( pLeftGloveMaterial, 0 );
+                pGloveModel->SetMaterialOverride( pRightGloveMaterial, 1 );
+        
+                DevMsg("[GLOVES] Materials set!\n");
+            }
+            else
+            {
+                Warning("[GLOVES] Materials validation failed!\n");
             }
         }
         

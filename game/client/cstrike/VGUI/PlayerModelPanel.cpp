@@ -348,9 +348,16 @@ void CBasePlayerModelPanel::OnThink()
 		else if ( m_angPlayerModel.y < -360.0f )
 			m_angPlayerModel.y += 360.0f;
 
-		AngleMatrix( m_angPlayerModel, m_MDLToWorld );
+		matrix3x4_t matRotate, matTranslate;
+        
+        AngleMatrix( m_angPlayerModel, matRotate );
 
-		m_flRotationTimeLeft -= gpGlobals->frametime;
+        SetIdentityMatrix( matTranslate );
+        MatrixSetColumn( -m_vecModelCenter, 3, matTranslate );
+
+        ConcatTransforms( matRotate, matTranslate, m_MDLToWorld );
+
+        m_flRotationTimeLeft -= gpGlobals->frametime;
 	}
 	else
 	{
@@ -360,46 +367,70 @@ void CBasePlayerModelPanel::OnThink()
 
 void CBasePlayerModelPanel::OnPaint3D()
 {
-	if ( m_MDL.GetMDL() == MDLHANDLE_INVALID )
-		return;
+    if ( m_MDL.GetMDL() == MDLHANDLE_INVALID )
+        return;
 
-	MDLCACHE_CRITICAL_SECTION();
+    MDLCACHE_CRITICAL_SECTION();
 
-	CMatRenderContextPtr pRenderContext( vgui::MaterialSystem() );
-	pRenderContext->BindLocalCubemap( m_DefaultEnvCubemap );
+    CMatRenderContextPtr pRenderContext( vgui::MaterialSystem() );
+    pRenderContext->BindLocalCubemap( m_DefaultEnvCubemap );
 
-	// Draw the MDL
-	CStudioHdr studioHdr( g_pMDLCache->GetStudioHdr( m_MDL.GetMDL() ), g_pMDLCache );
+    // Получаем studioHdr
+    CStudioHdr studioHdr( g_pMDLCache->GetStudioHdr( m_MDL.GetMDL() ), g_pMDLCache );
 
-	matrix3x4_t* pBoneToWorld = g_pStudioRender->LockBoneMatrices( studioHdr.numbones() );
-	m_MDL.SetUpBones( m_MDLToWorld, studioHdr.numbones(), pBoneToWorld );
-	g_pStudioRender->UnlockBoneMatrices();
+    // Локальные матрицы костей
+    matrix3x4_t* pBoneToWorld = g_pStudioRender->LockBoneMatrices( studioHdr.numbones() );
 
-	m_MDL.Draw( m_MDLToWorld, pBoneToWorld );
+    // --- Pivot: вращение вокруг центра модели ---
+    matrix3x4_t matToCenter, matFromCenter, matFinal;
 
-	// Draw the merge MDLs.
-	matrix3x4_t matMergeBoneToWorld[MAXSTUDIOBONES];
-	int nMergeCount = m_aMergeMDLs.Count();
-	for ( int iMerge = 0; iMerge < nMergeCount; ++iMerge )
-	{
-		// Get the merge studio header.
-		studiohdr_t* pStudioHdr = g_pMDLCache->GetStudioHdr( m_aMergeMDLs[iMerge].GetMDL() );
-		matrix3x4_t* pMergeBoneToWorld = &matMergeBoneToWorld[0];
+    // Сдвигаем модель так, чтобы центр оказался в (0,0,0)
+    SetIdentityMatrix( matToCenter );
+    MatrixSetColumn( -m_vecModelCenter, 3, matToCenter );
 
-		// If we have a valid mesh, bonemerge it. If we have an invalid mesh we can't bonemerge because
-		// it'll crash trying to pull data from the missing header.
-		if ( pStudioHdr != NULL )
-		{
-			matrix3x4_t MDLToWorld;
-			SetIdentityMatrix( MDLToWorld );
-			CStudioHdr mergeHdr( pStudioHdr, g_pMDLCache );
-			m_aMergeMDLs[iMerge].SetupBonesWithBoneMerge( &mergeHdr, pMergeBoneToWorld, &studioHdr, pBoneToWorld, MDLToWorld );
+    // Возвращаем обратно + пользовательский offset
+    SetIdentityMatrix( matFromCenter );
+    MatrixSetColumn( m_vecModelCenter, 3, matFromCenter );
 
-			m_aMergeMDLs[iMerge].Draw( MDLToWorld, pMergeBoneToWorld );
-		}
-	}
+    // Комбинируем с текущей трансформацией модели (например, auto-rotation)
+    ConcatTransforms( matToCenter, m_MDLToWorld, matFinal );
+    ConcatTransforms( matFromCenter, matFinal, m_MDLToWorld );
 
-	pRenderContext->Flush();
+    // --- Setup bones и отрисовка ---
+    m_MDL.SetUpBones( m_MDLToWorld, studioHdr.numbones(), pBoneToWorld );
+    g_pStudioRender->UnlockBoneMatrices();
+
+    /*
+    IMaterial* pMaterialOverride = GetMaterialOverrideForCurrentWeapon();
+    if ( pMaterialOverride )
+        modelrender->ForcedMaterialOverride( pMaterialOverride );
+*/
+    // Рисуем основную модель
+    m_MDL.Draw( m_MDLToWorld, pBoneToWorld );
+
+    // Если был override — сбрасываем
+   /* if ( pMaterialOverride )
+        modelrender->ForcedMaterialOverride( nullptr );*/
+
+    // --- Draw merge MDLs (если есть) ---
+    matrix3x4_t matMergeBoneToWorld[MAXSTUDIOBONES];
+    int nMergeCount = m_aMergeMDLs.Count();
+    for ( int iMerge = 0; iMerge < nMergeCount; ++iMerge )
+    {
+        studiohdr_t* pStudioHdr = g_pMDLCache->GetStudioHdr( m_aMergeMDLs[iMerge].GetMDL() );
+        if ( !pStudioHdr )
+            continue;
+
+        matrix3x4_t MDLToWorld;
+        SetIdentityMatrix( MDLToWorld );
+
+        CStudioHdr mergeHdr( pStudioHdr, g_pMDLCache );
+        m_aMergeMDLs[iMerge].SetupBonesWithBoneMerge( &mergeHdr, matMergeBoneToWorld, &studioHdr, pBoneToWorld, MDLToWorld );
+
+        m_aMergeMDLs[iMerge].Draw( MDLToWorld, matMergeBoneToWorld );
+    }
+
+    pRenderContext->Flush();
 }
 
 void CBasePlayerModelPanel::SetMDL( const char* pMDLName )
@@ -415,7 +446,9 @@ void CBasePlayerModelPanel::SetMDL( const char* pMDLName )
 	m_MDL.m_pProxyData = NULL;
 
 	Vector vecMins, vecMaxs;
-	GetMDLBoundingBox( &vecMins, &vecMaxs, hMDL, m_MDL.m_nSequence );
+    GetMDLBoundingBox( &vecMins, &vecMaxs, hMDL, m_MDL.m_nSequence );
+
+    m_vecModelCenter = ( vecMins + vecMaxs ) * 0.5f;
 
 	m_MDL.m_bWorldSpaceViewTarget = false;
 	m_MDL.m_vecViewTarget.Init( 100.0f, 0.0f, vecMaxs.z );

@@ -3546,19 +3546,34 @@ int C_BaseAnimating::InternalDrawModel( int flags )
 			VectorScale( (*pBoneToWorld)[2], flScale, (*pBoneToWorld)[2] );
 		}
 	}
-    
-    bool bHasOverride = m_MaterialOverride.HasOverride();
 
-	if (bHasOverride && m_MaterialOverride.Get())
-	{
-		modelrender->ForcedMaterialOverride(m_MaterialOverride.Get(), OVERRIDE_SELECTIVE, m_MaterialOverride.GetIndex());
-	}
+	bool bOverride = false;
+
+    if ( flags & STUDIO_RENDER )
+{
+    CCustomMaterialOwner *pOwner = GetCustomMaterialOwner();
+    if ( pOwner && pOwner->GetCustomMaterialCount() > 0 )
+    {
+        for ( int i = 0; i < pOwner->GetCustomMaterialCount(); ++i )
+        {
+            IMaterial *pMat = pOwner->GetCustomMaterial( i );
+            if ( !pMat )
+                continue;
+
+            DevMsg("[MATERIAL OVERRIDE] Applying material '%s' to submaterial index %d\n", 
+                   pMat->GetName(), i);
+
+            modelrender->ForcedMaterialOverride( pMat, OVERRIDE_SELECTIVE, i );
+            bOverride = true;
+        }
+    }
+}
 
 	DoInternalDrawModel(pInfo, (bMarkAsDrawn && (pInfo->flags & STUDIO_RENDER)) ? &state : NULL, pBoneToWorld);
 
-	if (bHasOverride)
+	if (bOverride)
 	{
-		modelrender->ForcedMaterialOverride(nullptr, OVERRIDE_NORMAL);
+		modelrender->ForcedMaterialOverride( nullptr );
 	}
     
 	OnPostInternalDrawModel( pInfo );
@@ -3568,15 +3583,15 @@ int C_BaseAnimating::InternalDrawModel( int flags )
 
 void C_BaseAnimating::SetMaterialOverride(IMaterial *pMaterial, int nMaterialIndex)
 {
-	if (!pMaterial)
-		return;
+    if (!pMaterial || nMaterialIndex < 0)
+        return;
 
-	m_MaterialOverride.Set(pMaterial, nMaterialIndex);
+    GetCustomMaterialOwner()->SetCustomMaterial(pMaterial, nMaterialIndex);
 }
 
 void C_BaseAnimating::ClearMaterialOverride()
 {
-	m_MaterialOverride.Clear();
+    GetCustomMaterialOwner()->ClearCustomMaterials();
 }
 
 extern ConVar muzzleflash_light;

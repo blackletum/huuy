@@ -93,52 +93,79 @@ typedef unsigned int			ClientSideAnimationListHandle_t;
 
 #define		INVALID_CLIENTSIDEANIMATION_LIST_HANDLE	(ClientSideAnimationListHandle_t)~0
 
-class CMaterialOverrideController
+
+class CCustomMaterialOwner
 {
 public:
-    CMaterialOverrideController()
-        : m_pOverrideMaterial(nullptr)
-        , m_nMaterialIndex(0)
-    {}
+    CCustomMaterialOwner() = default;
+    ~CCustomMaterialOwner() = default;
 
-    void Set(IMaterial *pMaterial, int nMaterialIndex = 0)
-    {
-        m_pOverrideMaterial = pMaterial;
-        m_nMaterialIndex = nMaterialIndex;
-    }
+    IMaterial *GetCustomMaterial( int nIndex ) const;
+    void SetCustomMaterial( IMaterial *pMaterial, int nIndex );
 
-    void Clear()
-    {
-        m_pOverrideMaterial = nullptr;
-        m_nMaterialIndex = 0;
-    }
+    bool HasCustomMaterial( int nIndex ) const;
+    inline int GetCustomMaterialCount() const { return m_pMaterials.Count(); }
 
-    IMaterial *Get() const
-    {
-        return m_pOverrideMaterial;
-    }
-
-    int GetIndex() const
-    {
-        return m_nMaterialIndex;
-    }
-
-    bool HasOverride() const
-    {
-        return m_pOverrideMaterial != nullptr;
-    }
-
-    bool ShouldOverride(int nCurrentIndex) const
-    {
-        return m_pOverrideMaterial != nullptr && m_nMaterialIndex == nCurrentIndex;
-    }
+    void ClearCustomMaterials( bool bPurge = false );
+    void DuplicateCustomMaterialsToOther( CCustomMaterialOwner *pOther ) const;
 
 private:
-    IMaterial *m_pOverrideMaterial;
-    int m_nMaterialIndex;
+    // index == studio material index
+    CUtlVector< IMaterial * > m_pMaterials;
 };
 
-class C_BaseAnimating : public C_BaseEntity, private IModelLoadCallback
+inline IMaterial *CCustomMaterialOwner::GetCustomMaterial( int nIndex ) const
+{
+    return ( nIndex >= 0 && nIndex < m_pMaterials.Count() )
+        ? m_pMaterials[ nIndex ]
+        : nullptr;
+}
+
+inline void CCustomMaterialOwner::SetCustomMaterial( IMaterial *pMaterial, int nIndex )
+{
+    if ( nIndex < 0 )
+        return;
+
+    while ( m_pMaterials.Count() <= nIndex )
+    {
+        m_pMaterials.AddToTail( nullptr );
+    }
+
+    m_pMaterials[ nIndex ] = pMaterial;
+}
+
+inline bool CCustomMaterialOwner::HasCustomMaterial( int nIndex ) const
+{
+    return ( nIndex >= 0 &&
+             nIndex < m_pMaterials.Count() &&
+             m_pMaterials[ nIndex ] != nullptr );
+}
+
+inline void CCustomMaterialOwner::ClearCustomMaterials( bool bPurge )
+{
+    if ( bPurge )
+        m_pMaterials.Purge();
+    else
+        m_pMaterials.RemoveAll();
+}
+
+inline void CCustomMaterialOwner::DuplicateCustomMaterialsToOther( CCustomMaterialOwner *pOther ) const
+{
+    if ( !pOther )
+        return;
+
+    pOther->ClearCustomMaterials( true );
+
+    for ( int i = 0; i < m_pMaterials.Count(); ++i )
+    {
+        if ( m_pMaterials[ i ] )
+        {
+            pOther->SetCustomMaterial( m_pMaterials[ i ], i );
+        }
+    }
+}
+
+class C_BaseAnimating : public C_BaseEntity, public CCustomMaterialOwner, private IModelLoadCallback
 {
 public:
 	DECLARE_CLASS( C_BaseAnimating, C_BaseEntity );
@@ -559,7 +586,15 @@ private:
 	void							AddBaseAnimatingInterpolatedVars();
 	void							RemoveBaseAnimatingInterpolatedVars();
     
-    CMaterialOverrideController m_MaterialOverride;
+    CCustomMaterialOwner *GetCustomMaterialOwner() { return &m_CustomMaterialOwner; }
+    const CCustomMaterialOwner *GetCustomMaterialOwner() const { return &m_CustomMaterialOwner; }
+
+    bool HasCustomMaterials() const
+    {
+        return m_CustomMaterialOwner.GetCustomMaterialCount() > 0;
+    }
+    
+    CCustomMaterialOwner m_CustomMaterialOwner;
 
 public:
 	CRagdoll						*m_pRagdoll;

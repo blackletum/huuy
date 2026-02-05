@@ -166,10 +166,6 @@ void CCSFreezePanel::FireGameEvent( IGameEvent * event )
 		if ( StringHasPrefixCaseSensitive( pszWeaponName, "weapon_" ) )
 			pszWeaponName += 7;
 
-		char szWeaponPath[MAX_PATH];
-		Q_snprintf( szWeaponPath, sizeof(szWeaponPath), "gfx/vgui/%s", pszWeaponName );
-		m_pWeaponImage->SetImage( szWeaponPath );
-		m_pWeaponImage->SetVisible( true );
 
 		if ( !pKiller )
 			return;
@@ -201,6 +197,19 @@ void CCSFreezePanel::FireGameEvent( IGameEvent * event )
 			if ( pDef )
 				rarityColor = GetRarityColor(pDef->rarity);
 		}
+        
+        char szWeaponPath[MAX_PATH];
+		Q_snprintf( szWeaponPath, sizeof(szWeaponPath), "gfx/vgui/%s", pszWeaponName );
+        if (pDef)
+        {
+            m_pWeaponImage->SetImage( pDef->szIconPath );
+        }
+        else
+        {
+		    m_pWeaponImage->SetImage( szWeaponPath );
+        }
+        
+		m_pWeaponImage->SetVisible( true );
 
 		if ( wszFinal[0] == L'\0' && pWeaponInfo )
 		{

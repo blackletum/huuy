@@ -575,7 +575,7 @@ public:
 
 	void ResetStamina( void );
 	bool IsArmored( int nHitGroup );
-	void Pain( bool HasArmour, int nDmgTypeBits );
+	void Pain( CCSPlayer* attacker, bool HasArmour, int nDmgTypeBits = 0 );
 	
 	void DeathSound( const CTakeDamageInfo &info );
 	
@@ -900,6 +900,7 @@ public:
     CNetworkVar( int, m_iLoadoutSlotKnifeWeaponSkinT );
 	CNetworkVar( int, m_iLoadoutSlotGlovesCT );
 	CNetworkVar( int, m_iLoadoutSlotGlovesT );
+    CNetworkVar( int, m_iGlovePaintKitID );
 	CNetworkHandle( CBaseCSGloves, m_hLoadoutGloves );
 	bool m_bLoadoutStatTrak;
 	int m_iLoadoutMusic;

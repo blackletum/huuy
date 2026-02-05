@@ -75,7 +75,7 @@ IMaterial* CStudioRender::R_StudioSetupSkinAndLighting( IMatRenderContext *pRend
     IMaterial *pMaterial = NULL;
     bool bCheckForConVarDrawTranslucentSubModels = false;
     
-    if( m_pRC->m_Config.bWireframe && !m_pRC->m_pForcedMaterial )
+    if( m_pRC->m_Config.bWireframe && !m_pRC->m_pForcedMaterial[ 0 ] )
     {
         if ( m_pRC->m_Config.bDrawZBufferedWireframe )
             pMaterial = m_pMaterialMRMWireframeZBuffer;
@@ -88,33 +88,32 @@ IMaterial* CStudioRender::R_StudioSetupSkinAndLighting( IMatRenderContext *pRend
     }
     else
     {
-        if ( m_pRC->m_pForcedMaterial && m_pRC->m_nForcedMaterialType == OVERRIDE_SELECTIVE )
-        {
-            // Override all materials from index 0 up to and including m_nForcedMaterialIndex
-            if ( index <= m_pRC->m_nForcedMaterialIndex )
-            {
-                // override material
-                pMaterial = m_pRC->m_pForcedMaterial;
-            }
-            else
-            {
-                // use original material for indices beyond the specified index
-                pMaterial = ppMaterials[index];
-                if ( !pMaterial )
-                {
-                    Assert( 0 );
-                    return 0;
-                }
-            }
-            
-            // Set this bool to check after the bind below
+        if ( ( !m_pRC->m_pForcedMaterial[ 0 ] && ( m_pRC->m_nForcedMaterialType != OVERRIDE_DEPTH_WRITE && m_pRC->m_nForcedMaterialType != OVERRIDE_SSAO_DEPTH_WRITE ) ) 
+			 || m_pRC->m_nForcedMaterialType == OVERRIDE_SELECTIVE )
+		{
+			int nOverrideIndex = GetForcedMaterialOverrideIndex( index );
+			if ( m_pRC->m_nForcedMaterialType == OVERRIDE_SELECTIVE && nOverrideIndex != -1 )
+			{
+				pMaterial = m_pRC->m_pForcedMaterial[ nOverrideIndex ];
+			}
+			else
+			{
+				pMaterial = ppMaterials[index];
+			}
+			if ( !pMaterial )
+			{
+				Assert( 0 );
+				return 0;
+			}
+
+			// Set this bool to check after the bind below
             bCheckForConVarDrawTranslucentSubModels = true;
             
             // Apply alpha and color modulation
             pMaterial->AlphaModulate( m_pRC->m_AlphaMod );
             pMaterial->ColorModulate( m_pRC->m_ColorMod[0], m_pRC->m_ColorMod[1], m_pRC->m_ColorMod[2] );
-        }
-        else if ( !m_pRC->m_pForcedMaterial && ( m_pRC->m_nForcedMaterialType != OVERRIDE_DEPTH_WRITE && m_pRC->m_nForcedMaterialType != OVERRIDE_SSAO_DEPTH_WRITE ) )
+		}
+        else if ( !m_pRC->m_pForcedMaterial[ 0 ] && ( m_pRC->m_nForcedMaterialType != OVERRIDE_DEPTH_WRITE && m_pRC->m_nForcedMaterialType != OVERRIDE_SSAO_DEPTH_WRITE ) )
         {
             pMaterial = ppMaterials[index];
             if ( !pMaterial )
@@ -135,7 +134,7 @@ IMaterial* CStudioRender::R_StudioSetupSkinAndLighting( IMatRenderContext *pRend
         else
         {
             materialFlags = 0;
-            pMaterial = m_pRC->m_pForcedMaterial;
+            pMaterial = m_pRC->m_pForcedMaterial[ 0 ];
             if (m_pRC->m_nForcedMaterialType == OVERRIDE_BUILD_SHADOWS)
             {
                 // Connect the original material up to the shadow building material

@@ -78,12 +78,11 @@ struct MiniStatus
     }
 
     bool Update(int idx, int entIdx, int health, int armor, bool isCT, bool isLocal, bool dead, 
-                bool leader, int points, int ggLevel, int team, bool dominated, bool dominating,
+                bool leader, int ggLevel, int team, bool dominated, bool dominating,
                 bool speaking, bool playerBot, bool spectated, int teammateColor, float curtime)
     {
         bool bChanged = (nPlayerIdx != idx || nEntIdx != entIdx || nHealth != health || nArmor != armor ||
-                         bIsCT != isCT || bIsLocalPlayer != isLocal || bDead != dead || bTeamLeader != leader ||
-                         nPoints != points || nGunGameLevel != ggLevel || nTeam != team ||
+                         bIsCT != isCT || bIsLocalPlayer != isLocal || bDead != dead || bTeamLeader != leader || nGunGameLevel != ggLevel || nTeam != team ||
                          bDominated != dominated || bDominating != dominating || bSpeaking != speaking ||
                          bPlayerBot != playerBot || bSpectated != spectated || nTeammateColor != teammateColor ||
                          (curtime > flLastRefresh + 3.0f)); // Force refresh every 3 seconds
@@ -96,7 +95,6 @@ struct MiniStatus
         bIsLocalPlayer = isLocal;
         bDead = dead;
         bTeamLeader = leader;
-        nPoints = points;
         nGunGameLevel = ggLevel;
         nTeam = team;
         bDominated = dominated;
@@ -138,7 +136,6 @@ public:
     int GetPlayerSlotIndex(int playerEntIndex);
     const MiniStatus* GetPlayerStatus(int index);
     
-    // Public для wrapper функции
     static int PlayerSortFunc(const MiniStatus *a, const MiniStatus *b);
 
 protected:

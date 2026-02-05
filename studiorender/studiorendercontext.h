@@ -67,9 +67,10 @@ struct StudioRenderContext_t
 	int						m_NumLocalLights;
 	float					m_ColorMod[3];
 	float					m_AlphaMod;
-	IMaterial*				m_pForcedMaterial;
-    int                        m_nForcedMaterialIndex = 0;
+	IMaterial*				m_pForcedMaterial[MAX_MAT_OVERRIDES];
 	OverrideType_t			m_nForcedMaterialType;
+	int						m_nForcedMaterialIndex[MAX_MAT_OVERRIDES];
+	int						m_nForcedMaterialIndexCount;
 };
 
 
@@ -159,7 +160,7 @@ public:
 	virtual void UnlockBoneMatrices();
 	virtual void LockFlexWeights( int nWeightCount, float **ppFlexWeights, float **ppFlexDelayedWeights = NULL );
 	virtual void UnlockFlexWeights();
-	virtual void GetMaterialOverride( IMaterial** ppOutForcedMaterial, OverrideType_t* pOutOverrideType );
+    bool IsForcedMaterialOverride() const;
 
 	// Other public methods
 public:
@@ -218,7 +219,7 @@ private:
 	int ComputeRenderLOD( IMatRenderContext *pRenderContext, const DrawModelInfo_t& info, const Vector &origin, float *pMetric );
 
 	// This invokes proxies of all materials that are queued to be rendered
-	void InvokeBindProxies( const DrawModelInfo_t &info );
+	void InvokeBindProxies( IMatRenderContext *pRenderContext, ICallQueue *pCallQueue, const DrawModelInfo_t &info );
 
 	// Did this matrix come from our allocator?
 	bool IsInternallyAllocated( const matrix3x4_t *pBoneToWorld );

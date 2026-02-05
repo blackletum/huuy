@@ -15,7 +15,7 @@ using namespace vgui;
 CSkinEditorPanel* g_pSkinEditor = nullptr;
 
 //=============================================================================
-// CSkinEditorPanel
+// CSkinEditorPanel - Конструктор
 //=============================================================================
 CSkinEditorPanel::CSkinEditorPanel(Panel* parent) : BaseClass(parent, "SkinEditorPanel")
 {
@@ -40,11 +40,12 @@ CSkinEditorPanel::CSkinEditorPanel(Panel* parent) : BaseClass(parent, "SkinEdito
     SetDeleteSelfOnClose(false);
     SetMinimumSize(800, 600);
     
-    // Создаем UI элементы только один раз
+    // Инициализируем указатели
     m_pInventoryPanel = nullptr;
     m_pShowAllButton = nullptr;
     m_pWeaponFilter = nullptr;
     m_pRarityFilter = nullptr;
+    m_bControlsCreated = false;
     
     CreateControls();
     
@@ -54,49 +55,81 @@ CSkinEditorPanel::CSkinEditorPanel(Panel* parent) : BaseClass(parent, "SkinEdito
 
 CSkinEditorPanel::~CSkinEditorPanel()
 {
+    // Элементы удаляются автоматически через VGUI
 }
 
 void CSkinEditorPanel::CreateControls()
 {
-    if (!m_pInventoryPanel)
-    {
-        m_pInventoryPanel = new vgui::CInventoryPanel(this, "InventoryPanel");
-        m_pInventoryPanel->AddActionSignalTarget(this);
-    }
+    if (m_bControlsCreated)
+        return;
+        
+    m_bControlsCreated = true;
     
-    if (!m_pShowAllButton)
-    {
-        m_pShowAllButton = new vgui::Button(this, "ShowAllButton", "Show All Skins", this, "ShowAll");
-    }
+    // Создаем панель инвентаря
+    m_pInventoryPanel = new vgui::CInventoryPanel(this, "InventoryPanel");
+    m_pInventoryPanel->AddActionSignalTarget(this);
     
-    if (!m_pWeaponFilter)
-    {
-        m_pWeaponFilter = new vgui::ComboBox(this, "WeaponFilter", 10, false);
-        m_pWeaponFilter->AddItem("All Weapons", nullptr);
-        m_pWeaponFilter->AddItem("AK-47", new KeyValues("weapon", "id", WEAPON_AK47));
-        m_pWeaponFilter->AddItem("M4A1", new KeyValues("weapon", "id", WEAPON_M4A1));
-        m_pWeaponFilter->AddItem("AWP", new KeyValues("weapon", "id", WEAPON_AWP));
-        m_pWeaponFilter->AddItem("Desert Eagle", new KeyValues("weapon", "id", WEAPON_DEAGLE));
-        m_pWeaponFilter->AddItem("Glock-18", new KeyValues("weapon", "id", WEAPON_GLOCK));
-        m_pWeaponFilter->AddItem("USP-S", new KeyValues("weapon", "id", WEAPON_USP));
-        m_pWeaponFilter->AddItem("P250", new KeyValues("weapon", "id", WEAPON_P250));
-        m_pWeaponFilter->AddItem("Five-SeveN", new KeyValues("weapon", "id", WEAPON_FIVESEVEN));
-        m_pWeaponFilter->AddActionSignalTarget(this);
-    }
+    // Создаем кнопку "Показать все"
+    m_pShowAllButton = new vgui::Button(this, "ShowAllButton", "Show All Skins", this, "ShowAll");
     
-    if (!m_pRarityFilter)
-    {
-        m_pRarityFilter = new vgui::ComboBox(this, "RarityFilter", 10, false);
-        m_pRarityFilter->AddItem("All Rarities", nullptr);
-        m_pRarityFilter->AddItem("Common", new KeyValues("rarity", "id", SKIN_RARITY_COMMON));
-        m_pRarityFilter->AddItem("Uncommon", new KeyValues("rarity", "id", SKIN_RARITY_UNCOMMON));
-        m_pRarityFilter->AddItem("Rare", new KeyValues("rarity", "id", SKIN_RARITY_RARE));
-        m_pRarityFilter->AddItem("Mythical", new KeyValues("rarity", "id", SKIN_RARITY_MYTHICAL));
-        m_pRarityFilter->AddItem("Legendary", new KeyValues("rarity", "id", SKIN_RARITY_LEGENDARY));
-        m_pRarityFilter->AddItem("Ancient", new KeyValues("rarity", "id", SKIN_RARITY_ANCIENT));
-        m_pRarityFilter->AddItem("Contraband", new KeyValues("rarity", "id", SKIN_RARITY_CONTRABAND));
-        m_pRarityFilter->AddActionSignalTarget(this);
-    }
+    // Создаем комбобокс выбора оружия
+    m_pWeaponFilter = new vgui::ComboBox(this, "WeaponFilter", 15, false);
+    m_pWeaponFilter->AddItem("All Weapons", new KeyValues("weapon", "id", WEAPON_NONE));
+    m_pWeaponFilter->AddItem("AK-47", new KeyValues("weapon", "id", WEAPON_AK47));
+    m_pWeaponFilter->AddItem("M4A4", new KeyValues("weapon", "id", WEAPON_M4A4));
+    m_pWeaponFilter->AddItem("M4A1-S", new KeyValues("weapon", "id", WEAPON_M4A1));
+    m_pWeaponFilter->AddItem("AWP", new KeyValues("weapon", "id", WEAPON_AWP));
+    m_pWeaponFilter->AddItem("Desert Eagle", new KeyValues("weapon", "id", WEAPON_DEAGLE));
+    m_pWeaponFilter->AddItem("Glock-18", new KeyValues("weapon", "id", WEAPON_GLOCK));
+    m_pWeaponFilter->AddItem("USP-S", new KeyValues("weapon", "id", WEAPON_USP));
+    m_pWeaponFilter->AddItem("P2000", new KeyValues("weapon", "id", WEAPON_HKP2000));
+    m_pWeaponFilter->AddItem("P250", new KeyValues("weapon", "id", WEAPON_P250));
+    m_pWeaponFilter->AddItem("Five-SeveN", new KeyValues("weapon", "id", WEAPON_FIVESEVEN));
+    m_pWeaponFilter->AddItem("Tec-9", new KeyValues("weapon", "id", WEAPON_TEC9));
+    m_pWeaponFilter->AddItem("CZ75-Auto", new KeyValues("weapon", "id", WEAPON_CZ75A));
+    m_pWeaponFilter->AddItem("Dual Berettas", new KeyValues("weapon", "id", WEAPON_ELITE));
+    m_pWeaponFilter->AddItem("Nova", new KeyValues("weapon", "id", WEAPON_NOVA));
+    m_pWeaponFilter->AddItem("XM1014", new KeyValues("weapon", "id", WEAPON_XM1014));
+    m_pWeaponFilter->AddItem("MAG-7", new KeyValues("weapon", "id", WEAPON_MAG7));
+    m_pWeaponFilter->AddItem("Sawed-Off", new KeyValues("weapon", "id", WEAPON_SAWEDOFF));
+    m_pWeaponFilter->AddItem("M249", new KeyValues("weapon", "id", WEAPON_M249));
+    m_pWeaponFilter->AddItem("Negev", new KeyValues("weapon", "id", WEAPON_NEGEV));
+    m_pWeaponFilter->AddItem("MAC-10", new KeyValues("weapon", "id", WEAPON_MAC10));
+    m_pWeaponFilter->AddItem("MP9", new KeyValues("weapon", "id", WEAPON_MP9));
+    m_pWeaponFilter->AddItem("MP7", new KeyValues("weapon", "id", WEAPON_MP7));
+    m_pWeaponFilter->AddItem("MP5-SD", new KeyValues("weapon", "id", WEAPON_MP5SD));
+    m_pWeaponFilter->AddItem("UMP-45", new KeyValues("weapon", "id", WEAPON_UMP45));
+    m_pWeaponFilter->AddItem("P90", new KeyValues("weapon", "id", WEAPON_P90));
+    m_pWeaponFilter->AddItem("PP-Bizon", new KeyValues("weapon", "id", WEAPON_BIZON));
+    m_pWeaponFilter->AddItem("Galil AR", new KeyValues("weapon", "id", WEAPON_GALILAR));
+    m_pWeaponFilter->AddItem("FAMAS", new KeyValues("weapon", "id", WEAPON_FAMAS));
+    m_pWeaponFilter->AddItem("AUG", new KeyValues("weapon", "id", WEAPON_AUG));
+    m_pWeaponFilter->AddItem("SG 553", new KeyValues("weapon", "id", WEAPON_SG556));
+    m_pWeaponFilter->AddItem("SSG 08", new KeyValues("weapon", "id", WEAPON_SSG08));
+    m_pWeaponFilter->AddItem("SCAR-20", new KeyValues("weapon", "id", WEAPON_SCAR20));
+    m_pWeaponFilter->AddItem("G3SG1", new KeyValues("weapon", "id", WEAPON_G3SG1));
+    m_pWeaponFilter->AddItem("R8 Revolver", new KeyValues("weapon", "id", WEAPON_REVOLVER));
+    
+    // Активируем первый элемент (All Weapons)
+    m_pWeaponFilter->ActivateItemByRow(0);
+    m_pWeaponFilter->AddActionSignalTarget(this);
+    
+    // Создаем комбобокс редкости
+    m_pRarityFilter = new vgui::ComboBox(this, "RarityFilter", 10, false);
+    m_pRarityFilter->AddItem("All Rarities", new KeyValues("rarity", "id", -1));
+    m_pRarityFilter->AddItem("Common", new KeyValues("rarity", "id", SKIN_RARITY_COMMON));
+    m_pRarityFilter->AddItem("Uncommon", new KeyValues("rarity", "id", SKIN_RARITY_UNCOMMON));
+    m_pRarityFilter->AddItem("Rare", new KeyValues("rarity", "id", SKIN_RARITY_RARE));
+    m_pRarityFilter->AddItem("Mythical", new KeyValues("rarity", "id", SKIN_RARITY_MYTHICAL));
+    m_pRarityFilter->AddItem("Legendary", new KeyValues("rarity", "id", SKIN_RARITY_LEGENDARY));
+    m_pRarityFilter->AddItem("Ancient", new KeyValues("rarity", "id", SKIN_RARITY_ANCIENT));
+    m_pRarityFilter->AddItem("Contraband", new KeyValues("rarity", "id", SKIN_RARITY_CONTRABAND));
+    
+    // Активируем первый элемент (All Rarities)
+    m_pRarityFilter->ActivateItemByRow(0);
+    m_pRarityFilter->AddActionSignalTarget(this);
+    
+    DevMsg("[SkinEditor] Controls created successfully\n");
 }
 
 void CSkinEditorPanel::PerformLayout()
@@ -106,35 +139,43 @@ void CSkinEditorPanel::PerformLayout()
     int wide, tall;
     GetSize(wide, tall);
     
-    int filterPanelHeight = 40;
-    int padding = 10;
-    int buttonWidth = 120;
-    int comboWidth = 150;
+    // Получаем масштаб для адаптации под разрешение
+    int screenWidth, screenHeight;
+    vgui::surface()->GetScreenSize(screenWidth, screenHeight);
+    float scale = screenHeight / 1080.0f;
+    
+    // Панель фильтров сверху
+    int filterPanelHeight = 50 * scale;
+    int padding = 15 * scale;
+    int buttonWidth = 140 * scale;
+    int comboWidth = 200 * scale;
+    int comboHeight = 35 * scale;
     
     int xPos = padding;
     
     if (m_pShowAllButton)
     {
-        m_pShowAllButton->SetBounds(xPos, padding, buttonWidth, 25);
+        m_pShowAllButton->SetBounds(xPos, padding, buttonWidth, comboHeight);
         xPos += buttonWidth + padding;
     }
     
     if (m_pWeaponFilter)
     {
-        m_pWeaponFilter->SetBounds(xPos, padding, comboWidth, 25);
+        m_pWeaponFilter->SetBounds(xPos, padding, comboWidth, comboHeight);
         xPos += comboWidth + padding;
     }
     
     if (m_pRarityFilter)
     {
-        m_pRarityFilter->SetBounds(xPos, padding, comboWidth, 25);
+        m_pRarityFilter->SetBounds(xPos, padding, comboWidth, comboHeight);
     }
     
+    // Инвентарь занимает всё оставшееся пространство
     if (m_pInventoryPanel)
     {
-        m_pInventoryPanel->SetBounds(padding, filterPanelHeight + padding, 
-                                    wide - padding * 2, 
-                                    tall - filterPanelHeight - padding * 3);
+        m_pInventoryPanel->SetBounds(0, filterPanelHeight + padding, 
+                                    wide, 
+                                    tall - filterPanelHeight - padding * 2);
     }
 }
 
@@ -176,14 +217,30 @@ void CSkinEditorPanel::OnTextChanged(vgui::Panel *panel)
         
         if (pUserData)
         {
-            CSWeaponID weaponID = (CSWeaponID)pUserData->GetInt("id", WEAPON_NONE);
+            int weaponID = pUserData->GetInt("id", WEAPON_NONE);
+            
             if (weaponID != WEAPON_NONE)
             {
-                m_pInventoryPanel->SetWeaponFilter(weaponID);
+                m_pInventoryPanel->SetWeaponFilter((CSWeaponID)weaponID);
+                DevMsg("[SkinEditor] Filtering by weapon ID: %d\n", weaponID);
             }
             else
             {
                 m_pInventoryPanel->ClearFilters();
+                
+                // Восстанавливаем фильтр редкости если он был активен
+                if (m_pRarityFilter && m_pRarityFilter->GetActiveItem() > 0)
+                {
+                    KeyValues *pRarityData = m_pRarityFilter->GetActiveItemUserData();
+                    if (pRarityData)
+                    {
+                        int rarityID = pRarityData->GetInt("id", -1);
+                        if (rarityID >= 0)
+                        {
+                            m_pInventoryPanel->SetRarityFilter((ESkinRarity)rarityID);
+                        }
+                    }
+                }
             }
         }
         else
@@ -197,8 +254,31 @@ void CSkinEditorPanel::OnTextChanged(vgui::Panel *panel)
         
         if (pUserData)
         {
-            ESkinRarity rarity = (ESkinRarity)pUserData->GetInt("id", SKIN_RARITY_COMMON);
-            m_pInventoryPanel->SetRarityFilter(rarity);
+            int rarityID = pUserData->GetInt("id", -1);
+            
+            if (rarityID >= 0)
+            {
+                m_pInventoryPanel->SetRarityFilter((ESkinRarity)rarityID);
+                DevMsg("[SkinEditor] Filtering by rarity: %d\n", rarityID);
+            }
+            else
+            {
+                m_pInventoryPanel->ClearFilters();
+                
+                // Восстанавливаем фильтр оружия если он был активен
+                if (m_pWeaponFilter && m_pWeaponFilter->GetActiveItem() > 0)
+                {
+                    KeyValues *pWeaponData = m_pWeaponFilter->GetActiveItemUserData();
+                    if (pWeaponData)
+                    {
+                        int weaponID = pWeaponData->GetInt("id", WEAPON_NONE);
+                        if (weaponID != WEAPON_NONE)
+                        {
+                            m_pInventoryPanel->SetWeaponFilter((CSWeaponID)weaponID);
+                        }
+                    }
+                }
+            }
         }
         else
         {
@@ -235,10 +315,21 @@ void CSkinEditorPanel::OnClose()
     SetVisible(false);
 }
 
+void CSkinEditorPanel::Activate()
+{
+    BaseClass::Activate();
+    
+    // При активации убеждаемся что контролы созданы
+    if (!m_bControlsCreated)
+    {
+        CreateControls();
+    }
+}
+
 //=============================================================================
 // Console Commands
 //=============================================================================
-CON_COMMAND(skin_inventory, "Open skin inventory")
+CON_COMMAND(open_inventory, "Open skin inventory")
 {
     if (!g_pSkinEditor)
     {
@@ -247,12 +338,28 @@ CON_COMMAND(skin_inventory, "Open skin inventory")
     
     g_pSkinEditor->Activate();
     g_pSkinEditor->SetVisible(true);
+    
+    // Панель инвентаря сама загрузит скины через OnThink когда получит размеры
+    DevMsg("[SkinEditor] Inventory window opened\n");
 }
 
-CON_COMMAND(skin_inventory_close, "Close skin inventory")
+CON_COMMAND(close_inventory, "Close skin inventory")
 {
     if (g_pSkinEditor)
     {
         g_pSkinEditor->OnClose();
+    }
+}
+
+CON_COMMAND(inventory_reload, "Reload skin inventory")
+{
+    if (g_pSkinEditor && g_pSkinEditor->m_pInventoryPanel)
+    {
+        g_pSkinEditor->m_pInventoryPanel->LoadAllSkins();
+        Msg("Inventory reloaded\n");
+    }
+    else
+    {
+        Warning("Inventory not open\n");
     }
 }

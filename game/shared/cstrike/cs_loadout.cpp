@@ -73,6 +73,27 @@ ConVar loadout_skin_ssg08( "loadout_skin_ssg08", "0", FCVAR_ARCHIVE | FCVAR_USER
 ConVar loadout_skin_scar20( "loadout_skin_scar20", "0", FCVAR_ARCHIVE | FCVAR_USERINFO, "Skin ID for SCAR-20" );
 ConVar loadout_skin_g3sg1( "loadout_skin_g3sg1", "0", FCVAR_ARCHIVE | FCVAR_USERINFO, "Skin ID for G3SG1" );
 
+//Knifes
+ConVar loadout_skin_knife_css( "loadout_skin_knife_css", "0", FCVAR_ARCHIVE | FCVAR_USERINFO, "Skin ID for CSS Knife" );
+ConVar loadout_skin_knife_karambit( "loadout_skin_knife_karambit", "0", FCVAR_ARCHIVE | FCVAR_USERINFO, "Skin ID for Karambit" );
+ConVar loadout_skin_knife_flip( "loadout_skin_knife_flip", "0", FCVAR_ARCHIVE | FCVAR_USERINFO, "Skin ID for Flip Knife" );
+ConVar loadout_skin_knife_bayonet( "loadout_skin_knife_bayonet", "0", FCVAR_ARCHIVE | FCVAR_USERINFO, "Skin ID for Bayonet" );
+ConVar loadout_skin_knife_m9_bayonet( "loadout_skin_knife_m9_bayonet", "0", FCVAR_ARCHIVE | FCVAR_USERINFO, "Skin ID for M9 Bayonet" );
+ConVar loadout_skin_knife_butterfly( "loadout_skin_knife_butterfly", "0", FCVAR_ARCHIVE | FCVAR_USERINFO, "Skin ID for Butterfly Knife" );
+ConVar loadout_skin_knife_gut( "loadout_skin_knife_gut", "0", FCVAR_ARCHIVE | FCVAR_USERINFO, "Skin ID for Gut Knife" );
+ConVar loadout_skin_knife_tactical( "loadout_skin_knife_tactical", "0", FCVAR_ARCHIVE | FCVAR_USERINFO, "Skin ID for Huntsman Knife" );
+ConVar loadout_skin_knife_falchion( "loadout_skin_knife_falchion", "0", FCVAR_ARCHIVE | FCVAR_USERINFO, "Skin ID for Falchion Knife" );
+ConVar loadout_skin_knife_survival_bowie( "loadout_skin_knife_survival_bowie", "0", FCVAR_ARCHIVE | FCVAR_USERINFO, "Skin ID for Bowie Knife" );
+ConVar loadout_skin_knife_canis( "loadout_skin_knife_canis", "0", FCVAR_ARCHIVE | FCVAR_USERINFO, "Skin ID for Survival Knife" );
+ConVar loadout_skin_knife_cord( "loadout_skin_knife_cord", "0", FCVAR_ARCHIVE | FCVAR_USERINFO, "Skin ID for Paracord Knife" );
+ConVar loadout_skin_knife_gypsy_jackknife( "loadout_skin_knife_gypsy_jackknife", "0", FCVAR_ARCHIVE | FCVAR_USERINFO, "Skin ID for Nomad Knife" );
+ConVar loadout_skin_knife_outdoor( "loadout_skin_knife_outdoor", "0", FCVAR_ARCHIVE | FCVAR_USERINFO, "Skin ID for Skeleton Knife" );
+ConVar loadout_skin_knife_skeleton( "loadout_skin_knife_skeleton", "0", FCVAR_ARCHIVE | FCVAR_USERINFO, "Skin ID for Skeleton Knife" );
+ConVar loadout_skin_knife_stiletto( "loadout_skin_knife_stiletto", "0", FCVAR_ARCHIVE | FCVAR_USERINFO, "Skin ID for Stiletto Knife" );
+ConVar loadout_skin_knife_ursus( "loadout_skin_knife_ursus", "0", FCVAR_ARCHIVE | FCVAR_USERINFO, "Skin ID for Ursus Knife" );
+ConVar loadout_skin_knife_widowmaker( "loadout_skin_knife_widowmaker", "0", FCVAR_ARCHIVE | FCVAR_USERINFO, "Skin ID for Talon Knife" );
+ConVar loadout_skin_knife_push( "loadout_skin_knife_push", "0", FCVAR_ARCHIVE | FCVAR_USERINFO, "Skin ID for Classic Knife" );
+
 //Gloves
 ConVar loadout_gloves_ct_skin0("loadout_gloves_ct_skin0", "0", FCVAR_ARCHIVE | FCVAR_USERINFO, "No gloves");
 ConVar loadout_gloves_ct_skin1("loadout_gloves_ct_skin1", "0", FCVAR_ARCHIVE | FCVAR_USERINFO, "Bloodhound");
@@ -117,26 +138,6 @@ ConVar loadout_gloves_t_skin17("loadout_gloves_t_skin17", "0", FCVAR_ARCHIVE | F
 ConVar loadout_gloves_t_skin18("loadout_gloves_t_skin18", "0", FCVAR_ARCHIVE | FCVAR_USERINFO, "Leet Old");
 ConVar loadout_gloves_t_skin19("loadout_gloves_t_skin19", "0", FCVAR_ARCHIVE | FCVAR_USERINFO, "Bare Hands");
 
-/*ConVar loadout_skin_glove_bloodhound( "loadout_skin_glove_bloodhound", "0", FCVAR_ARCHIVE | FCVAR_USERINFO, "Skin ID for Sporty Gloves" );
-ConVar loadout_skin_glove_bloodhound_perfectworld( "loadout_skin_glove_bloodhound_perfectworld", "0", FCVAR_ARCHIVE | FCVAR_USERINFO, "Skin ID for Gloves" );
-ConVar loadout_skin_glove_bloodhound_brokenfang( "loadout_skin_glove_bloodhound_brokenfang", "0", FCVAR_ARCHIVE | FCVAR_USERINFO, "Skin ID for Gloves" );
-ConVar loadout_skin_glove_glove_bloodhound_hydra( "loadout_skin_glove_glove_bloodhound_hydra", "0", FCVAR_ARCHIVE | FCVAR_USERINFO, "Skin ID for Gloves" );
-ConVar loadout_skin_glove_glove_fingerless( "loadout_skin_glove_glove_fingerless", "0", FCVAR_ARCHIVE | FCVAR_USERINFO, "Skin ID for Gloves" );
-ConVar loadout_skin_glove_glove_fullfinger( "loadout_skin_glove_glove_fullfinger", "0", FCVAR_ARCHIVE | FCVAR_USERINFO, "Skin ID for Gloves" );
-ConVar loadout_skin_glove_handwrap_leathery( "loadout_skin_glove_handwrap_leathery", "0", FCVAR_ARCHIVE | FCVAR_USERINFO, "Skin ID for Gloves" );
-ConVar loadout_skin_glove_hardknuckle( "loadout_skin_glove_hardknuckle", "0", FCVAR_ARCHIVE | FCVAR_USERINFO, "Skin ID for Gloves" );
-ConVar loadout_skin_glove_hardknuckle_black( "loadout_skin_glove_hardknuckle_black", "0", FCVAR_ARCHIVE | FCVAR_USERINFO, "Skin ID for Gloves" );
-ConVar loadout_skin_glove_hardknuckle_blue( "loadout_skin_glove_hardknuckle_blue", "0", FCVAR_ARCHIVE | FCVAR_USERINFO, "Skin ID for Gloves" );
-ConVar loadout_skin_glove_motorcycle( "loadout_skin_glove_motorcycle", "0", FCVAR_ARCHIVE | FCVAR_USERINFO, "Skin ID for Gloves" );
-ConVar loadout_skin_glove_slick( "loadout_skin_glove_slick", "0", FCVAR_ARCHIVE | FCVAR_USERINFO, "Skin ID for Gloves" );
-ConVar loadout_skin_glove_specialist( "loadout_skin_glove_specialist", "0", FCVAR_ARCHIVE | FCVAR_USERINFO, "Skin ID for Gloves" );
-ConVar loadout_skin_glove_sporty( "loadout_skin_glove_sporty", "0", FCVAR_ARCHIVE | FCVAR_USERINFO, "Skin ID for Gloves" );
-ConVar loadout_skin_glove_sas_old( "loadout_skin_glove_sas_old", "0", FCVAR_ARCHIVE | FCVAR_USERINFO, "Skin ID for Gloves" );
-ConVar loadout_skin_glove_fbi_old( "loadout_skin_glove_fbi_old", "0", FCVAR_ARCHIVE | FCVAR_USERINFO, "Skin ID for Gloves" );
-ConVar loadout_skin_glove_phoenix_old( "loadout_skin_glove_phoenix_old", "0", FCVAR_ARCHIVE | FCVAR_USERINFO, "Skin ID for Gloves" );
-ConVar loadout_skin_glove_leet_old( "loadout_skin_glove_leet_old", "0", FCVAR_ARCHIVE | FCVAR_USERINFO, "Skin ID for Gloves" );
-ConVar loadout_skin_bare( "loadout_skin_bare", "0", FCVAR_ARCHIVE | FCVAR_USERINFO, "Skin ID for Gloves" );
-*/
 #endif
 ConVar bot_loadout_random_knives( "bot_loadout_random_knives", "0", FCVAR_REPLICATED, "Whether or not the bots will have random knives." );
 ConVar bot_loadout_random_gloves( "bot_loadout_random_gloves", "0", FCVAR_REPLICATED, "Whether or not the bots will have random gloves." );
@@ -173,62 +174,63 @@ struct CWeaponSkinMapping
 	const char*		m_szSkinConVar;
 };
 
-struct CGloveSkinMapping
+struct CGloveSkinCTMapping
 {
-    int m_iGloveID;
-    const char* m_szGloveName;
     const char* m_szSkinConVar;
 };
 
-#ifdef CLIENT_DLL
-ConVar* g_pGlovesCTSkins[MAX_GLOVES + 1] =
+struct CGloveSkinTMapping
 {
-	&loadout_gloves_ct_skin0,
-	&loadout_gloves_ct_skin1,
-	&loadout_gloves_ct_skin2,
-	&loadout_gloves_ct_skin3,
-	&loadout_gloves_ct_skin4,
-	&loadout_gloves_ct_skin5,
-	&loadout_gloves_ct_skin6,
-	&loadout_gloves_ct_skin7,
-	&loadout_gloves_ct_skin8,
-	&loadout_gloves_ct_skin9,
-	&loadout_gloves_ct_skin10,
-	&loadout_gloves_ct_skin11,
-	&loadout_gloves_ct_skin12,
-	&loadout_gloves_ct_skin13,
-	&loadout_gloves_ct_skin14,
-	&loadout_gloves_ct_skin15,
-	&loadout_gloves_ct_skin16,
-	&loadout_gloves_ct_skin17,
-	&loadout_gloves_ct_skin18,
-	&loadout_gloves_ct_skin19
+    const char* m_szSkinConVar;
 };
 
-ConVar* g_pGlovesTSkins[MAX_GLOVES + 1] =
+CGloveSkinCTMapping GloveSkinCT[MAX_GLOVES +1] =
 {
-	&loadout_gloves_t_skin0,
-	&loadout_gloves_t_skin1,
-	&loadout_gloves_t_skin2,
-	&loadout_gloves_t_skin3,
-	&loadout_gloves_t_skin4,
-	&loadout_gloves_t_skin5,
-	&loadout_gloves_t_skin6,
-	&loadout_gloves_t_skin7,
-	&loadout_gloves_t_skin8,
-	&loadout_gloves_t_skin9,
-	&loadout_gloves_t_skin10,
-	&loadout_gloves_t_skin11,
-	&loadout_gloves_t_skin12,
-	&loadout_gloves_t_skin13,
-	&loadout_gloves_t_skin14,
-	&loadout_gloves_t_skin15,
-	&loadout_gloves_t_skin16,
-	&loadout_gloves_t_skin17,
-	&loadout_gloves_t_skin18,
-	&loadout_gloves_t_skin19
+	{"loadout_gloves_ct_skin0"},
+	{"loadout_gloves_ct_skin1"},
+	{"loadout_gloves_ct_skin2"},
+	{"loadout_gloves_ct_skin3"},
+	{"loadout_gloves_ct_skin4"},
+	{"loadout_gloves_ct_skin5"},
+	{"loadout_gloves_ct_skin6"},
+	{"loadout_gloves_ct_skin7"},
+	{"loadout_gloves_ct_skin8"},
+	{"loadout_gloves_ct_skin9"},
+	{"loadout_gloves_ct_skin10"},
+	{"loadout_gloves_ct_skin11"},
+	{"loadout_gloves_ct_skin12"},
+	{"loadout_gloves_ct_skin13"},
+	{"loadout_gloves_ct_skin14"},
+	{"loadout_gloves_ct_skin15"},
+	{"loadout_gloves_ct_skin16"},
+	{"loadout_gloves_ct_skin17"},
+	{"loadout_gloves_ct_skin18"},
+	{"loadout_gloves_ct_skin19"},
 };
-#endif
+
+CGloveSkinTMapping GloveSkinT[MAX_GLOVES +1] =
+{
+	{"loadout_gloves_t_skin0"},
+	{"loadout_gloves_t_skin1"},
+	{"loadout_gloves_t_skin2"},
+	{"loadout_gloves_t_skin3"},
+	{"loadout_gloves_t_skin4"},
+	{"loadout_gloves_t_skin5"},
+	{"loadout_gloves_t_skin6"},
+	{"loadout_gloves_t_skin7"},
+	{"loadout_gloves_t_skin8"},
+	{"loadout_gloves_t_skin9"},
+	{"loadout_gloves_t_skin10"},
+	{"loadout_gloves_t_skin11"},
+	{"loadout_gloves_t_skin12"},
+	{"loadout_gloves_t_skin13"},
+	{"loadout_gloves_t_skin14"},
+	{"loadout_gloves_t_skin15"},
+	{"loadout_gloves_t_skin16"},
+	{"loadout_gloves_t_skin17"},
+	{"loadout_gloves_t_skin18"},
+	{"loadout_gloves_t_skin19"},
+};
 
 CWeaponSkinMapping WeaponSkinMappings[] =
 {
@@ -266,6 +268,25 @@ CWeaponSkinMapping WeaponSkinMappings[] =
 	{ WEAPON_SSG08,			"ssg08",			"loadout_skin_ssg08" },
 	{ WEAPON_SCAR20,		"scar20",			"loadout_skin_scar20" },
 	{ WEAPON_G3SG1,			"g3sg1",			"loadout_skin_g3sg1" },
+	{ WEAPON_KNIFE_CSS,			"knife_css", "loadout_skin_knife_css" },
+	{ WEAPON_KNIFE_KARAMBIT,	"knife_karambit", "loadout_skin_knife_karambit" },
+	{ WEAPON_KNIFE_FLIP,		"knife_flip", "loadout_skin_knife_flip" },
+	{ WEAPON_KNIFE_BAYONET,		"knife_bayonet", "loadout_skin_knife_bayonet" },
+	{ WEAPON_KNIFE_M9_BAYONET,	"knife_m9_bayonet", "loadout_skin_knife_m9_bayonet" },
+	{ WEAPON_KNIFE_BUTTERFLY,	"knife_butterfly", "loadout_skin_knife_butterfly" },
+	{ WEAPON_KNIFE_GUT,			"knife_gut", "loadout_skin_knife_gut" },
+	{ WEAPON_KNIFE_TACTICAL,	"knife_tactical", "loadout_skin_knife_tactical" },
+	{ WEAPON_KNIFE_FALCHION,	"knife_falchion", "loadout_skin_knife_falchion" },
+	{ WEAPON_KNIFE_SURVIVAL_BOWIE,"knife_survival_bowie", "loadout_skin_knife_survival_bowie" },
+	{ WEAPON_KNIFE_CANIS,		"knife_canis", "loadout_skin_knife_canis" },
+	{ WEAPON_KNIFE_CORD,		"knife_cord", "loadout_skin_knife_cord" },
+	{ WEAPON_KNIFE_GYPSY,		"knife_gypsy_jackknife", "loadout_skin_knife_gypsy_jackknife" },
+	{ WEAPON_KNIFE_OUTDOOR,		"knife_outdoor", "loadout_skin_knife_outdoor" },
+	{ WEAPON_KNIFE_SKELETON,	"knife_skeleton", "loadout_skin_knife_skeleton" },
+	{ WEAPON_KNIFE_STILETTO,	"knife_stiletto", "loadout_skin_knife_stiletto" },
+	{ WEAPON_KNIFE_URSUS,		"knife_ursus", "loadout_skin_knife_ursus" },
+	{ WEAPON_KNIFE_WIDOWMAKER,	"knife_widowmaker", "loadout_skin_knife_widowmaker" },
+	{ WEAPON_KNIFE_PUSH,		"knife_push", "loadout_skin_knife_push" },
 };
 
 LoadoutSlot_t CCSLoadout::GetSlotFromWeapon( int team, const char* weaponName )
@@ -722,7 +743,6 @@ int CCSLoadout::GetWeaponSkinForPlayer( CCSPlayer* pPlayer, const char* pszWeapo
 	return -1;    // arrays are started with index 0 not 1
 }
 
-#ifdef CLIENT_DLL
 int CCSLoadout::GetGlovesSkinForPlayer(CCSPlayer* pPlayer, int team)
 {
 	if (!pPlayer)
@@ -733,40 +753,31 @@ int CCSLoadout::GetGlovesSkinForPlayer(CCSPlayer* pPlayer, int team)
 
 	if (pPlayer->IsControllingBot())
 	{
+#ifdef CLIENT_DLL
 		pPlayer = ToCSPlayer(UTIL_PlayerByIndex(pPlayer->GetControlledBotIndex()));
-        
+#else
+		pPlayer = pPlayer->GetControlledBot();
+#endif
 		if (!pPlayer)
 			return 0;
 	}
 
-	int gloveSlot = 0;
+	int gloveIndex = GetGlovesForPlayer(pPlayer, team);
+	
+	if (gloveIndex < 0 || gloveIndex >= ARRAYSIZE(GloveSkinCT))
+        return 0;
 
-	switch (team)
-	{
-	case TEAM_CT:
-		gloveSlot = pPlayer->m_iLoadoutSlotGlovesCT;
-		break;
-	case TEAM_TERRORIST:
-		gloveSlot = pPlayer->m_iLoadoutSlotGlovesT;
-		break;
-	default:
-		return 0;
-	}
+    const char* szConVarName = (team == TEAM_CT) ? GloveSkinCT[gloveIndex].m_szSkinConVar : GloveSkinT[gloveIndex].m_szSkinConVar;
 
-	if (gloveSlot < 0 || gloveSlot > MAX_GLOVES)
-		return 0;
-        
-	int skinIndex = 0;
-	switch (team)
-	{
-	case TEAM_CT:
-		skinIndex = g_pGlovesCTSkins[gloveSlot]->GetInt();
-		break;
-	case TEAM_TERRORIST:
-		skinIndex = g_pGlovesTSkins[gloveSlot]->GetInt();
-		break;
-	}
+    int skinID = 0;
 
-	return skinIndex;
-}
+#ifdef CLIENT_DLL
+    ConVarRef convar(szConVarName);
+    if (convar.IsValid())
+        skinID = convar.GetInt();
+#else
+    skinID = atoi( engine->GetClientConVarValue( engine->IndexOfEdict( pPlayer->edict() ), szConVarName ) );
 #endif
+
+    return skinID;
+}

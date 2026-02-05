@@ -4,6 +4,7 @@
 #include <vgui_controls/Frame.h>
 #include <vgui_controls/Button.h>
 #include <vgui_controls/Label.h>
+#include "PlayerModelPanel.h"
 #include "GameEventListener.h"
 
 class CGameResultPanel : public vgui::Frame, public CGameEventListener
@@ -25,6 +26,12 @@ protected:
     virtual void FireGameEvent( IGameEvent *event );
     virtual void PaintBackground();
 private:
+    CBasePlayerModelPanel* m_pPlayerPanels[5];
+    vgui::Label* m_pPlayerLabels[5];
+    
+    void SetupPlayerPanels();
+    void UpdatePlayerModels();
+    C_CSPlayer* GetPlayerByOffset(int offset);
     vgui::Label *m_pResultLabel;
     vgui::Button *m_pContinueButton;
     bool m_bShownResult; 

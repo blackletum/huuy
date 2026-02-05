@@ -8373,6 +8373,7 @@ void CCSGameRules::ClientSettingsChanged( CBasePlayer *pPlayer )
         pCSPlayer->m_iLoadoutSlotKnifeWeaponSkinCT = atoi( engine->GetClientConVarValue( engine->IndexOfEdict( pCSPlayer->edict() ), "loadout_slot_knife_weapon_skin_ct" ) );
 		pCSPlayer->m_iLoadoutSlotKnifeWeaponT = atoi( engine->GetClientConVarValue( engine->IndexOfEdict( pCSPlayer->edict() ), "loadout_slot_knife_weapon_t" ) );
         pCSPlayer->m_iLoadoutSlotKnifeWeaponSkinT = atoi( engine->GetClientConVarValue( engine->IndexOfEdict( pCSPlayer->edict() ), "loadout_slot_knife_weapon_skin_t" ) );
+        pCSPlayer->m_iGlovePaintKitID = CSLoadout()->GetGlovesSkinForPlayer( pCSPlayer, pCSPlayer->GetTeamNumber() );
 
 		int m_iNewAgentCT = atoi( engine->GetClientConVarValue( engine->IndexOfEdict( pCSPlayer->edict() ), "loadout_slot_agent_ct" ) );
 		int m_iNewAgentT = atoi( engine->GetClientConVarValue( engine->IndexOfEdict( pCSPlayer->edict() ), "loadout_slot_agent_t" ) );
@@ -8384,8 +8385,9 @@ void CCSGameRules::ClientSettingsChanged( CBasePlayer *pPlayer )
 
 		int m_iNewGlovesCT = atoi( engine->GetClientConVarValue( engine->IndexOfEdict( pCSPlayer->edict() ), "loadout_slot_gloves_ct" ) );
 		int m_iNewGlovesT = atoi( engine->GetClientConVarValue( engine->IndexOfEdict( pCSPlayer->edict() ), "loadout_slot_gloves_t" ) );
+        int m_iNewGlovesSkin = CSLoadout()->GetGlovesSkinForPlayer( pCSPlayer, pCSPlayer->GetTeamNumber() );
 		// change the gloves in the next round if needed
-		if ( ( m_iNewGlovesCT != pCSPlayer->m_iLoadoutSlotGlovesCT ) || ( m_iNewGlovesT != pCSPlayer->m_iLoadoutSlotGlovesT ) )
+		if ( ( m_iNewGlovesCT != pCSPlayer->m_iLoadoutSlotGlovesCT ) || ( m_iNewGlovesT != pCSPlayer->m_iLoadoutSlotGlovesT ) || m_iNewGlovesSkin != pCSPlayer->m_iGlovePaintKitID )
 		{
 			pCSPlayer->m_bNeedToChangeGloves = true;
 		}

@@ -13,7 +13,7 @@
 #include "OptionsSubMultiplayer.h"
 #include "MultiplayerAdvancedDialog.h"
 #include <stdio.h>
-
+#include "BasePanel.h"
 #include <vgui_controls/Button.h>
 #include <vgui_controls/QueryBox.h>
 #include <vgui_controls/CheckButton.h>
@@ -30,7 +30,6 @@
 #include <vgui/IVGui.h>
 #include <vgui/ILocalize.h>
 #include <vgui/IPanel.h>
-#include <vgui_controls/MessageBox.h>
 
 #include "CvarTextEntry.h"
 #include "CvarToggleCheckButton.h"
@@ -43,18 +42,17 @@
 #include "ModInfo.h"
 #include "tier1/convar.h"
 #include "tier0/icommandline.h"
+#include "tier0/platform.h"   // For va()
 
 #include "materialsystem/imaterial.h"
 #include "materialsystem/imesh.h"
 #include "materialsystem/imaterialvar.h"
 
-// use the JPEGLIB_USE_STDIO define so that we can read in jpeg's from outside the game directory tree.  For Spray Import.
 #define JPEGLIB_USE_STDIO
 #include "jpeglib/jpeglib.h"
 #undef JPEGLIB_USE_STDIO
 
 #include <setjmp.h>
-
 #include "bitmap/tgawriter.h"
 #include "ivtex.h"
 #ifdef WIN32
@@ -65,826 +63,788 @@
 #include "xbox/xbox_win32stubs.h"
 #endif
 
-// memdbgon must be the last include file in a .cpp file!!!
 #include <tier0/memdbgon.h>
 
 using namespace vgui;
 
-
 #define DEFAULT_SUIT_HUE 30
 #define DEFAULT_PLATE_HUE 6
+#define MODEL_MATERIAL_BASE_FOLDER "materials/vgui/playermodels/"
 
-void UpdateLogoWAD( void *hdib, int r, int g, int b );
+void UpdateLogoWAD(void *hdib, int r, int g, int b);
 
 struct ColorItem_t
 {
-	const char	*name;
-	int			r, g, b;
+    const char *name;
+    int r, g, b;
 };
 
-static ColorItem_t itemlist[]=
+static ColorItem_t itemlist[] =
 {
-	{ "#Valve_Orange", 255, 120, 24 },
-	{ "#Valve_Yellow", 225, 180, 24 },
-	{ "#Valve_Blue", 0, 60, 255 },
-	{ "#Valve_Ltblue", 0, 167, 255 },
-	{ "#Valve_Green", 0, 167, 0 },
-	{ "#Valve_Red", 255, 43, 0 },
-	{ "#Valve_Brown", 123, 73, 0 },
-	{ "#Valve_Ltgray", 100, 100, 100 },
-	{ "#Valve_Dkgray", 36, 36, 36 },
+    { "#Valve_Orange", 255, 120, 24 },
+    { "#Valve_Yellow", 225, 180, 24 },
+    { "#Valve_Blue", 0, 60, 255 },
+    { "#Valve_Ltblue", 0, 167, 255 },
+    { "#Valve_Green", 0, 167, 0 },
+    { "#Valve_Red", 255, 43, 0 },
+    { "#Valve_Brown", 123, 73, 0 },
+    { "#Valve_Ltgray", 100, 100, 100 },
+    { "#Valve_Dkgray", 36, 36, 36 },
 };
 
+//-----------------------------------------------------------------------------
+// COptionsSubMultiplayer
+//-----------------------------------------------------------------------------
 
-//-----------------------------------------------------------------------------
-// Purpose: Basic help dialog
-//-----------------------------------------------------------------------------
-COptionsSubMultiplayer::COptionsSubMultiplayer(vgui::Panel *parent) : vgui::PropertyPage(parent, "OptionsSubMultiplayer") 
+COptionsSubMultiplayer::COptionsSubMultiplayer(vgui::Panel *parent)
+    : vgui::PropertyPage(parent, "OptionsSubMultiplayer")
 {
-	Button *cancel = new Button( this, "Cancel", "#GameUI_Cancel" );
-	cancel->SetCommand( "Close" );
+    new Button(this, "Cancel", "#GameUI_Cancel", this, "Close");
+    new Button(this, "OK", "#GameUI_OK", this, "Ok");
+    new Button(this, "Apply", "#GameUI_Apply", this, "Apply");
+    new Button(this, "Advanced", "#GameUI_AdvancedEllipsis", this, "Advanced");
 
-	Button *ok = new Button( this, "OK", "#GameUI_OK" );
-	ok->SetCommand( "Ok" );
+    new Button(this, "ImportSprayImage", "#GameUI_ImportSprayEllipsis", this, "ImportSprayImage");
+    new Button(this, "ImportAvatarImage", "#GameUI_ImportAvatarEllipsis", this, "ImportAvatarImage");
 
-	Button *apply = new Button( this, "Apply", "#GameUI_Apply" );
-	apply->SetCommand( "Apply" );
+    m_pPrimaryColorSlider = new CCvarSlider(this, "Primary Color Slider", "#GameUI_PrimaryColor", 0.0f, 255.0f, "topcolor");
+    m_pSecondaryColorSlider = new CCvarSlider(this, "Secondary Color Slider", "#GameUI_SecondaryColor", 0.0f, 255.0f, "bottomcolor");
 
-	Button *advanced = new Button( this, "Advanced", "#GameUI_AdvancedEllipsis" );
-	advanced->SetCommand( "Advanced" );
+    m_pHighQualityModelCheckBox = new CCvarToggleCheckButton(this, "High Quality Models", "#GameUI_HighModels", "cl_himodels");
+    m_pLockRadarRotationCheckbox = new CCvarToggleCheckButton(this, "LockRadarRotationCheckbox", "#Cstrike_RadarLocked", "cl_radar_locked");
 
-	Button *importSprayImage = new Button( this, "ImportSprayImage", "#GameUI_ImportSprayEllipsis" );
-	importSprayImage->SetCommand("ImportSprayImage");
+    m_pModelList = new CLabeledCommandComboBox(this, "Player model");
+    m_pLogoList = new CLabeledCommandComboBox(this, "SpraypaintList");
+    m_pAvatarList = new CLabeledCommandComboBox(this, "AvatarList");
 
-	m_hImportSprayDialog = NULL;
+    m_pDownloadFilterCombo = new ComboBox(this, "DownloadFilterCheck", 4, false);
+    m_pDownloadFilterCombo->AddItem("#GameUI_DownloadFilter_ALL", NULL);
+    m_pDownloadFilterCombo->AddItem("#GameUI_DownloadFilter_NoSounds", NULL);
+    m_pDownloadFilterCombo->AddItem("#GameUI_DownloadFilter_MapsOnly", NULL);
+    m_pDownloadFilterCombo->AddItem("#GameUI_DownloadFilter_None", NULL);
 
-	m_pPrimaryColorSlider = new CCvarSlider( this, "Primary Color Slider", "#GameUI_PrimaryColor",
-		0.0f, 255.0f, "topcolor" );
+    m_pModelImage = new CBitmapImagePanel(this, "ModelImage", NULL);
+    m_pModelImage->AddActionSignalTarget(this);
 
-	m_pSecondaryColorSlider = new CCvarSlider( this, "Secondary Color Slider", "#GameUI_SecondaryColor",
-		0.0f, 255.0f, "bottomcolor" );
+    m_pLogoImage = new ImagePanel(this, "LogoImage");
+    m_pLogoImage->AddActionSignalTarget(this);
 
-	m_pHighQualityModelCheckBox = new CCvarToggleCheckButton( this, "High Quality Models", "#GameUI_HighModels", "cl_himodels" );
+    m_pAvatarImage = new ImagePanel(this, "AvatarImage");
+    m_pAvatarImage->AddActionSignalTarget(this);
 
-	m_pModelList = new CLabeledCommandComboBox( this, "Player model" );
-	m_ModelName[0] = 0;
-	InitModelList( m_pModelList );
+    // === Имя игрока ===
+    m_pNameEntry = new CCvarTextEntry(this, "NameEntry", "name");
+    m_pNameEntry->AddActionSignalTarget(this);
 
-	m_pLogoList = new CLabeledCommandComboBox( this, "SpraypaintList" );
-    m_LogoName[0] = 0;
-	InitLogoList( m_pLogoList );
+    InitModelList(m_pModelList);
+    InitLogoList(m_pLogoList);
+    InitAvatarList(m_pAvatarList);
 
-	m_pModelImage = new CBitmapImagePanel( this, "ModelImage", NULL );
-	m_pModelImage->AddActionSignalTarget( this );
+    g_pVGuiLocalize->AddFile("resource/playersettings_%language%.txt", "GAME", true);
 
-	m_pLogoImage = new ImagePanel( this, "LogoImage" );
-	m_pLogoImage->AddActionSignalTarget( this );
+    LoadControlSettings("Resource/OptionsSubMultiplayer.res");
 
-	m_nLogoR = 255;
-	m_nLogoG = 255;
-	m_nLogoB = 255;
+    if (ModInfo().NoModels())
+    {
+        Panel *p = nullptr;
+        if (m_pModelImage) m_pModelImage->SetVisible(false);
+        if (m_pModelList) m_pModelList->SetVisible(false);
+        if (m_pPrimaryColorSlider) m_pPrimaryColorSlider->SetVisible(false);
+        if (m_pSecondaryColorSlider) m_pSecondaryColorSlider->SetVisible(false);
+        if ((p = FindChildByName("Label1"))) p->SetVisible(false);
+        if ((p = FindChildByName("Colors"))) p->SetVisible(false);
+    }
 
-	m_pLockRadarRotationCheckbox = new CCvarToggleCheckButton( this, "LockRadarRotationCheckbox", "#Cstrike_RadarLocked", "cl_radar_locked" );
-
-	m_pDownloadFilterCombo = new ComboBox( this, "DownloadFilterCheck", 4, false );
-	m_pDownloadFilterCombo->AddItem( "#GameUI_DownloadFilter_ALL", NULL );
-	m_pDownloadFilterCombo->AddItem( "#GameUI_DownloadFilter_NoSounds", NULL );
-	m_pDownloadFilterCombo->AddItem( "#GameUI_DownloadFilter_MapsOnly", NULL );
-	m_pDownloadFilterCombo->AddItem( "#GameUI_DownloadFilter_None", NULL );
-
-	//=========
-
-	LoadControlSettings("Resource/OptionsSubMultiplayer.res");
-
-	// turn off model selection stuff if the mod specifies "nomodels" in the gameinfo.txt file
-	if ( ModInfo().NoModels() )
-	{
-		Panel *pTempPanel = NULL;
-
-		if ( m_pModelImage )
-		{
-			m_pModelImage->SetVisible( false );
-		}
-
-		if ( m_pModelList )
-		{
-			m_pModelList->SetVisible( false );
-		}
-
-		if ( m_pPrimaryColorSlider )
-		{
-			m_pPrimaryColorSlider->SetVisible( false );
-		}
-
-		if ( m_pSecondaryColorSlider )
-		{
-			m_pSecondaryColorSlider->SetVisible( false );
-		}
-
-		// #GameUI_PlayerModel (from "Resource/OptionsSubMultiplayer.res")
-		pTempPanel = FindChildByName( "Label1" );
-
-		if ( pTempPanel )
-		{
-			pTempPanel->SetVisible( false );
-		}
-
-		// #GameUI_ColorSliders (from "Resource/OptionsSubMultiplayer.res")
-		pTempPanel = FindChildByName( "Colors" );
-
-		if ( pTempPanel )
-		{
-			pTempPanel->SetVisible( false );
-		}
-	}
-
-	// turn off the himodel stuff if the mod specifies "nohimodel" in the gameinfo.txt file
-	if ( ModInfo().NoHiModel() )
-	{
-		if ( m_pHighQualityModelCheckBox )
-		{
-			m_pHighQualityModelCheckBox->SetVisible( false );
-		}
-	}
+    if (ModInfo().NoHiModel() && m_pHighQualityModelCheckBox)
+        m_pHighQualityModelCheckBox->SetVisible(false);
 }
 
-//-----------------------------------------------------------------------------
-// Purpose: 
-//-----------------------------------------------------------------------------
-COptionsSubMultiplayer::~COptionsSubMultiplayer()
-{
-}
+COptionsSubMultiplayer::~COptionsSubMultiplayer() {}
 
 //-----------------------------------------------------------------------------
-// Purpose: 
+// OnCommand
 //-----------------------------------------------------------------------------
-void COptionsSubMultiplayer::OnCommand( const char *command )
+void COptionsSubMultiplayer::OnCommand(const char *command)
 {
-	if ( !stricmp( command, "Advanced" ) )
-	{
+    if (!Q_stricmp(command, "ImportSprayImage"))
+    {
+        OpenSprayImportDialog();
+    }
+    else if (!Q_stricmp(command, "ImportAvatarImage"))
+    {
+        OpenAvatarImportDialog();
+    }
+    else if (!stricmp(command, "Advanced"))
+    {
 #ifndef _XBOX
-		if (!m_hMultiplayerAdvancedDialog.Get())
-		{
-			m_hMultiplayerAdvancedDialog = new CMultiplayerAdvancedDialog( this );
-		}
-		m_hMultiplayerAdvancedDialog->Activate();
+        if (!m_hMultiplayerAdvancedDialog.Get())
+            m_hMultiplayerAdvancedDialog = new CMultiplayerAdvancedDialog(this);
+        m_hMultiplayerAdvancedDialog->Activate();
 #endif
-	}
-	else if (!stricmp( command, "ImportSprayImage" ) )
-	{
-		if (m_hImportSprayDialog == NULL)
-		{
-			m_hImportSprayDialog = new FileOpenDialog(NULL, "#GameUI_ImportSprayImage", true);
-#ifdef WIN32
-			m_hImportSprayDialog->AddFilter("*.tga,*.jpg,*.bmp,*.vtf", "#GameUI_All_Images", true);
-#else
-			m_hImportSprayDialog->AddFilter("*.tga,*.jpg,*.vtf", "#GameUI_All_ImagesNoBmp", true);
-#endif
-			m_hImportSprayDialog->AddFilter("*.tga", "#GameUI_TGA_Images", false);
-			m_hImportSprayDialog->AddFilter("*.jpg", "#GameUI_JPEG_Images", false);
-#ifdef WIN32
-			m_hImportSprayDialog->AddFilter("*.bmp", "#GameUI_BMP_Images", false);
-#endif
-			m_hImportSprayDialog->AddFilter("*.vtf", "#GameUI_VTF_Images", false);
-			m_hImportSprayDialog->AddActionSignalTarget(this);
-		}
-		m_hImportSprayDialog->DoModal(false);
-		m_hImportSprayDialog->Activate();
-	}
+    }
+    else if (!stricmp(command, "ResetStats"))
+    {
+        QueryBox *box = new QueryBox("#GameUI_ConfirmResetStatsTitle", "#GameUI_ConfirmResetStatsText", this);
+        box->SetOKButtonText("#GameUI_Reset");
+        box->SetOKCommand(new KeyValues("Command", "command", "ResetStats_NoConfirm"));
+        box->SetCancelCommand(new KeyValues("Command", "command", "ReleaseModalWindow"));
+        box->AddActionSignalTarget(this);
+        box->DoModal();
+    }
+    else if (!stricmp(command, "ResetStats_NoConfirm"))
+    {
+        engine->ClientCmd_Unrestricted("stats_reset");
+    }
 
-	else if ( !stricmp( command, "ResetStats" ) )
-	{
-		QueryBox *box = new QueryBox("#GameUI_ConfirmResetStatsTitle", "#GameUI_ConfirmResetStatsText", this);
-		box->SetOKButtonText("#GameUI_Reset");
-		box->SetOKCommand(new KeyValues("Command", "command", "ResetStats_NoConfirm"));
-		box->SetCancelCommand(new KeyValues("Command", "command", "ReleaseModalWindow"));
-		box->AddActionSignalTarget(this);
-		box->DoModal();
-	}
-
-	else if ( !stricmp( command, "ResetStats_NoConfirm" ) )
-	{
-		engine->ClientCmd_Unrestricted("stats_reset");
-	}
-
-	BaseClass::OnCommand( command );
+    BaseClass::OnCommand(command);
 }
 
-void COptionsSubMultiplayer::ConversionError( ConversionErrorType nError )
+//-----------------------------------------------------------------------------
+// 
+//-----------------------------------------------------------------------------
+void COptionsSubMultiplayer::OpenSprayImportDialog()
 {
-	const char *pErrorText = NULL;
-
-	switch ( nError )
-	{
-	case CE_MEMORY_ERROR:
-		pErrorText = "#GameUI_Spray_Import_Error_Memory";
-		break;
-
-	case CE_CANT_OPEN_SOURCE_FILE:
-		pErrorText = "#GameUI_Spray_Import_Error_Reading_Image";
-		break;
-
-	case CE_ERROR_PARSING_SOURCE:
-		pErrorText = "#GameUI_Spray_Import_Error_Image_File_Corrupt";
-		break;
-
-	case CE_SOURCE_FILE_SIZE_NOT_SUPPORTED:
-		pErrorText = "#GameUI_Spray_Import_Image_Wrong_Size";
-		break;
-
-	case CE_SOURCE_FILE_FORMAT_NOT_SUPPORTED:
-		pErrorText = "#GameUI_Spray_Import_Image_Wrong_Size";
-		break;
-
-	case CE_SOURCE_FILE_TGA_FORMAT_NOT_SUPPORTED:
-		pErrorText = "#GameUI_Spray_Import_Error_TGA_Format_Not_Supported";
-		break;
-
-	case CE_SOURCE_FILE_BMP_FORMAT_NOT_SUPPORTED:
-		pErrorText = "#GameUI_Spray_Import_Error_BMP_Format_Not_Supported";
-		break;
-
-	case CE_ERROR_WRITING_OUTPUT_FILE:
-		pErrorText = "#GameUI_Spray_Import_Error_Writing_Temp_Output";
-		break;
-
-	case CE_ERROR_LOADING_DLL:
-		pErrorText = "#GameUI_Spray_Import_Error_Cant_Load_VTEX_DLL";
-		break;
-	}
-
-	if ( pErrorText )
-	{
-		// Create the dialog
-		vgui::MessageBox *pErrorDlg = new vgui::MessageBox("#GameUI_Spray_Import_Error_Title", pErrorText );	Assert( pErrorDlg );
-
-		// Display
-		if ( pErrorDlg )	// Check for a NULL just to be extra cautious...
-		{
-			pErrorDlg->DoModal();
-		}
-	}
+    if (!m_hImportSprayDialog)
+    {
+        m_hImportSprayDialog = new FileOpenDialog(NULL, "#GameUI_ImportSprayImage", true);
+#ifdef WIN32
+        m_hImportSprayDialog->AddFilter("*.tga,*.jpg,*.bmp,*.vtf", "#GameUI_All_Images", true);
+#else
+        m_hImportSprayDialog->AddFilter("*.tga,*.jpg,*.vtf", "#GameUI_All_ImagesNoBmp", true);
+#endif
+        m_hImportSprayDialog->AddFilter("*.tga", "#GameUI_TGA_Images", false);
+        m_hImportSprayDialog->AddFilter("*.jpg", "#GameUI_JPEG_Images", false);
+#ifdef WIN32
+        m_hImportSprayDialog->AddFilter("*.bmp", "#GameUI_BMP_Images", false);
+#endif
+        m_hImportSprayDialog->AddFilter("*.vtf", "#GameUI_VTF_Images", false);
+        m_hImportSprayDialog->AddActionSignalTarget(this);
+    }
+    m_hImportSprayDialog->DoModal(false);
+    m_hImportSprayDialog->Activate();
 }
 
+void COptionsSubMultiplayer::OpenAvatarImportDialog()
+{
+    if (!m_hImportAvatarDialog)
+    {
+        m_hImportAvatarDialog = new FileOpenDialog(NULL, "#GameUI_ImportAvatarImage", true);
+        m_hImportAvatarDialog->AddFilter(IsPosix() ? "*.tga,*.jpg,*.vtf" : "*.tga,*.jpg,*.bmp,*.vtf", "#GameUI_All_Images", true);
+        m_hImportAvatarDialog->AddFilter("*.tga", "#GameUI_TGA_Images", false);
+        m_hImportAvatarDialog->AddFilter("*.jpg", "#GameUI_JPEG_Images", false);
+#ifdef WIN32
+        m_hImportAvatarDialog->AddFilter("*.bmp", "#GameUI_BMP_Images", false);
+#endif
+        m_hImportAvatarDialog->AddFilter("*.vtf", "#GameUI_VTF_Images", false);
+        m_hImportAvatarDialog->AddActionSignalTarget(this);
+    }
+    m_hImportAvatarDialog->DoModal(false);
+    m_hImportAvatarDialog->Activate();
+}
+
+//-----------------------------------------------------------------------------
+// OnFileSelected 
+//-----------------------------------------------------------------------------
 void COptionsSubMultiplayer::OnFileSelected(const char *fullpath)
 {
+    if (m_hImportAvatarDialog && m_hImportAvatarDialog->IsVisible())
+        OnAvatarFileSelected(fullpath);
+    else if (m_hImportSprayDialog && m_hImportSprayDialog->IsVisible())
+        OnSprayFileSelected(fullpath);
+}
+
+//-----------------------------------------------------------------------------
+//
+//-----------------------------------------------------------------------------
+void COptionsSubMultiplayer::OnSprayFileSelected(const char *fullpath)
+{
 #ifndef _XBOX
-	// this can take a while, put up a waiting cursor
-	surface()->SetCursor(dc_hourglass);
-
-	ConversionErrorType nErrorCode = ImgUtl_ConvertToVTFAndDumpVMT( fullpath, IsPosix() ? "/vgui/logos" : "\\vgui\\logos", 256, 256 );
-	if ( nErrorCode == CE_SUCCESS )
-	{
-		// refresh the logo list so the new spray shows up.
-		InitLogoList(m_pLogoList);
-
-		// Get the filename
-		char szRootFilename[MAX_PATH];
-		V_FileBase( fullpath, szRootFilename, sizeof( szRootFilename ) );
-
-		// automatically select the logo that was just imported.
-		SelectLogo(szRootFilename);
-	}
-	else
-	{
-		ConversionError( nErrorCode );
-	}
-
-	// change the cursor back to normal
-	surface()->SetCursor(dc_user);
+    surface()->SetCursor(dc_hourglass);
+    ConversionErrorType err = ImgUtl_ConvertToVTFAndDumpVMT(fullpath, IsPosix() ? "/vgui/logos" : "\\vgui\\logos", 256, 256);
+    if (err == CE_SUCCESS)
+    {
+        InitLogoList(m_pLogoList);
+        char base[MAX_PATH];
+        V_FileBase(fullpath, base, sizeof(base));
+        SelectLogo(base);
+    }
+    else
+    {
+        ShowSprayError(err);
+    }
+    surface()->SetCursor(dc_user);
 #endif
 }
 
-struct ValveJpegErrorHandler_t 
+void COptionsSubMultiplayer::ShowSprayError(ConversionErrorType err)
 {
-	// The default manager
-	struct jpeg_error_mgr	m_Base;
-	// For handling any errors
-	jmp_buf					m_ErrorContext;
-};
-
-//-----------------------------------------------------------------------------
-// Purpose: We'll override the default error handler so we can deal with errors without having to exit the engine
-//-----------------------------------------------------------------------------
-static void ValveJpegErrorHandler( j_common_ptr cinfo )
-{
-	ValveJpegErrorHandler_t *pError = reinterpret_cast< ValveJpegErrorHandler_t * >( cinfo->err );
-
-	char buffer[ JMSG_LENGTH_MAX ];
-
-	/* Create the message */
-	( *cinfo->err->format_message )( cinfo, buffer );
-
-	Warning( "%s\n", buffer );
-
-	// Bail
-	longjmp( pError->m_ErrorContext, 1 );
+    const char *text = nullptr;
+    switch (err)
+    {
+    case CE_MEMORY_ERROR: text = "#GameUI_Spray_Import_Error_Memory"; break;
+    case CE_CANT_OPEN_SOURCE_FILE: text = "#GameUI_Spray_Import_Error_Reading_Image"; break;
+    case CE_ERROR_PARSING_SOURCE: text = "#GameUI_Spray_Import_Error_Image_File_Corrupt"; break;
+    case CE_SOURCE_FILE_SIZE_NOT_SUPPORTED:
+    case CE_SOURCE_FILE_FORMAT_NOT_SUPPORTED: text = "#GameUI_Spray_Import_Image_Wrong_Size"; break;
+    case CE_ERROR_WRITING_OUTPUT_FILE: text = "#GameUI_Spray_Import_Error_Writing_Temp_Output"; break;
+    case CE_ERROR_LOADING_DLL: text = "#GameUI_Spray_Import_Error_Cant_Load_VTEX_DLL"; break;
+    }
+    if (text)
+    {
+        MessageBox *dlg = new MessageBox("#GameUI_Spray_Import_Error_Title", text);
+        dlg->DoModal();
+    }
 }
 
 //-----------------------------------------------------------------------------
-// Purpose: Builds the list of logos
+//
 //-----------------------------------------------------------------------------
-void COptionsSubMultiplayer::InitLogoList( CLabeledCommandComboBox *cb )
+void COptionsSubMultiplayer::OnAvatarFileSelected(const char *fullpath)
 {
-	// Find out images
-	FileFindHandle_t fh;
-	char directory[ 512 ];
-
-	ConVarRef cl_logofile( "cl_logofile", true );
-	if ( !cl_logofile.IsValid() )
-		return;
-
-	cb->DeleteAllItems();
-
-	const char *logofile = cl_logofile.GetString();
-	Q_snprintf( directory, sizeof( directory ), "materials/vgui/logos/*.vtf" );
-	const char *fn = g_pFullFileSystem->FindFirst( directory, &fh );
-	int i = 0, initialItem = 0; 
-	while (fn)
-	{
-		char filename[ 512 ];
-		Q_snprintf( filename, sizeof(filename), "materials/vgui/logos/%s", fn );
-		if ( strlen( filename ) >= 4 )
-		{
-			filename[ strlen( filename ) - 4 ] = 0;
-			Q_strncat( filename, ".vmt", sizeof( filename ), COPY_ALL_CHARACTERS );
-			if ( g_pFullFileSystem->FileExists( filename ) )
-			{
-				// strip off the extension
-				Q_strncpy( filename, fn, sizeof( filename ) );
-				filename[ strlen( filename ) - 4 ] = 0;
-				cb->AddItem( filename, "" );
-
-				// check to see if this is the one we have set
-				Q_snprintf( filename, sizeof(filename), "materials/vgui/logos/%s", fn );
-				if (!Q_stricmp(filename, logofile))
-				{
-					initialItem = i;
-				}
-
-				++i;
-			}
-		}
-
-		fn = g_pFullFileSystem->FindNext( fh );
-	}
-
-	g_pFullFileSystem->FindClose( fh );
-	cb->SetInitialItem(initialItem);
+    surface()->SetCursor(dc_hourglass);
+    ConversionErrorType err = ImgUtl_ConvertToVTFAndDumpVMT(fullpath, IsPosix() ? "/vgui/avatars" : "\\vgui\\avatars", 256, 256);
+    if (err == CE_SUCCESS)
+    {
+        InitAvatarList(m_pAvatarList);
+        char base[MAX_PATH];
+        V_FileBase(fullpath, base, sizeof(base));
+        SelectAvatar(base);
+    }
+    else
+    {
+        ShowAvatarError(err);
+    }
+    surface()->SetCursor(dc_user);
 }
 
-
-//-----------------------------------------------------------------------------
-// Purpose: Selects the given logo in the logo list.
-//-----------------------------------------------------------------------------
-void COptionsSubMultiplayer::SelectLogo(const char *logoName)
+void COptionsSubMultiplayer::ShowAvatarError(ConversionErrorType err)
 {
-	int numEntries = m_pLogoList->GetItemCount();
-	int index;
-	wchar_t itemText[MAX_PATH];
-	wchar_t itemToSelectText[MAX_PATH];
-
-	// convert the logo filename to unicode
-	g_pVGuiLocalize->ConvertANSIToUnicode(logoName, itemToSelectText, sizeof(itemToSelectText));
-
-	// find the index of the spray we want.
-	for (index = 0; index < numEntries; ++index)
-	{
-		m_pLogoList->GetItemText(index, itemText, sizeof(itemText));
-		if (!wcscmp(itemText, itemToSelectText))
-		{
-			break;
-		}
-	}
-
-	if (index < numEntries)
-	{
-		// select the logo.
-		m_pLogoList->ActivateItem(index);
-	}
-}
-
-#define MODEL_MATERIAL_BASE_FOLDER "materials/vgui/playermodels/"
-
-
-void StripStringOutOfString( const char *pPattern, const char *pIn, char *pOut )
-{
-	int iLengthBase = strlen( pPattern );
-	int iLengthString = strlen( pIn );
-
-	int k = 0;
-
-	for ( int j = iLengthBase; j < iLengthString; j++ )
-	{
-		pOut[k] = pIn[j];
-		k++;
-	}
-
-	pOut[k] = 0;
-}
-
-void FindVMTFilesInFolder( const char *pFolder, const char *pFolderName, CLabeledCommandComboBox *cb, int &iCount, int &iInitialItem )
-{
-	ConVarRef cl_modelfile( "cl_playermodel", true );
-	if ( !cl_modelfile.IsValid() )
-		return;
-
-	char directory[ 512 ];
-	Q_snprintf( directory, sizeof( directory ), "%s/*.*", pFolder );
-
-	FileFindHandle_t fh;
-
-	const char *fn = g_pFullFileSystem->FindFirst( directory, &fh );
-	const char *modelfile = cl_modelfile.GetString();
-
-	while ( fn )
-	{
-		if ( !stricmp( fn, ".") || !stricmp( fn, "..") )
-		{
-			fn = g_pFullFileSystem->FindNext( fh );
-			continue;
-		}
-
-		if ( g_pFullFileSystem->FindIsDirectory( fh ) )
-		{
-			char folderpath[512];
-
-			Q_snprintf( folderpath, sizeof( folderpath ), "%s/%s", pFolder, fn );
-
-			FindVMTFilesInFolder( folderpath, fn, cb, iCount, iInitialItem );
-			fn = g_pFullFileSystem->FindNext( fh );
-			continue;
-		}
-
-		if ( !strstr( fn, ".vmt" ) )
-		{
-			fn = g_pFullFileSystem->FindNext( fh );
-			continue;
-		}
-
-
-		char filename[ 512 ];
-		Q_snprintf( filename, sizeof(filename), "%s/%s", pFolder, fn );
-		if ( strlen( filename ) >= 4 )
-		{
-			filename[ strlen( filename ) - 4 ] = 0;
-			Q_strncat( filename, ".vmt", sizeof( filename ), COPY_ALL_CHARACTERS );
-			if ( g_pFullFileSystem->FileExists( filename ) )
-			{
-				char displayname[ 512 ];
-				char texturepath[ 512 ];
-				// strip off the extension
-				Q_strncpy( displayname, fn, sizeof( displayname ) );
-				StripStringOutOfString( MODEL_MATERIAL_BASE_FOLDER, filename, texturepath );
-				
-				displayname[ strlen( displayname ) - 4 ] = 0;
-				
-				if ( CORRECT_PATH_SEPARATOR == texturepath[0] )
-				    cb->AddItem( displayname, texturepath + 1 ); // ignore the initial "/" in texture path
-				else
-				    cb->AddItem( displayname, texturepath );
-
-
-				char realname[ 512 ];
-				Q_FileBase( modelfile, realname, sizeof( realname ) );
-				Q_FileBase( filename, filename, sizeof( filename ) );
-				
-				if (!stricmp(filename, realname))
-				{
-					iInitialItem = iCount;
-				}
-
-				++iCount;
-			}
-		}
-
-		fn = g_pFullFileSystem->FindNext( fh );
-	}
+    const char *text = nullptr;
+    switch (err)
+    {
+    case CE_MEMORY_ERROR: text = "#GameUI_Avatar_Import_Error_Memory"; break;
+    case CE_CANT_OPEN_SOURCE_FILE: text = "#GameUI_Avatar_Import_Error_Reading_Image"; break;
+    case CE_ERROR_PARSING_SOURCE: text = "#GameUI_Avatar_Import_Error_Image_File_Corrupt"; break;
+    case CE_SOURCE_FILE_SIZE_NOT_SUPPORTED:
+    case CE_SOURCE_FILE_FORMAT_NOT_SUPPORTED: text = "#GameUI_Avatar_Import_Image_Wrong_Size"; break;
+    case CE_ERROR_WRITING_OUTPUT_FILE: text = "#GameUI_Avatar_Import_Error_Writing_Temp_Output"; break;
+    case CE_ERROR_LOADING_DLL: text = "#GameUI_Avatar_Import_Error_Cant_Load_VTEX_DLL"; break;
+    }
+    if (text)
+    {
+        MessageBox *dlg = new MessageBox("#GameUI_Avatar_Import_Error_Title", text);
+        dlg->DoModal();
+    }
 }
 
 //-----------------------------------------------------------------------------
-// Purpose: Builds model list
+// 
 //-----------------------------------------------------------------------------
-void COptionsSubMultiplayer::InitModelList( CLabeledCommandComboBox *cb )
+void COptionsSubMultiplayer::InitLogoList(CLabeledCommandComboBox *cb)
 {
-	// Find out images
-	int i = 0, initialItem = 0;
+    FileFindHandle_t fh;
+    char dir[512];
+    ConVarRef cl_logofile("cl_logofile", true);
+    if (!cl_logofile.IsValid()) return;
 
-	cb->DeleteAllItems();
-	FindVMTFilesInFolder( MODEL_MATERIAL_BASE_FOLDER, "", cb, i, initialItem );
-	cb->SetInitialItem( initialItem );
+    cb->DeleteAllItems();
+    Q_snprintf(dir, sizeof(dir), "materials/vgui/logos/*.vtf");
+    const char *fn = g_pFullFileSystem->FindFirst(dir, &fh);
+    int i = 0, init = 0;
+    while (fn)
+    {
+        char path[512];
+        Q_snprintf(path, sizeof(path), "materials/vgui/logos/%s", fn);
+        if (strlen(path) >= 4)
+        {
+            Q_strncpy(path + strlen(path) - 4, ".vmt", 5);
+            if (g_pFullFileSystem->FileExists(path))
+            {
+                Q_strncpy(path, fn, sizeof(path));
+                path[strlen(path) - 4] = 0;
+                cb->AddItem(path, "");
+                char fullpath[512];
+                Q_snprintf(fullpath, sizeof(fullpath), "materials/vgui/logos/%s", fn);
+                if (!Q_stricmp(fullpath, cl_logofile.GetString()))
+                init = i;
+                ++i;
+            }
+        }
+        fn = g_pFullFileSystem->FindNext(fh);
+    }
+    g_pFullFileSystem->FindClose(fh);
+    cb->SetInitialItem(init);
+}
+
+void COptionsSubMultiplayer::InitAvatarList(CLabeledCommandComboBox *cb)
+{
+    FileFindHandle_t fh;
+    char dir[512];
+    ConVarRef cl_avatarfile("cl_avatarfile", true);
+    if (!cl_avatarfile.IsValid()) return;
+
+    cb->DeleteAllItems();
+    Q_snprintf(dir, sizeof(dir), "materials/vgui/avatars/*.vtf");
+    const char *fn = g_pFullFileSystem->FindFirst(dir, &fh);
+    int i = 0, init = 0;
+    while (fn)
+    {
+        char path[512];
+        Q_snprintf(path, sizeof(path), "materials/vgui/avatars/%s", fn);
+        if (strlen(path) >= 4)
+        {
+            Q_strncpy(path + strlen(path) - 4, ".vmt", 5);
+            if (g_pFullFileSystem->FileExists(path))
+            {
+                Q_strncpy(path, fn, sizeof(path));
+                path[strlen(path) - 4] = 0;
+                cb->AddItem(path, "");
+                char fullpath[512];
+                Q_snprintf(fullpath, sizeof(fullpath), "materials/vgui/avatars/%s", fn);
+                if (!Q_stricmp(fullpath, cl_avatarfile.GetString()))
+                init = i;
+                ++i;
+            }
+        }
+        fn = g_pFullFileSystem->FindNext(fh);
+    }
+    g_pFullFileSystem->FindClose(fh);
+    cb->SetInitialItem(init);
 }
 
 //-----------------------------------------------------------------------------
-// Purpose: 
+// 
+//-----------------------------------------------------------------------------
+void COptionsSubMultiplayer::SelectLogo(const char *name)
+{
+    int n = m_pLogoList->GetItemCount();
+    wchar_t text[256], want[256];
+    g_pVGuiLocalize->ConvertANSIToUnicode(name, want, sizeof(want));
+    for (int i = 0; i < n; ++i)
+    {
+        m_pLogoList->GetItemText(i, text, sizeof(text));
+        if (!wcscmp(text, want)) { m_pLogoList->ActivateItem(i); break; }
+    }
+}
+
+void COptionsSubMultiplayer::SelectAvatar(const char *name)
+{
+    int n = m_pAvatarList->GetItemCount();
+    wchar_t text[256], want[256];
+    g_pVGuiLocalize->ConvertANSIToUnicode(name, want, sizeof(want));
+    for (int i = 0; i < n; ++i)
+    {
+        m_pAvatarList->GetItemText(i, text, sizeof(text));
+        if (!wcscmp(text, want)) { m_pAvatarList->ActivateItem(i); break; }
+    }
+}
+
+//-----------------------------------------------------------------------------
+// 
 //-----------------------------------------------------------------------------
 void COptionsSubMultiplayer::RemapLogo()
 {
-	char logoname[256];
+    char name[256];
+    m_pLogoList->GetText(name, sizeof(name));
+    if (!name[0]) return;
 
-	m_pLogoList->GetText( logoname, sizeof( logoname ) );
-	if( !logoname[ 0 ] )
-		return;
-
-	char fullLogoName[512];
-
-	// make sure there is a version with the proper shader
-	g_pFullFileSystem->CreateDirHierarchy( "materials/VGUI/logos/UI", "GAME" );
-	Q_snprintf( fullLogoName, sizeof( fullLogoName ), "materials/VGUI/logos/UI/%s.vmt", logoname );
-	if ( !g_pFullFileSystem->FileExists( fullLogoName ) )
-	{
-		FileHandle_t fp = g_pFullFileSystem->Open( fullLogoName, "wb" );
-		if ( !fp )
-			return;
-
-		char data[1024];
-		Q_snprintf( data, sizeof( data ), "\"UnlitGeneric\"\n\
-{\n\
-	// Original shader: BaseTimesVertexColorAlphaBlendNoOverbright\n\
-	\"$translucent\" 1\n\
-	\"$basetexture\" \"VGUI/logos/%s\"\n\
-	\"$vertexcolor\" 1\n\
-	\"$vertexalpha\" 1\n\
-	\"$no_fullbright\" 1\n\
-	\"$ignorez\" 1\n\
-}\n\
-", logoname );
-
-		g_pFullFileSystem->Write( data, strlen( data ), fp );
-		g_pFullFileSystem->Close( fp );
-	}
-
-	Q_snprintf( fullLogoName, sizeof( fullLogoName ), "logos/UI/%s", logoname );
-	m_pLogoImage->SetImage( fullLogoName );
+    g_pFullFileSystem->CreateDirHierarchy("materials/VGUI/logos/UI", "GAME");
+    char vmt[512];
+    Q_snprintf(vmt, sizeof(vmt), "materials/VGUI/logos/UI/%s.vmt", name);
+    if (!g_pFullFileSystem->FileExists(vmt))
+    {
+        FileHandle_t fp = g_pFullFileSystem->Open(vmt, "wb");
+        if (fp)
+        {
+            char data[1024];
+            Q_snprintf(data, sizeof(data),
+                "\"UnlitGeneric\"\n{\n\t\"$translucent\" 1\n\t\"$basetexture\" \"VGUI/logos/%s\"\n\t\"$vertexcolor\" 1\n\t\"$vertexalpha\" 1\n\t\"$no_fullbright\" 1\n\t\"$ignorez\" 1\n}\n",
+                name);
+            g_pFullFileSystem->Write(data, strlen(data), fp);
+            g_pFullFileSystem->Close(fp);
+        }
+    }
+    Q_snprintf(vmt, sizeof(vmt), "logos/UI/%s", name);
+    m_pLogoImage->SetImage(vmt);
 }
 
-//-----------------------------------------------------------------------------
-// Purpose: 
-//-----------------------------------------------------------------------------
+void COptionsSubMultiplayer::RemapAvatar()
+{
+    char name[256];
+    m_pAvatarList->GetText(name, sizeof(name));
+    if (!name[0]) return;
+
+    g_pFullFileSystem->CreateDirHierarchy("materials/vgui/avatars", "GAME");
+    char vmt[512];
+    Q_snprintf(vmt, sizeof(vmt), "materials/vgui/avatars/%s.vmt", name);
+    if (!g_pFullFileSystem->FileExists(vmt))
+    {
+        FileHandle_t fp = g_pFullFileSystem->Open(vmt, "wb");
+        if (fp)
+        {
+            char data[1024];
+            Q_snprintf(data, sizeof(data),
+                "\"UnlitGeneric\"\n{\n\t\"$translucent\" 1\n\t\"$basetexture\" \"vgui/avatars/%s\"\n\t\"$vertexcolor\" 1\n\t\"$vertexalpha\" 1\n\t\"$no_fullbright\" 1\n\t\"$ignorez\" 1\n}\n",
+                name);
+            g_pFullFileSystem->Write(data, strlen(data), fp);
+            g_pFullFileSystem->Close(fp);
+        }
+    }
+    Q_snprintf(vmt, sizeof(vmt), "avatars/%s", name);
+    m_pAvatarImage->SetImage(vmt);
+}
+
 void COptionsSubMultiplayer::RemapModel()
 {
-	const char *pModelName = m_pModelList->GetActiveItemCommand();
-	
-	if( pModelName == NULL )
-		return;
-
-	char texture[ 256 ];
-	Q_snprintf ( texture, sizeof( texture ), "vgui/playermodels/%s", pModelName );
-	texture[ strlen( texture ) - 4 ] = 0;
-
-	m_pModelImage->setTexture( texture );
+    const char *cmd = m_pModelList->GetActiveItemCommand();
+    if (!cmd) return;
+    char tex[256];
+    Q_snprintf(tex, sizeof(tex), "vgui/playermodels/%s", cmd);
+    tex[strlen(tex) - 4] = 0;
+    m_pModelImage->setTexture(tex);
 }
 
-
 //-----------------------------------------------------------------------------
-// Purpose: Called whenever model name changes
+// OnTextChanged
 //-----------------------------------------------------------------------------
 void COptionsSubMultiplayer::OnTextChanged(vgui::Panel *panel)
 {
-	RemapModel();
-	RemapLogo();
+    if (panel == m_pModelList) RemapModel();
+    else if (panel == m_pLogoList) RemapLogo();
+    else if (panel == m_pAvatarList) RemapAvatar();
 }
 
 //-----------------------------------------------------------------------------
-// Purpose: 
+// OnControlModified
 //-----------------------------------------------------------------------------
 void COptionsSubMultiplayer::OnControlModified()
 {
-	PostMessage(GetParent(), new KeyValues("ApplyButtonEnable"));
-	InvalidateLayout();
-}
-
-#define DIB_HEADER_MARKER   ((WORD) ('M' << 8) | 'B')
-#define SUIT_HUE_START 192
-#define SUIT_HUE_END 223
-#define PLATE_HUE_START 160
-#define PLATE_HUE_END 191
-
-#ifdef POSIX 
-typedef struct tagRGBQUAD { 
-  uint8 rgbBlue;
-  uint8 rgbGreen;
-  uint8 rgbRed;
-  uint8 rgbReserved;
-} RGBQUAD;
-#endif
-
-//-----------------------------------------------------------------------------
-// Purpose: 
-//-----------------------------------------------------------------------------
-static void PaletteHueReplace( RGBQUAD *palSrc, int newHue, int Start, int end )
-{
-	int i;
-	float r, b, g;
-	float maxcol, mincol;
-	float hue, val, sat;
-
-	hue = (float)(newHue * (360.0 / 255));
-
-	for (i = Start; i <= end; i++)
-	{
-		b = palSrc[ i ].rgbBlue;
-		g = palSrc[ i ].rgbGreen;
-		r = palSrc[ i ].rgbRed;
-		
-		maxcol = max( max( r, g ), b ) / 255.0f;
-		mincol = min( min( r, g ), b ) / 255.0f;
-		
-		val = maxcol;
-		sat = (maxcol - mincol) / maxcol;
-
-		mincol = val * (1.0f - sat);
-
-		if (hue <= 120)
-		{
-			b = mincol;
-			if (hue < 60)
-			{
-				r = val;
-				g = mincol + hue * (val - mincol)/(120 - hue);
-			}
-			else
-			{
-				g = val;
-				r = mincol + (120 - hue)*(val-mincol)/hue;
-			}
-		}
-		else if (hue <= 240)
-		{
-			r = mincol;
-			if (hue < 180)
-			{
-				g = val;
-				b = mincol + (hue - 120)*(val-mincol)/(240 - hue);
-			}
-			else
-			{
-				b = val;
-				g = mincol + (240 - hue)*(val-mincol)/(hue - 120);
-			}
-		}
-		else
-		{
-			g = mincol;
-			if (hue < 300)
-			{
-				b = val;
-				r = mincol + (hue - 240)*(val-mincol)/(360 - hue);
-			}
-			else
-			{
-				r = val;
-				b = mincol + (360 - hue)*(val-mincol)/(hue - 240);
-			}
-		}
-
-		palSrc[ i ].rgbBlue = (unsigned char)(b * 255);
-		palSrc[ i ].rgbGreen = (unsigned char)(g * 255);
-		palSrc[ i ].rgbRed = (unsigned char)(r * 255);
-	}
+    PostMessage(GetParent(), new KeyValues("ApplyButtonEnable"));
+    InvalidateLayout();
 }
 
 //-----------------------------------------------------------------------------
-// Purpose: 
-//-----------------------------------------------------------------------------
-void COptionsSubMultiplayer::ColorForName( char const *pszColorName, int&r, int&g, int&b )
-{
-	r = g = b = 0;
-	
-	int count = sizeof( itemlist ) / sizeof( itemlist[0] );
-
-	for ( int i = 0; i < count; i++ )
-	{
-		if (!Q_strnicmp(pszColorName, itemlist[ i ].name, strlen(itemlist[ i ].name)))
-		{
-			r = itemlist[ i ].r;
-			g = itemlist[ i ].g;
-			b = itemlist[ i ].b;
-			return;
-		}
-	}
-}
-
-//-----------------------------------------------------------------------------
-// Purpose: 
-//-----------------------------------------------------------------------------
-void COptionsSubMultiplayer::OnResetData()
-{
-	// reset the DownloadFilter combo box
-	if ( m_pDownloadFilterCombo )
-	{
-		// cl_downloadfilter
-		ConVarRef cl_downloadfilter( "cl_downloadfilter");
-
-		if ( Q_stricmp( cl_downloadfilter.GetString(), "none" ) == 0 )
-		{
-			m_pDownloadFilterCombo->ActivateItem( 3 );
-		}
-		else if ( Q_stricmp( cl_downloadfilter.GetString(), "nosounds" ) == 0 )
-		{
-			m_pDownloadFilterCombo->ActivateItem( 1 );
-		}
-		else if ( Q_stricmp( cl_downloadfilter.GetString(), "mapsonly" ) == 0 )
-		{
-			m_pDownloadFilterCombo->ActivateItem( 2 );
-		}
-		else
-		{
-			m_pDownloadFilterCombo->ActivateItem( 0 );
-		}
-	}
-}
-
-//-----------------------------------------------------------------------------
-// Purpose: 
+// OnApplyChanges
 //-----------------------------------------------------------------------------
 void COptionsSubMultiplayer::OnApplyChanges()
 {
-	m_pPrimaryColorSlider->ApplyChanges();
-	m_pSecondaryColorSlider->ApplyChanges();
-//	m_pModelList->ApplyChanges();
-	m_pLogoList->ApplyChanges();
-    m_pLogoList->GetText(m_LogoName, sizeof(m_LogoName));
-	m_pHighQualityModelCheckBox->ApplyChanges();
+    if (m_pNameEntry)
+        m_pNameEntry->ApplyChanges();
 
-	for ( int i=0; i<m_cvarToggleCheckButtons.GetCount(); ++i )
-	{
-		CCvarToggleCheckButton *toggleButton = m_cvarToggleCheckButtons[i];
-		if( toggleButton->IsVisible() && toggleButton->IsEnabled() )
-		{
-			toggleButton->ApplyChanges();
-		}
-	}
+    if (m_pAvatarList)
+    {
+        m_pAvatarList->ApplyChanges();
+        m_pAvatarList->GetText(m_AvatarName, sizeof(m_AvatarName));
 
-	if ( m_pLockRadarRotationCheckbox != NULL )
-	{
-		m_pLockRadarRotationCheckbox->ApplyChanges();
-	}
+        char avatarPath[512];
+        if (m_AvatarName[0])
+            Q_snprintf(avatarPath, sizeof(avatarPath), "materials/vgui/avatars/%s.vtf", m_AvatarName);
+        else
+            Q_strncpy(avatarPath, "", sizeof(avatarPath));
 
-	// save the logo name
-	char cmd[512];
-	if ( m_LogoName[ 0 ] )
+        char cmd[512];
+        Q_snprintf(cmd, sizeof(cmd), "cl_avatarfile %s\n", avatarPath);
+        engine->ClientCmd_Unrestricted(cmd);
+    }
+    
+    CBaseModPanel* pBasePanel = BasePanel();
+	if (pBasePanel)
 	{
-		Q_snprintf(cmd, sizeof(cmd), "cl_logofile materials/vgui/logos/%s.vtf\n", m_LogoName);
-	}
-	else
-	{
-		Q_strncpy( cmd, "cl_logofile \"\"\n", sizeof( cmd ) );
-	}
-	engine->ClientCmd_Unrestricted(cmd);
-
-	if ( m_pModelList && m_pModelList->IsVisible() && m_pModelList->GetActiveItemCommand() )
-	{
-		Q_strncpy( m_ModelName, m_pModelList->GetActiveItemCommand(), sizeof( m_ModelName ) );
-		Q_StripExtension( m_ModelName, m_ModelName, sizeof ( m_ModelName ) );
-		
-		// save the player model name
-		Q_snprintf(cmd, sizeof(cmd), "cl_playermodel models/%s.mdl\n", m_ModelName );
-		engine->ClientCmd_Unrestricted(cmd);
-	}
-	else
-	{
-		m_ModelName[0] = 0;
+		pBasePanel->UpdateAvatarImage();
 	}
 
-	// set the DownloadFilter cvar
-	if ( m_pDownloadFilterCombo )
-	{
-		ConVarRef  cl_downloadfilter( "cl_downloadfilter" );
-		
-		switch ( m_pDownloadFilterCombo->GetActiveItem() )
-		{
-		default:
-		case 0:
-			cl_downloadfilter.SetValue( "all" );
-			break;
-		case 1:
-			cl_downloadfilter.SetValue( "nosounds" );
-			break;
-		case 2:
-			cl_downloadfilter.SetValue( "mapsonly" );
-			break;
-		case 3:
-			cl_downloadfilter.SetValue( "none" );
-			break;
-		}
-	}
+    if (m_pLogoList)
+    {
+        m_pLogoList->ApplyChanges();
+        m_pLogoList->GetText(m_LogoName, sizeof(m_LogoName));
+
+        char logoPath[512];
+        if (m_LogoName[0])
+            Q_snprintf(logoPath, sizeof(logoPath), "materials/vgui/logos/%s.vtf", m_LogoName);
+        else
+            Q_strncpy(logoPath, "", sizeof(logoPath));
+
+        char cmd[512];
+        Q_snprintf(cmd, sizeof(cmd), "cl_logofile %s\n", logoPath);
+        engine->ClientCmd_Unrestricted(cmd);
+    }
+
+    if (m_pPrimaryColorSlider) m_pPrimaryColorSlider->ApplyChanges();
+    if (m_pSecondaryColorSlider) m_pSecondaryColorSlider->ApplyChanges();
+
+    if (m_pHighQualityModelCheckBox) m_pHighQualityModelCheckBox->ApplyChanges();
+    if (m_pLockRadarRotationCheckbox) m_pLockRadarRotationCheckbox->ApplyChanges();
+
+    for (int i = 0; i < m_cvarToggleCheckButtons.GetCount(); ++i)
+    {
+        CCvarToggleCheckButton *b = m_cvarToggleCheckButtons[i];
+        if (b && b->IsVisible() && b->IsEnabled())
+            b->ApplyChanges();
+    }
+
+    if (m_pModelList && m_pModelList->IsVisible() && m_pModelList->GetActiveItemCommand())
+    {
+        Q_strncpy(m_ModelName, m_pModelList->GetActiveItemCommand(), sizeof(m_ModelName));
+        Q_StripExtension(m_ModelName, m_ModelName, sizeof(m_ModelName));
+
+        char cmd[512];
+        Q_snprintf(cmd, sizeof(cmd), "cl_playermodel models/%s.mdl\n", m_ModelName);
+        engine->ClientCmd_Unrestricted(cmd);
+    }
+
+    if (m_pDownloadFilterCombo)
+    {
+        ConVarRef cl_downloadfilter("cl_downloadfilter");
+        switch (m_pDownloadFilterCombo->GetActiveItem())
+        {
+        case 0: cl_downloadfilter.SetValue("all"); break;
+        case 1: cl_downloadfilter.SetValue("nosounds"); break;
+        case 2: cl_downloadfilter.SetValue("mapsonly"); break;
+        case 3: cl_downloadfilter.SetValue("none"); break;
+        }
+    }
+
+#if defined(GAME_TF2CLASSIC)
+    engine->ClientCmd_Unrestricted("tf2c_mainmenu_reload\n");
+#endif
 }
 
 //-----------------------------------------------------------------------------
-// Purpose: Allow the res file to create controls on per-mod basis
+// CreateControlByName
 //-----------------------------------------------------------------------------
-Panel *COptionsSubMultiplayer::CreateControlByName( const char *controlName )
+Panel *COptionsSubMultiplayer::CreateControlByName(const char *controlName)
 {
-	if( !Q_stricmp( "CCvarToggleCheckButton", controlName ) )
-	{
-		CCvarToggleCheckButton *newButton = new CCvarToggleCheckButton( this, controlName, "", "" );
-		m_cvarToggleCheckButtons.AddElement( newButton );
-		return newButton;
-	}
-	else
-	{
-		return BaseClass::CreateControlByName( controlName );
-	}
+    if (!Q_stricmp("CCvarToggleCheckButton", controlName))
+    {
+        CCvarToggleCheckButton *btn = new CCvarToggleCheckButton(this, controlName, "", "");
+        m_cvarToggleCheckButtons.AddElement(btn);
+        return btn;
+    }
+    return BaseClass::CreateControlByName(controlName);
 }
 
+//-----------------------------------------------------------------------------
+// InitModelList 
+//-----------------------------------------------------------------------------
+void StripStringOutOfString(const char *pPattern, const char *pIn, char *pOut)
+{
+    int iLengthBase = strlen(pPattern);
+    int iLengthString = strlen(pIn);
+    int k = 0;
+
+    for (int j = iLengthBase; j < iLengthString; j++)
+    {
+        pOut[k++] = pIn[j];
+    }
+    pOut[k] = 0;
+}
+
+void FindVMTFilesInFolder(const char *pFolder, const char *pFolderName, CLabeledCommandComboBox *cb, int &iCount, int &iInitialItem)
+{
+    ConVarRef cl_modelfile("cl_playermodel", true);
+    if (!cl_modelfile.IsValid()) return;
+
+    char directory[512];
+    Q_snprintf(directory, sizeof(directory), "%s/*.*", pFolder);
+
+    FileFindHandle_t fh;
+    const char *fn = g_pFullFileSystem->FindFirst(directory, &fh);
+    const char *modelfile = cl_modelfile.GetString();
+
+    while (fn)
+    {
+        if (!stricmp(fn, ".") || !stricmp(fn, ".."))
+        {
+            fn = g_pFullFileSystem->FindNext(fh);
+            continue;
+        }
+
+        if (g_pFullFileSystem->FindIsDirectory(fh))
+        {
+            char folderpath[512];
+            Q_snprintf(folderpath, sizeof(folderpath), "%s/%s", pFolder, fn);
+            FindVMTFilesInFolder(folderpath, fn, cb, iCount, iInitialItem);
+            fn = g_pFullFileSystem->FindNext(fh);
+            continue;
+        }
+
+        if (!strstr(fn, ".vmt"))
+        {
+            fn = g_pFullFileSystem->FindNext(fh);
+            continue;
+        }
+
+        char filename[512];
+        Q_snprintf(filename, sizeof(filename), "%s/%s", pFolder, fn);
+        if (strlen(filename) >= 4)
+        {
+            filename[strlen(filename) - 4] = 0;
+            Q_strncat(filename, ".vmt", sizeof(filename), COPY_ALL_CHARACTERS);
+            if (g_pFullFileSystem->FileExists(filename))
+            {
+                char displayname[512];
+                char texturepath[512];
+                Q_strncpy(displayname, fn, sizeof(displayname));
+                StripStringOutOfString(MODEL_MATERIAL_BASE_FOLDER, filename, texturepath);
+                displayname[strlen(displayname) - 4] = 0;
+
+                if (CORRECT_PATH_SEPARATOR == texturepath[0])
+                    cb->AddItem(displayname, texturepath + 1);
+                else
+                    cb->AddItem(displayname, texturepath);
+
+                char realname[512];
+                Q_FileBase(modelfile, realname, sizeof(realname));
+                Q_FileBase(filename, filename, sizeof(filename));
+
+                if (!stricmp(filename, realname))
+                    iInitialItem = iCount;
+
+                ++iCount;
+            }
+        }
+
+        fn = g_pFullFileSystem->FindNext(fh);
+    }
+}
+
+void COptionsSubMultiplayer::InitModelList(CLabeledCommandComboBox *cb)
+{
+    int i = 0, initialItem = 0;
+    cb->DeleteAllItems();
+    FindVMTFilesInFolder(MODEL_MATERIAL_BASE_FOLDER, "", cb, i, initialItem);
+    cb->SetInitialItem(initialItem);
+}
+
+//-----------------------------------------------------------------------------
+// PaletteHueReplace 
+//-----------------------------------------------------------------------------
+#ifdef POSIX
+typedef struct tagRGBQUAD {
+    uint8 rgbBlue;
+    uint8 rgbGreen;
+    uint8 rgbRed;
+    uint8 rgbReserved;
+} RGBQUAD;
+#endif
+
+static void PaletteHueReplace(RGBQUAD *palSrc, int newHue, int Start, int end)
+{
+    for (int i = Start; i <= end; i++)
+    {
+        float r = palSrc[i].rgbRed / 255.0f;
+        float g = palSrc[i].rgbGreen / 255.0f;
+        float b = palSrc[i].rgbBlue / 255.0f;
+
+        float maxcol = max(max(r, g), b);
+        float mincol = min(min(r, g), b);
+        float val = maxcol;
+        float sat = maxcol > 0.0f ? (maxcol - mincol) / maxcol : 0.0f;
+        float hue = (float)(newHue * (360.0 / 255));
+
+        mincol = val * (1.0f - sat);
+
+        float nr, ng, nb;
+        if (hue <= 120)
+        {
+            nb = mincol;
+            if (hue < 60)
+            {
+                nr = val;
+                ng = mincol + hue * (val - mincol) / (120 - hue);
+            }
+            else
+            {
+                ng = val;
+                nr = mincol + (120 - hue) * (val - mincol) / hue;
+            }
+        }
+        else if (hue <= 240)
+        {
+            nr = mincol;
+            if (hue < 180)
+            {
+                ng = val;
+                nb = mincol + (hue - 120) * (val - mincol) / (240 - hue);
+            }
+            else
+            {
+                nb = val;
+                ng = mincol + (240 - hue) * (val - mincol) / (hue - 120);
+            }
+        }
+        else
+        {
+            ng = mincol;
+            if (hue < 300)
+            {
+                nb = val;
+                nr = mincol + (hue - 240) * (val - mincol) / (360 - hue);
+            }
+            else
+            {
+                nr = val;
+                nb = mincol + (360 - hue) * (val - mincol) / (hue - 240);
+            }
+        }
+
+        palSrc[i].rgbRed = (unsigned char)(nr * 255);
+        palSrc[i].rgbGreen = (unsigned char)(ng * 255);
+        palSrc[i].rgbBlue = (unsigned char)(nb * 255);
+    }
+}
+
+//-----------------------------------------------------------------------------
+// ColorForName 
+//-----------------------------------------------------------------------------
+void COptionsSubMultiplayer::ColorForName(char const *pszColorName, int &r, int &g, int &b)
+{
+    r = g = b = 0;
+    int count = sizeof(itemlist) / sizeof(itemlist[0]);
+
+    for (int i = 0; i < count; i++)
+    {
+        if (!Q_strnicmp(pszColorName, itemlist[i].name, strlen(itemlist[i].name)))
+        {
+            r = itemlist[i].r;
+            g = itemlist[i].g;
+            b = itemlist[i].b;
+            return;
+        }
+    }
+}
+
+//-----------------------------------------------------------------------------
+// OnResetData 
+//-----------------------------------------------------------------------------
+void COptionsSubMultiplayer::OnResetData()
+{
+    if (m_pDownloadFilterCombo)
+    {
+        ConVarRef cl_downloadfilter("cl_downloadfilter");
+        const char *val = cl_downloadfilter.GetString();
+
+        if (!Q_stricmp(val, "none")) m_pDownloadFilterCombo->ActivateItem(3);
+        else if (!Q_stricmp(val, "nosounds")) m_pDownloadFilterCombo->ActivateItem(1);
+        else if (!Q_stricmp(val, "mapsonly")) m_pDownloadFilterCombo->ActivateItem(2);
+        else m_pDownloadFilterCombo->ActivateItem(0);
+    }
+}
+
+//-----------------------------------------------------------------------------
+// JPEG Error Handler 
+//-----------------------------------------------------------------------------
+struct ValveJpegErrorHandler_t
+{
+    struct jpeg_error_mgr m_Base;
+    jmp_buf m_ErrorContext;
+};
+
+static void ValveJpegErrorHandler(j_common_ptr cinfo)
+{
+    ValveJpegErrorHandler_t *pError = (ValveJpegErrorHandler_t*)cinfo->err;
+    char buffer[JMSG_LENGTH_MAX];
+    (*cinfo->err->format_message)(cinfo, buffer);
+    Warning("%s\n", buffer);
+    longjmp(pError->m_ErrorContext, 1);
+}

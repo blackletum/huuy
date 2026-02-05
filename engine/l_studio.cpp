@@ -815,6 +815,7 @@ class CModelRender : public IVModelRender,
 public:
 	// members of the IVModelRender interface
 	virtual void ForcedMaterialOverride( IMaterial *newMaterial, OverrideType_t nOverrideType = OVERRIDE_NORMAL, int m_nForcedMaterialIndex = 0 );
+    virtual bool IsForcedMaterialOverride();
 	virtual int DrawModel( 	
 					int flags, IClientRenderable *cliententity,
 					ModelInstanceHandle_t instance, int entity_index, const model_t *model, 
@@ -839,8 +840,6 @@ public:
 		const Vector& decalUp, int decalIndex, int body, bool noPokethru = false, int maxLODToDecal = ADDDECAL_TO_ALL_LODS );
 	virtual void AddColoredDecal( ModelInstanceHandle_t handle, Ray_t const& ray, 
 		const Vector& decalUp, int decalIndex, int body, Color cColor, bool noPokethru = false, int maxLODToDecal = ADDDECAL_TO_ALL_LODS );
-	
-	virtual void GetMaterialOverride( IMaterial** ppOutForcedMaterial, OverrideType_t* pOutOverrideType );
 
 	// Removes all the decals on a model instance
 	virtual void RemoveAllDecals( ModelInstanceHandle_t handle );
@@ -1829,9 +1828,13 @@ void CModelRender::ForcedMaterialOverride( IMaterial *newMaterial, OverrideType_
 {
 	tmZone( TELEMETRY_LEVEL0, TMZF_NONE, "%s", __FUNCTION__ );
 
-	g_pStudioRender->ForcedMaterialOverride( newMaterial, nOverrideType );
+	g_pStudioRender->ForcedMaterialOverride( newMaterial, nOverrideType, m_nForcedMaterialIndex );
 }
 
+bool CModelRender::IsForcedMaterialOverride()
+{
+	return g_pStudioRender->IsForcedMaterialOverride();
+}
 
 //-----------------------------------------------------------------------------
 // Sets up the render state for a model
@@ -4663,12 +4666,6 @@ void CModelRender::AddColoredDecal( ModelInstanceHandle_t handle, Ray_t const& r
 	const Vector& decalUp, int decalIndex, int body, Color cColor, bool noPokeThru, int maxLODToDecal )
 {
 	AddDecalInternal( handle, ray, decalUp, decalIndex, body, true, cColor, noPokeThru, maxLODToDecal );
-}
-
-//-----------------------------------------------------------------------------
-void CModelRender::GetMaterialOverride( IMaterial** ppOutForcedMaterial, OverrideType_t* pOutOverrideType )
-{
-	g_pStudioRender->GetMaterialOverride( ppOutForcedMaterial, pOutOverrideType );
 }
 
 //-----------------------------------------------------------------------------

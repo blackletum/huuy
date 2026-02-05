@@ -57,6 +57,7 @@ using namespace vgui;
 #include "SaveGameDialog.h"
 #include "OptionsDialog.h"
 #include "ModOptionsDialog.h"
+#include "vgui_skin_editor.h"
 #include "CreateMultiplayerGameDialog.h"
 #include "ChangeGameDialog.h"
 #include "BackgroundMenuButton.h"
@@ -817,6 +818,7 @@ CBaseModPlayerPanel::CBaseModPlayerPanel( Panel* parent, const char* panelName )
 	m_flRotationAngleLeft = 0.0f;
 	m_flRotationTimeLeft = 0.0f;
 	m_angPlayerModel.Init();
+    m_flCycle = 0.0f;
 	SetIdentityMatrix( m_MDLToWorld );
 
 	memset( &m_pLightDesc[0], 0, sizeof( LightDesc_t ) );
@@ -1258,6 +1260,672 @@ void CBaseModPlayerPanel::PlaySequence( const char* pszSequenceName )
 	}
 }
 
+void CBaseModPlayerPanel::SetCycle( float flCycle )
+{
+	CStudioHdr studioHDR( m_MDL.GetStudioHdr(), g_pMDLCache );
+	if ( m_flCycle != flCycle )
+	{
+		m_flCycle = flCycle;
+	}
+}
+
+using namespace vgui;
+
+//-----------------------------------------------------------------------------
+// Purpose: Constructor
+//-----------------------------------------------------------------------------
+CSVGButton::CSVGButton( Panel *parent, const char *panelName ) : BaseClass( parent, panelName )
+{
+	m_pSVGImage = new VectorImagePanel( this, "SVGImage" );
+	m_pSVGHoverImage = new VectorImagePanel( this, "SVGHoverImage" );
+	
+	m_szSVGPath[0] = '\0';
+	m_szSVGHoverPath[0] = '\0';
+	m_szCommand[0] = '\0';
+	
+	m_bShowInGame = true;
+	m_bShowInMenu = true;
+	m_bEnabled = true;
+	
+	m_bMouseOver = false;
+	m_bMousePressed = false;
+	m_bWasInGame = false;
+	
+	m_NormalColor = Color( 255, 255, 255, 255 );
+	m_HoverColor = Color( 255, 255, 255, 255 );
+	m_PressedColor = Color( 200, 200, 200, 255 );
+	m_DisabledColor = Color( 128, 128, 128, 128 );
+	
+	m_bUseHoverImage = false;
+	m_bUseColorTint = true;
+	m_bUseScale = false;
+	m_flHoverScale = 1.1f;
+	m_flCurrentScale = 1.0f;
+	
+	m_bEnableGlow = false;
+	m_iGlowRadius = 5;
+	m_GlowColor = Color( 255, 255, 255, 255 );
+	
+	SetMouseInputEnabled( true );
+	SetKeyBoardInputEnabled( false );
+	
+	// Initially hide hover image
+	if ( m_pSVGHoverImage )
+	{
+		m_pSVGHoverImage->SetVisible( false );
+	}
+	
+	ivgui()->AddTickSignal( GetVPanel(), 100 );
+}
+
+//-----------------------------------------------------------------------------
+// Purpose: Destructor
+//-----------------------------------------------------------------------------
+CSVGButton::~CSVGButton()
+{
+}
+
+//-----------------------------------------------------------------------------
+// Purpose: Apply settings from resource file
+//-----------------------------------------------------------------------------
+void CSVGButton::ApplySettings( KeyValues *inResourceData )
+{
+	BaseClass::ApplySettings( inResourceData );
+	
+	// Load SVG images
+	const char *svgPath = inResourceData->GetString( "image", NULL );
+	if ( svgPath )
+	{
+		SetSVGImage( svgPath );
+	}
+	
+	const char *svgHoverPath = inResourceData->GetString( "hover_image", NULL );
+	if ( svgHoverPath )
+	{
+		SetHoverSVGImage( svgHoverPath );
+		m_bUseHoverImage = true;
+	}
+	
+	// Load command
+	const char *command = inResourceData->GetString( "command", "" );
+	SetCommand( command );
+	
+	// Load visibility flags
+	m_bShowInGame = inResourceData->GetInt( "ingame", 1 ) != 0;
+	m_bShowInMenu = inResourceData->GetInt( "inmenu", 1 ) != 0;
+	
+	// Load colors
+	int r, g, b, a;
+	if ( sscanf( inResourceData->GetString( "normal_color", "255 255 255 255" ), 
+		"%d %d %d %d", &r, &g, &b, &a ) == 4 )
+	{
+		m_NormalColor = Color( r, g, b, a );
+	}
+	
+	if ( sscanf( inResourceData->GetString( "hover_color", "255 255 255 255" ), 
+		"%d %d %d %d", &r, &g, &b, &a ) == 4 )
+	{
+		m_HoverColor = Color( r, g, b, a );
+	}
+	
+	if ( sscanf( inResourceData->GetString( "pressed_color", "200 200 200 255" ), 
+		"%d %d %d %d", &r, &g, &b, &a ) == 4 )
+	{
+		m_PressedColor = Color( r, g, b, a );
+	}
+	
+	if ( sscanf( inResourceData->GetString( "disabled_color", "128 128 128 128" ), 
+		"%d %d %d %d", &r, &g, &b, &a ) == 4 )
+	{
+		m_DisabledColor = Color( r, g, b, a );
+	}
+	
+	// Load hover effects
+	m_bUseColorTint = inResourceData->GetBool( "use_color_tint", true );
+	m_bUseScale = inResourceData->GetBool( "use_scale", false );
+	m_flHoverScale = inResourceData->GetFloat( "hover_scale", 1.1f );
+	
+	// Load glow settings
+	m_bEnableGlow = inResourceData->GetBool( "enable_glow", false );
+	m_iGlowRadius = inResourceData->GetInt( "glow_radius", 5 );
+	
+	if ( sscanf( inResourceData->GetString( "glow_color", "255 255 255 255" ), 
+		"%d %d %d %d", &r, &g, &b, &a ) == 4 )
+	{
+		m_GlowColor = Color( r, g, b, a );
+	}
+	
+	UpdateVisibility();
+}
+
+//-----------------------------------------------------------------------------
+// Purpose: Apply scheme settings
+//-----------------------------------------------------------------------------
+void CSVGButton::ApplySchemeSettings( IScheme *pScheme )
+{
+	BaseClass::ApplySchemeSettings( pScheme );
+	
+	SetBgColor( Color( 0, 0, 0, 0 ) ); // Transparent background
+	SetPaintBackgroundEnabled( false );
+}
+
+//-----------------------------------------------------------------------------
+// Purpose: Set the SVG image path
+//-----------------------------------------------------------------------------
+void CSVGButton::SetSVGImage( const char *szFilePath )
+{
+	if ( !szFilePath )
+		return;
+		
+	Q_strncpy( m_szSVGPath, szFilePath, sizeof( m_szSVGPath ) );
+	
+	if ( m_pSVGImage )
+	{
+		int wide, tall;
+		GetSize( wide, tall );
+		m_pSVGImage->SetRenderSize( wide, tall );
+		
+		if ( m_bEnableGlow )
+		{
+			m_pSVGImage->SetTexture( szFilePath, true, m_iGlowRadius, m_GlowColor );
+		}
+		else
+		{
+			m_pSVGImage->SetTexture( szFilePath );
+		}
+		
+		m_pSVGImage->SetSize( wide, tall );
+		m_pSVGImage->SetPos( 0, 0 );
+	}
+}
+
+//-----------------------------------------------------------------------------
+// Purpose: Set the hover SVG image path
+//-----------------------------------------------------------------------------
+void CSVGButton::SetHoverSVGImage( const char *szHoverFilePath )
+{
+	if ( !szHoverFilePath )
+		return;
+		
+	Q_strncpy( m_szSVGHoverPath, szHoverFilePath, sizeof( m_szSVGHoverPath ) );
+	
+	if ( m_pSVGHoverImage )
+	{
+		int wide, tall;
+		GetSize( wide, tall );
+		m_pSVGHoverImage->SetRenderSize( wide, tall );
+		
+		if ( m_bEnableGlow )
+		{
+			m_pSVGHoverImage->SetTexture( szHoverFilePath, true, m_iGlowRadius, m_GlowColor );
+		}
+		else
+		{
+			m_pSVGHoverImage->SetTexture( szHoverFilePath );
+		}
+		
+		m_pSVGHoverImage->SetSize( wide, tall );
+		m_pSVGHoverImage->SetPos( 0, 0 );
+		m_pSVGHoverImage->SetVisible( false );
+	}
+	
+	m_bUseHoverImage = true;
+}
+
+//-----------------------------------------------------------------------------
+// Purpose: Set command to execute
+//-----------------------------------------------------------------------------
+void CSVGButton::SetCommand( const char *command )
+{
+	if ( command )
+	{
+		Q_strncpy( m_szCommand, command, sizeof( m_szCommand ) );
+	}
+}
+
+//-----------------------------------------------------------------------------
+// Purpose: Set enabled state
+//-----------------------------------------------------------------------------
+void CSVGButton::SetEnabled( bool bEnabled )
+{
+	m_bEnabled = bEnabled;
+	SetMouseInputEnabled( bEnabled );
+	
+	if ( m_pSVGImage )
+	{
+		m_pSVGImage->SetFgColor( bEnabled ? m_NormalColor : m_DisabledColor );
+	}
+}
+
+//-----------------------------------------------------------------------------
+// Purpose: Update visibility based on game state
+//-----------------------------------------------------------------------------
+void CSVGButton::UpdateVisibility()
+{
+	bool bInGame = GameUI().IsInLevel();
+	
+	// Determine if button should be visible
+	bool bShouldBeVisible = false;
+	
+	if ( bInGame && m_bShowInGame )
+	{
+		bShouldBeVisible = true;
+	}
+	else if ( !bInGame && m_bShowInMenu )
+	{
+		bShouldBeVisible = true;
+	}
+	
+	SetVisible( bShouldBeVisible && m_bEnabled );
+}
+
+//-----------------------------------------------------------------------------
+// Purpose: Think function for periodic updates
+//-----------------------------------------------------------------------------
+void CSVGButton::OnThink()
+{
+	BaseClass::OnThink();
+	
+	// Check if game state changed
+	bool bCurrentInGame = engine->IsInGame();
+	if ( bCurrentInGame != m_bWasInGame )
+	{
+		m_bWasInGame = bCurrentInGame;
+		UpdateVisibility();
+	}
+	
+	// Smooth scale animation
+	if ( m_bUseScale )
+	{
+		float targetScale = m_bMouseOver ? m_flHoverScale : 1.0f;
+		float delta = targetScale - m_flCurrentScale;
+		
+		if ( fabs( delta ) > 0.01f )
+		{
+			m_flCurrentScale += delta * 0.2f; // Smooth interpolation
+			
+			int wide, tall;
+			GetSize( wide, tall );
+			
+			int scaledWide = (int)( wide * m_flCurrentScale );
+			int scaledTall = (int)( tall * m_flCurrentScale );
+			
+			if ( m_pSVGImage )
+			{
+				m_pSVGImage->SetSize( scaledWide, scaledTall );
+				m_pSVGImage->SetPos( ( wide - scaledWide ) / 2, ( tall - scaledTall ) / 2 );
+			}
+			
+			if ( m_pSVGHoverImage )
+			{
+				m_pSVGHoverImage->SetSize( scaledWide, scaledTall );
+				m_pSVGHoverImage->SetPos( ( wide - scaledWide ) / 2, ( tall - scaledTall ) / 2 );
+			}
+		}
+	}
+}
+
+//-----------------------------------------------------------------------------
+// Purpose: Mouse pressed handler
+//-----------------------------------------------------------------------------
+void CSVGButton::OnMousePressed( MouseCode code )
+{
+	if ( !m_bEnabled )
+		return;
+		
+	if ( code == MOUSE_LEFT )
+	{
+		m_bMousePressed = true;
+		
+		if ( m_bUseColorTint && m_pSVGImage )
+		{
+			m_pSVGImage->SetFgColor( m_PressedColor );
+		}
+		
+		if ( m_bUseHoverImage && m_pSVGHoverImage )
+		{
+			m_pSVGHoverImage->SetFgColor( m_PressedColor );
+		}
+		
+		// Play click sound
+		surface()->PlaySound( "ui/buttonclick.wav" );
+	}
+	
+	BaseClass::OnMousePressed( code );
+}
+
+//-----------------------------------------------------------------------------
+// Purpose: Mouse released handler
+//-----------------------------------------------------------------------------
+void CSVGButton::OnMouseReleased( MouseCode code )
+{
+	if ( !m_bEnabled )
+		return;
+		
+	if ( code == MOUSE_LEFT && m_bMousePressed )
+	{
+		m_bMousePressed = false;
+		
+		// Execute command if mouse is still over button
+		if ( m_bMouseOver )
+		{
+			ExecuteCommand();
+			
+			if ( m_bUseColorTint && m_pSVGImage )
+			{
+				m_pSVGImage->SetFgColor( m_HoverColor );
+			}
+			
+			if ( m_bUseHoverImage && m_pSVGHoverImage )
+			{
+				m_pSVGHoverImage->SetFgColor( m_HoverColor );
+			}
+		}
+		else
+		{
+			if ( m_bUseColorTint && m_pSVGImage )
+			{
+				m_pSVGImage->SetFgColor( m_NormalColor );
+			}
+		}
+	}
+	
+	BaseClass::OnMouseReleased( code );
+}
+
+//-----------------------------------------------------------------------------
+// Purpose: Cursor entered handler
+//-----------------------------------------------------------------------------
+void CSVGButton::OnCursorEntered()
+{
+	if ( !m_bEnabled )
+		return;
+		
+	m_bMouseOver = true;
+	
+	// Play hover sound
+	surface()->PlaySound( "ui/buttonrollover.wav" );
+	
+	// Show hover image if available
+	if ( m_bUseHoverImage && m_pSVGHoverImage )
+	{
+		m_pSVGImage->SetVisible( false );
+		m_pSVGHoverImage->SetVisible( true );
+	}
+	
+	// Apply hover color
+	if ( m_bUseColorTint )
+	{
+		if ( m_pSVGImage )
+		{
+			m_pSVGImage->SetFgColor( m_HoverColor );
+		}
+		
+		if ( m_pSVGHoverImage )
+		{
+			m_pSVGHoverImage->SetFgColor( m_HoverColor );
+		}
+	}
+	
+	BaseClass::OnCursorEntered();
+}
+
+//-----------------------------------------------------------------------------
+// Purpose: Cursor exited handler
+//-----------------------------------------------------------------------------
+void CSVGButton::OnCursorExited()
+{
+	m_bMouseOver = false;
+	m_bMousePressed = false;
+	
+	// Hide hover image
+	if ( m_bUseHoverImage && m_pSVGHoverImage )
+	{
+		m_pSVGImage->SetVisible( true );
+		m_pSVGHoverImage->SetVisible( false );
+	}
+	
+	// Restore normal color
+	if ( m_bUseColorTint && m_pSVGImage )
+	{
+		m_pSVGImage->SetFgColor( m_NormalColor );
+	}
+	
+	BaseClass::OnCursorExited();
+}
+
+//-----------------------------------------------------------------------------
+// Purpose: Execute the button's command
+//-----------------------------------------------------------------------------
+void CSVGButton::ExecuteCommand()
+{
+	if ( !m_bEnabled || m_szCommand[0] == '\0' )
+		return;
+	
+	// Check if this is a built-in GameUI command
+	if ( Q_stristr( m_szCommand, "OpenNewGameDialog" ) ||
+		 Q_stristr( m_szCommand, "OpenLoadGameDialog" ) ||
+		 Q_stristr( m_szCommand, "OpenSaveGameDialog" ) ||
+		 Q_stristr( m_szCommand, "OpenBonusMapsDialog" ) ||
+		 Q_stristr( m_szCommand, "OpenOptionsDialog" ) ||
+		 Q_stristr( m_szCommand, "OpenModOptionsDialog" ) ||
+		 Q_stristr( m_szCommand, "OpenBenchmarkDialog" ) ||
+		 Q_stristr( m_szCommand, "OpenServerBrowser" )  ||
+         Q_stristr( m_szCommand, "open_inventory" ) ||
+		 Q_stristr( m_szCommand, "OpenCreateMultiplayerGameDialog" ) ||
+		 Q_stristr( m_szCommand, "OpenChangeGameDialog" ) ||
+		 Q_stristr( m_szCommand, "OpenPlayerListDialog" ) ||
+		 Q_stristr( m_szCommand, "OpenLoadCommentaryDialog" ) ||
+		 Q_stristr( m_szCommand, "Quit" ) ||
+		 Q_stristr( m_szCommand, "QuitNoConfirm" ) )
+	{
+		// Send to BasePanel
+		if ( BasePanel() )
+		{
+			BasePanel()->OnCommand( m_szCommand );
+		}
+	}
+	else
+	{
+		// Execute as console command
+		engine->ClientCmd_Unrestricted( m_szCommand );
+	}
+	
+	DevMsg( "[SVGButton] Executed command: %s\n", m_szCommand );
+}
+
+//-----------------------------------------------------------------------------
+// Purpose: Paint
+//-----------------------------------------------------------------------------
+void CSVGButton::Paint()
+{
+	BaseClass::Paint();
+}
+
+//-----------------------------------------------------------------------------
+// Purpose: Paint background
+//-----------------------------------------------------------------------------
+void CSVGButton::PaintBackground()
+{
+	// Don't paint background - SVG image handles visuals
+}
+
+//=============================================================================
+// CSVGButtonsPanel Implementation
+//=============================================================================
+
+//-----------------------------------------------------------------------------
+// Purpose: Constructor
+//-----------------------------------------------------------------------------
+CSVGButtonsPanel::CSVGButtonsPanel( Panel *parent, const char *panelName ) 
+	: BaseClass( parent, panelName )
+{
+	m_bAutoLayout = false;
+	m_iButtonSpacing = 10;
+	m_iLayoutDirection = 0; // Horizontal by default
+	
+	SetMouseInputEnabled( false );
+	SetKeyBoardInputEnabled( false );
+	
+	ivgui()->AddTickSignal( GetVPanel(), 100 );
+}
+
+//-----------------------------------------------------------------------------
+// Purpose: Destructor
+//-----------------------------------------------------------------------------
+CSVGButtonsPanel::~CSVGButtonsPanel()
+{
+	RemoveAllButtons();
+}
+
+//-----------------------------------------------------------------------------
+// Purpose: Apply settings from resource file
+//-----------------------------------------------------------------------------
+void CSVGButtonsPanel::ApplySettings( KeyValues *inResourceData )
+{
+	BaseClass::ApplySettings( inResourceData );
+	
+	m_bAutoLayout = inResourceData->GetBool( "auto_layout", false );
+	m_iButtonSpacing = inResourceData->GetInt( "button_spacing", 10 );
+	
+	const char *layoutDir = inResourceData->GetString( "layout_direction", "horizontal" );
+	m_iLayoutDirection = ( Q_stricmp( layoutDir, "vertical" ) == 0 ) ? 1 : 0;
+	
+	// Load buttons from resource data
+	KeyValues *buttonsData = inResourceData->FindKey( "Buttons" );
+	if ( buttonsData )
+	{
+		FOR_EACH_SUBKEY( buttonsData, buttonData )
+		{
+			const char *buttonName = buttonData->GetName();
+			AddButton( buttonName, buttonData );
+		}
+	}
+	
+	if ( m_bAutoLayout )
+	{
+		PerformLayout();
+	}
+}
+
+//-----------------------------------------------------------------------------
+// Purpose: Add a button to the panel
+//-----------------------------------------------------------------------------
+CSVGButton* CSVGButtonsPanel::AddButton( const char *name, KeyValues *buttonData )
+{
+	CSVGButton *button = new CSVGButton( this, name );
+	
+	if ( buttonData )
+	{
+		button->ApplySettings( buttonData );
+	}
+	
+	m_Buttons.AddToTail( button );
+	
+	return button;
+}
+
+//-----------------------------------------------------------------------------
+// Purpose: Find a button by name
+//-----------------------------------------------------------------------------
+CSVGButton* CSVGButtonsPanel::FindButton( const char *name )
+{
+	for ( int i = 0; i < m_Buttons.Count(); i++ )
+	{
+		if ( Q_stricmp( m_Buttons[i]->GetName(), name ) == 0 )
+		{
+			return m_Buttons[i];
+		}
+	}
+	
+	return NULL;
+}
+
+//-----------------------------------------------------------------------------
+// Purpose: Remove a button
+//-----------------------------------------------------------------------------
+void CSVGButtonsPanel::RemoveButton( const char *name )
+{
+	for ( int i = 0; i < m_Buttons.Count(); i++ )
+	{
+		if ( Q_stricmp( m_Buttons[i]->GetName(), name ) == 0 )
+		{
+			m_Buttons[i]->MarkForDeletion();
+			m_Buttons.Remove( i );
+			return;
+		}
+	}
+}
+
+//-----------------------------------------------------------------------------
+// Purpose: Remove all buttons
+//-----------------------------------------------------------------------------
+void CSVGButtonsPanel::RemoveAllButtons()
+{
+	for ( int i = 0; i < m_Buttons.Count(); i++ )
+	{
+		m_Buttons[i]->MarkForDeletion();
+	}
+	
+	m_Buttons.RemoveAll();
+}
+
+//-----------------------------------------------------------------------------
+// Purpose: Update visibility of all buttons
+//-----------------------------------------------------------------------------
+void CSVGButtonsPanel::UpdateAllButtonsVisibility()
+{
+	for ( int i = 0; i < m_Buttons.Count(); i++ )
+	{
+		m_Buttons[i]->UpdateVisibility();
+	}
+}
+
+//-----------------------------------------------------------------------------
+// Purpose: Think
+//-----------------------------------------------------------------------------
+void CSVGButtonsPanel::OnThink()
+{
+	BaseClass::OnThink();
+	UpdateAllButtonsVisibility();
+}
+
+//-----------------------------------------------------------------------------
+// Purpose: Layout buttons automatically
+//-----------------------------------------------------------------------------
+void CSVGButtonsPanel::PerformLayout()
+{
+	BaseClass::PerformLayout();
+	
+	if ( !m_bAutoLayout || m_Buttons.Count() == 0 )
+		return;
+	
+	int currentX = 0;
+	int currentY = 0;
+	
+	for ( int i = 0; i < m_Buttons.Count(); i++ )
+	{
+		CSVGButton *button = m_Buttons[i];
+		
+		if ( !button->IsVisible() )
+			continue;
+		
+		int wide, tall;
+		button->GetSize( wide, tall );
+		
+		button->SetPos( currentX, currentY );
+		
+		if ( m_iLayoutDirection == 0 ) // Horizontal
+		{
+			currentX += wide + m_iButtonSpacing;
+		}
+		else // Vertical
+		{
+			currentY += tall + m_iButtonSpacing;
+		}
+	}
+}
+
 //-----------------------------------------------------------------------------
 // Purpose: Constructor
 //-----------------------------------------------------------------------------
@@ -1420,6 +2088,41 @@ CBaseModPanel::CBaseModPanel() : EditablePanel(NULL, "BaseGameUIPanel")
 	m_iCTWeapon = -1;
 	m_iTWeapon = -1;
 	m_iAgentToUse = -1;
+    
+    m_pAvatarImage = new vgui::ImagePanel(this, "AvatarImage");
+	m_pAvatarImage->SetVisible(true);
+	m_pAvatarImage->SetShouldScaleImage(true);
+	
+	ConVarRef cl_avatarfile("cl_avatarfile", true);
+	if (cl_avatarfile.IsValid())
+	{
+		const char* avatarPath = cl_avatarfile.GetString();
+		if (avatarPath && avatarPath[0])
+		{
+			char avatarName[256];
+			V_FileBase(avatarPath, avatarName, sizeof(avatarName));
+			
+			char imagePath[512];
+			Q_snprintf(imagePath, sizeof(imagePath), "avatars/%s", avatarName);
+			
+			m_pAvatarImage->SetImage(imagePath);
+			m_pAvatarImage->SetVisible(true);
+		}
+		else
+		{
+			m_pAvatarImage->SetVisible(false);
+		}
+	}
+    
+    UpdateAvatarImage();
+    
+    if ( !m_pSVGButtonsPanel )
+	{
+		m_pSVGButtonsPanel = new vgui::CSVGButtonsPanel( this, "SVGButtonsPanel" );
+		m_pSVGButtonsPanel->LoadControlSettings( "Resource/UI/MainMenuControls.res" );
+	}
+    
+    m_pRSSFeedPanel = new RSSFeedPanel(this, "RSSFeedPanel");
 
 	LoadControlSettings( "resource/mainmenu.res" );
 }
@@ -1481,6 +2184,50 @@ CBaseModPanel::~CBaseModPanel()
 			m_iLoadingImageID = -1;
 		}
 	}
+    
+    m_pAvatarImage = NULL;
+    
+    if (m_pRSSFeedPanel)
+    {
+        delete m_pRSSFeedPanel;
+        m_pRSSFeedPanel = NULL;
+    }
+    
+    if ( m_pSVGButtonsPanel )
+	{
+		delete m_pSVGButtonsPanel;
+		m_pSVGButtonsPanel = NULL;
+	}
+}
+
+void CBaseModPanel::UpdateAvatarImage()
+{
+	if (!m_pAvatarImage)
+		return;
+
+	ConVarRef cl_avatarfile("cl_avatarfile", true);
+	if (!cl_avatarfile.IsValid())
+		return;
+
+	const char* avatarPath = cl_avatarfile.GetString();
+	
+	if (avatarPath && avatarPath[0])
+	{
+		char avatarName[256];
+		V_FileBase(avatarPath, avatarName, sizeof(avatarName));
+		
+		char imagePath[512];
+		Q_snprintf(imagePath, sizeof(imagePath), "avatars/%s", avatarName);
+		
+		m_pAvatarImage->SetImage(imagePath);
+		m_pAvatarImage->SetVisible(true);
+	}
+	else
+	{
+		m_pAvatarImage->SetVisible(false);
+	}
+	
+	InvalidateLayout();
 }
 
 static const char *g_rgValidCommands[] =
@@ -1493,6 +2240,7 @@ static const char *g_rgValidCommands[] =
 	"OpenSaveGameDialog",
 	"OpenCustomMapsDialog",
 	"OpenOptionsDialog",
+    "open_inventory",
 	"OpenModOptionsDialog",
 	"OpenBenchmarkDialog",
 	"OpenServerBrowser",
@@ -1626,6 +2374,15 @@ void CBaseModPanel::UpdateBackgroundState()
 	{
 		SetBackgroundRenderState( BACKGROUND_DISCONNECTED );
 	}
+    
+    if( GameUI().IsInLevel() )
+    {
+        m_pRSSFeedPanel->SetVisible(false);
+    }
+    else if ( !GameUI().IsInLevel() )
+    {
+        m_pRSSFeedPanel->SetVisible(true);
+    }
 }
 
 //-----------------------------------------------------------------------------
@@ -1715,6 +2472,8 @@ void CBaseModPanel::SetBackgroundRenderState(EBackgroundState state)
 	m_eBackgroundState = state;
 
 	UpdateAgentModel();
+    
+    UpdateAvatarImage();
 }
 
 void CBaseModPanel::StartExitingProcess()
@@ -2026,6 +2785,7 @@ void CBaseModPanel::UpdateAgentModel()
 			m_pPlayerModel->SetMDL( pszModel );
 			m_pPlayerModel->SetMergeMDL( GetCSMainMenuWeaponT( m_iTWeapon )->m_pszModel );
 			m_pPlayerModel->PlaySequence( GetCSMainMenuWeaponT( m_iTWeapon )->m_pszSequence );
+			m_pPlayerModel->SetCycle( 0 );
 
 			if ( m_iTGloves > 0 )
 			{
@@ -2047,6 +2807,7 @@ void CBaseModPanel::UpdateAgentModel()
 			m_pPlayerModel->SetMDL( pszModel );
 			m_pPlayerModel->SetMergeMDL( GetCSMainMenuWeaponCT( m_iCTWeapon )->m_pszModel );
 			m_pPlayerModel->PlaySequence( GetCSMainMenuWeaponCT( m_iCTWeapon )->m_pszSequence );
+			m_pPlayerModel->SetCycle( 0 );
 
 			if ( m_iCTGloves > 0 )
 			{
@@ -2776,6 +3537,16 @@ void CBaseModPanel::RunMenuCommand(const char *command)
 			OnOpenOptionsDialog_Xbox();
 		}
 	}
+    else if ( !Q_stricmp( command, "open_inventory" ) )
+    {
+        if (!g_pSkinEditor)
+        {
+            g_pSkinEditor = new CSkinEditorPanel(nullptr);
+        }
+    
+        g_pSkinEditor->Activate();
+        g_pSkinEditor->SetVisible(true);
+    }
 	else if ( !Q_stricmp( command, "OpenModOptionsDialog" ) )
 	{
 		OnOpenModOptionsDialog();
@@ -3075,7 +3846,8 @@ bool CBaseModPanel::IsPromptableCommand( const char *command )
 		 !Q_stricmp( command, "OpenLoadGameDialog" ) ||
 		 !Q_stricmp( command, "OpenSaveGameDialog" ) ||
 		 !Q_stricmp( command, "OpenBonusMapsDialog" ) ||
-		 !Q_stricmp( command, "OpenOptionsDialog" ) ||
+		 !Q_stricmp( command, "OpenOptionsDialog" ) || 
+         !Q_stricmp( command, "open_inventory" ) ||
 		 !Q_stricmp( command, "OpenModOptionsDialog" ) ||
 		 !Q_stricmp( command, "OpenControllerDialog" ) ||
 		 !Q_stricmp( command, "OpenLoadCommentaryDialog" ) ||

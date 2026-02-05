@@ -18,7 +18,7 @@
 #include <vgui_controls/EditablePanel.h>
 #include <vgui_controls/ScalableImagePanel.h>
 #include "vgui/ILocalize.h"
-#include "vgui_avatarimage.h"
+#include "vgui_avatarimage_nonsteam.h"
 #include "hud.h"
 #include "hudelement.h"
 

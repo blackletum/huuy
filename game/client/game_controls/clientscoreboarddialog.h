@@ -103,7 +103,9 @@ protected:
 	void MoveToCenterOfScreen();
 
 	vgui::ImageList				*m_pImageList;
-	CUtlMap<CSteamID,int>		m_mapAvatarsToImageList;
+	
+	CUtlMap<int, int> m_mapAvatarsToImageList;;
+    
 
 	CPanelAnimationVar( int, m_iAvatarWidth, "avatar_width", "34" );		// Avatar width doesn't scale with resolution
 	CPanelAnimationVarAliasType( int, m_iNameWidth, "name_width", "136", "proportional_int" );

@@ -14,7 +14,7 @@
 #include "spectatorgui.h"
 #include "mapoverview.h"
 #include "cs_shareddefs.h"
-#include "vgui_avatarimage.h"
+#include "vgui_avatarimage_nonsteam.h"
 
 extern ConVar mp_playerid; // in cs_gamerules.h
 extern ConVar mp_forcecamera; // in gamevars_shared.h

@@ -17,7 +17,7 @@
 #include "hud.h"
 #include "hudelement.h"
 #include "c_cs_player.h"
-#include "vgui_avatarimage.h"
+#include "vgui_avatarimage_nonsteam.h"
 
 #include "cs_shareddefs.h"
 

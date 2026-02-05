@@ -19,7 +19,7 @@
 #include "view_shared.h"
 #include "view.h"
 #include "model_types.h"
-#include "vgui_avatarimage.h"
+#include "vgui_avatarimage_nonsteam.h"
 #include "cs_hud_weaponselection.h"
 #include "viewpostprocess.h"
 
@@ -711,7 +711,8 @@ void CCSBuyMenuPlayerImage::SetGlovesModel( const char* pszModel )
 {
     C_CSPlayer* pLocalPlayer = C_CSPlayer::GetLocalCSPlayer();
     int iPaintKit = CSLoadout()->GetGlovesSkinForPlayer(pLocalPlayer, pLocalPlayer->GetTeamNumber());
-    IMaterial* pGloveMaterial = g_SkinDatabase.GetSkinMaterial( iPaintKit );
+    IMaterial* pRightGloveMaterial = g_SkinDatabase.GetSkinMaterial( iPaintKit );
+    IMaterial* pLeftGloveMaterial = g_SkinDatabase.GetSkinMaterial( iPaintKit + 1 );
     
 	if ( !pszModel || !m_hPlayerModel.Get() )
 	{
@@ -753,7 +754,12 @@ void CCSBuyMenuPlayerImage::SetGlovesModel( const char* pszModel )
 		m_hPlayerModel->SetBodygroup( m_hPlayerModel->FindBodygroupByName( "gloves" ), 1 );
 	}
     
-    m_hGlovesModel->SetMaterialOverride( pGloveMaterial, 2 );
+    if (pRightGloveMaterial && !pRightGloveMaterial->IsErrorMaterial() && 
+        pLeftGloveMaterial && !pLeftGloveMaterial->IsErrorMaterial())
+    {
+        m_hGlovesModel->SetMaterialOverride( pLeftGloveMaterial, 0 );
+        m_hGlovesModel->SetMaterialOverride( pRightGloveMaterial, 1 );
+    }
 }
 
 void CCSBuyMenuPlayerImage::SetSequence( const char* pszSequence )
@@ -763,6 +769,7 @@ void CCSBuyMenuPlayerImage::SetSequence( const char* pszSequence )
 		int sequence = m_hPlayerModel->LookupSequence( pszSequence );
 		if ( sequence != ACT_INVALID )
 		{
+			m_hPlayerModel->SetSequenceTransitionFadeOverride( 0.2f );
 			m_hPlayerModel->ResetSequence( sequence );
 			m_hPlayerModel->SetCycle( 0 );
 		}
@@ -1039,7 +1046,6 @@ void CCSBuyMenuLoadoutPanel::SetPlayer( C_CSPlayer* pPlayer )
 
 	m_pPlayer = pPlayer;
 	m_pPlayerAvatarImage->SetPlayer( pPlayer, k_EAvatarSize32x32 );
-	m_pPlayerAvatarImage->SetAvatarSize( 32, 32 );
 	m_pPlayerAvatarImage->SetDefaultAvatar( GetDefaultAvatarImage( pPlayer ) );
 }
 
@@ -1073,7 +1079,7 @@ CCSBuyMenu::CCSBuyMenu( IViewPort* pViewPort ): Frame( NULL, PANEL_BUY )
 	m_pBuyTimeLeftLabel = new Label( this, "BuyTimeLeftLabel", L"" );
 	m_pItemNameLabel = new Label( this, "ItemNameLabel", L"" );
 	m_pItemDescriptionLabel = new Label( this, "ItemDescriptionLabel", L"" );
-	m_pBuyItemsBackground = new Panel( this, "BuyItemsBackground" );
+	m_pBuyItemsBackground = new ImagePanel( this, "BuyItemsBackground" );
 	m_pPlayerModel = new CCSBuyMenuPlayerImage( this, "PlayerModel" );
 	m_kvBuyMenuConfig = new KeyValues( "BuyMenuConfig" );
 	if ( !m_kvBuyMenuConfig->LoadFromFile( g_pFullFileSystem, "scripts/buymenuconfig.txt", "GAME" ) )

@@ -13,11 +13,12 @@
 #include <vgui/IScheme.h>
 #include <vgui/IVGui.h>
 
+#pragma message("Using custom vgui::CInventoryPanel from cs_inventory.h")
 namespace vgui
 {
 
 //-----------------------------------------------------------------------------
-// Purpose :
+// Панель для одного айтема инвентаря
 //-----------------------------------------------------------------------------
 class CInventoryItemPanel : public vgui::EditablePanel
 {
@@ -43,12 +44,13 @@ private:
     vgui::Label *m_pNameLabel;
     vgui::Label *m_pWeaponLabel;
     vgui::ImagePanel *m_pIconImage;
+    vgui::Panel *m_pRarityBar;
     
     bool m_bMouseOver;
 };
 
 //-----------------------------------------------------------------------------
-// Purpose
+// Основная панель инвентаря
 //-----------------------------------------------------------------------------
 class CInventoryPanel : public vgui::EditablePanel
 {
@@ -70,6 +72,7 @@ public:
     void SetWeaponFilter(CSWeaponID weaponID);
     void SetRarityFilter(ESkinRarity rarity);
     void ClearFilters();
+    void RepositionItems();
     
     MESSAGE_FUNC_PARAMS(OnItemSelected, "ItemSelected", data);
 
@@ -87,13 +90,15 @@ protected:
     int m_iItemHeight;
     int m_iItemSpacing;
     int m_iItemsPerRow;
+    int m_iLeftMargin;
+    int m_iRightMargin;
     
     CSWeaponID m_FilterWeaponID;
     ESkinRarity m_FilterRarity;
     bool m_bUseWeaponFilter;
     bool m_bUseRarityFilter;
-    
     bool m_bFirstLayout;
+    bool m_bNeedsRepositioning;
 };
 
 } // namespace vgui

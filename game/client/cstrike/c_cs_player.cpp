@@ -39,6 +39,7 @@
 #include "flashlighteffect.h"
 #include "c_cs_hostage.h"
 #include "prediction.h"
+#include "voice_status.h"
 #include "weapon_basecsgloves.h"
 
 #include "weapon_selection.h"
@@ -813,6 +814,10 @@ void C_CSRagdoll::CreateGlovesModel()
 		nGlovesID = pPlayer->m_iLoadoutSlotGlovesCT;
 	else if ( pPlayer->GetTeamNumber() == TEAM_TERRORIST )
 		nGlovesID = pPlayer->m_iLoadoutSlotGlovesT;
+        
+    int nGlovesPaintKitID = 0;
+    if (pPlayer)
+        nGlovesPaintKitID = pPlayer->m_iGlovePaintKitID;
 
 	const char *szGlovesViewModel = NULL;
 	if ( nGlovesID > 0 )
@@ -826,7 +831,16 @@ void C_CSRagdoll::CreateGlovesModel()
 		{
 			m_pGloves->SetGloveID( nGlovesID );
 			m_pGloves->Equip( this );
-
+            
+            IMaterial* pRightGloveMaterial = g_SkinDatabase.GetSkinMaterial( nGlovesPaintKitID );
+            IMaterial* pLeftGloveMaterial = g_SkinDatabase.GetSkinMaterial( nGlovesPaintKitID + 1 );
+    
+            if (pRightGloveMaterial && !pRightGloveMaterial->IsErrorMaterial() && pLeftGloveMaterial && !pLeftGloveMaterial->IsErrorMaterial())
+            {
+                m_pGloves->SetMaterialOverride( pLeftGloveMaterial, 0 );
+                m_pGloves->SetMaterialOverride( pRightGloveMaterial, 1 );
+            }
+            
 			int nSkin = 0;
 			if ( pPlayer->m_pViewmodelArmConfig )
 				nSkin = pPlayer->m_pViewmodelArmConfig->iSkintoneIndex;
@@ -1118,6 +1132,7 @@ IMPLEMENT_CLIENTCLASS_DT( C_CSPlayer, DT_CSPlayer, CCSPlayer )
 	RecvPropInt( RECVINFO( m_iLoadoutSlotAgentCT ) ),
 	RecvPropInt( RECVINFO( m_iLoadoutSlotAgentT ) ),
 	RecvPropEHandle( RECVINFO( m_hLoadoutGloves ) ),
+    RecvPropInt( RECVINFO( m_iGlovePaintKitID ) ),
 
 END_RECV_TABLE()
 
@@ -1934,6 +1949,25 @@ int C_CSPlayer::GetAddonPaintKit( int addonIndex ) const
     return 0;
 }
 
+Vector C_CSPlayer::GetParticleHeadLabelOffset( void )
+{
+	Vector vecVoice;
+	int iBIndex = LookupBone( "ValveBiped.Bip01_Head" );
+	if ( iBIndex >= 0 )
+	{
+		Vector vecBone;
+		QAngle angBone;
+		GetBonePosition( iBIndex, vecBone, angBone );
+
+		vecVoice = (vecBone - GetAbsOrigin()) + Vector( 0, 0, 12 );
+	}
+	else
+	{
+		vecVoice = (EyePosition() - GetAbsOrigin()) + Vector( 0.0f, 0.0f, GetClientVoiceMgr()->GetHeadLabelOffset() );
+	}
+
+	return vecVoice;
+}
 
 class C_PlayerAddonModel : public C_BreakableProp
 {
@@ -5334,4 +5368,3 @@ void C_CSPlayer::CalcDeathCamView( Vector& eyeOrigin, QAngle& eyeAngles, float& 
 //=============================================================================
 // HPE_END
 //=============================================================================
-

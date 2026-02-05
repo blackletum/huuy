@@ -11,7 +11,6 @@
 #include "view.h"
 #include "model_types.h"
 #include "cs_gamerules.h"
-#include "cs_loadout.h"
 #include "c_team.h"
 #include "viewpostprocess.h"
 #include <vgui/ILocalize.h>
@@ -230,7 +229,7 @@ void CCSTeamMenuAgentImage::SetPlayerModel( const char* pszModel )
 	}
 }
 
-void CCSTeamMenuAgentImage::SetWeaponModel( const char* pszModel )
+void CCSTeamMenuAgentImage::SetWeaponModel( const char* pszModel, C_CSPlayer *pPlayer, CSWeaponID nWeaponID )
 {
 	if ( !pszModel || !m_hPlayerModel.Get() )
 	{
@@ -263,9 +262,29 @@ void CCSTeamMenuAgentImage::SetWeaponModel( const char* pszModel )
 		m_hWeaponModel->AddEffects( EF_NODRAW );
 		m_hWeaponModel->FollowEntity( m_hPlayerModel.Get() );
 	}
+    
+    int iPaintKit = CSLoadout()->GetWeaponSkinForPlayerWeaponid( pPlayer, nWeaponID );
+
+	if ( iPaintKit < 0 )
+	{
+		DevMsg( "[TeamMenu] No skin mapping for weaponID %d\n", nWeaponID );
+		return;
+	}
+
+	IMaterial* pSkinMaterial = g_SkinDatabase.GetSkinMaterial( iPaintKit );
+
+	if ( pSkinMaterial )
+	{
+		m_hWeaponModel->SetMaterialOverride( pSkinMaterial, 0 );
+		DevMsg( "[TeamMenu] Applied skin material for weaponID %d, skinID %d\n", nWeaponID, iPaintKit );
+	}
+	else
+	{
+		DevMsg( "[TeamMenu] No skin material found for weaponID %d, skinID %d, using default\n", nWeaponID, iPaintKit );
+	}
 }
 
-void CCSTeamMenuAgentImage::SetGlovesModel( const char* pszModel )
+void CCSTeamMenuAgentImage::SetGlovesModel( const char* pszModel, C_CSPlayer *pPlayer, int team )
 {
 	if ( !pszModel || !m_hPlayerModel.Get() )
 	{
@@ -306,6 +325,18 @@ void CCSTeamMenuAgentImage::SetGlovesModel( const char* pszModel )
 
 		m_hPlayerModel->SetBodygroup( m_hPlayerModel->FindBodygroupByName( "gloves" ), 1 );
 	}
+    int iPaintKit = CSLoadout()->GetGlovesSkinForPlayer(pPlayer, team);
+    if (iPaintKit > 0)
+    {
+        IMaterial* pRightGloveMaterial = g_SkinDatabase.GetSkinMaterial( iPaintKit );
+        IMaterial* pLeftGloveMaterial = g_SkinDatabase.GetSkinMaterial( iPaintKit + 1 );
+    
+        if (pRightGloveMaterial && !pRightGloveMaterial->IsErrorMaterial() && pLeftGloveMaterial && !pLeftGloveMaterial->IsErrorMaterial())
+        {
+            m_hGlovesModel->SetMaterialOverride( pLeftGloveMaterial, 0 );
+            m_hGlovesModel->SetMaterialOverride( pRightGloveMaterial, 1 );
+        }
+    }
 }
 
 void CCSTeamMenuAgentImage::SetSequence( const char* pszSequence, float flSequenceFade )
@@ -590,7 +621,7 @@ void CCSTeamMenu::ResetAgentModels()
 			CCSWeaponInfo* pWeaponInfo = dynamic_cast<CCSWeaponInfo*>(GetFileWeaponInfoFromHandle( hWpnInfo ));
 			if ( pWeaponInfo )
 			{
-				m_pAgentModelT->SetWeaponModel( pWeaponInfo->szWorldModel );
+				m_pAgentModelT->SetWeaponModel( pWeaponInfo->szWorldModel, pPlayer, nWeaponID);
 				m_pAgentModelT->SetSequence( pWeaponInfo->m_szClassMenuAnimT, 0.0f );
 			}
 		}
@@ -602,16 +633,16 @@ void CCSTeamMenu::ResetAgentModels()
 			const char* pszDefaultGlovesModel = GetPlayerViewmodelArmConfigForPlayerModel( pszPlayerModel )->szAssociatedGloveModel;
 			if ( pszGlovesViewModel && pszDefaultGlovesModel && m_pAgentModelT->DoesModelSupportGloves( pszGlovesViewModel, pszDefaultGlovesModel ) )
 			{
-				m_pAgentModelT->SetGlovesModel( pszGlovesWorldModel );
+				m_pAgentModelT->SetGlovesModel( pszGlovesWorldModel, pPlayer, TEAM_TERRORIST );
 			}
 			else
 			{
-				m_pAgentModelT->SetGlovesModel( NULL );
+				m_pAgentModelT->SetGlovesModel( NULL, pPlayer, TEAM_TERRORIST );
 			}
 		}
 		else
 		{
-			m_pAgentModelT->SetGlovesModel( NULL );
+			m_pAgentModelT->SetGlovesModel( NULL, pPlayer, TEAM_TERRORIST );
 		}
 	}
 
@@ -674,7 +705,7 @@ void CCSTeamMenu::ResetAgentModels()
 			CCSWeaponInfo* pWeaponInfo = dynamic_cast<CCSWeaponInfo*>(GetFileWeaponInfoFromHandle( hWpnInfo ));
 			if ( pWeaponInfo )
 			{
-				m_pAgentModelCT->SetWeaponModel( pWeaponInfo->szWorldModel );
+				m_pAgentModelCT->SetWeaponModel( pWeaponInfo->szWorldModel, pPlayer, nWeaponID );
 				m_pAgentModelCT->SetSequence( pWeaponInfo->m_szClassMenuAnim, 0.0f );
 			}
 		}
@@ -686,16 +717,16 @@ void CCSTeamMenu::ResetAgentModels()
 			const char* pszDefaultGlovesModel = GetPlayerViewmodelArmConfigForPlayerModel( pszPlayerModel )->szAssociatedGloveModel;
 			if ( pszGlovesViewModel && pszDefaultGlovesModel && m_pAgentModelCT->DoesModelSupportGloves( pszGlovesViewModel, pszDefaultGlovesModel ) )
 			{
-				m_pAgentModelCT->SetGlovesModel( pszGlovesWorldModel );
+				m_pAgentModelCT->SetGlovesModel( pszGlovesWorldModel, pPlayer, TEAM_CT );
 			}
 			else
 			{
-				m_pAgentModelCT->SetGlovesModel( NULL );
+				m_pAgentModelCT->SetGlovesModel( NULL, pPlayer, TEAM_CT );
 			}
 		}
 		else
 		{
-			m_pAgentModelCT->SetGlovesModel( NULL );
+			m_pAgentModelCT->SetGlovesModel( NULL, pPlayer, TEAM_CT );
 		}
 	}
 }

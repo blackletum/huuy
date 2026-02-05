@@ -81,9 +81,7 @@ public:
 	int GetWeaponSkinForPlayer( CCSPlayer* pPlayer, const char* pszWeaponName );
     int GetWeaponSkinForPlayerInt( CCSPlayer* pPlayer, int weaponID ) { return GetWeaponSkinForPlayerWeaponid( pPlayer, (CSWeaponID)weaponID ); };
     
-    #ifdef CLIENT_DLL
     int GetGlovesSkinForPlayer(CCSPlayer* pPlayer, int team);
-    #endif
 };
 
 

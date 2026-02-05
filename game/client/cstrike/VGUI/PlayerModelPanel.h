@@ -44,6 +44,7 @@ public:
 public:
 	Camera_t m_Camera;
 	Vector4D m_vecAmbientCube[6];
+    Vector m_vecModelCenter;
 	LightDesc_t m_pLightDesc[MATERIAL_MAX_LIGHT_COUNT];
 	CMDL m_MDL;
 	CUtlVector<CMDL> m_aMergeMDLs;

@@ -78,12 +78,10 @@ CHudTeamCounter::CHudTeamCounter(const char *pElementName) : CHudElement(pElemen
     {
         char panelName[32];
         
-        // CT Team
         Q_snprintf(panelName, sizeof(panelName), "CTPlayerIconFrame%d", i);
         m_CTPlayerIconFrames[i] = new vgui::Panel(this, panelName);
         m_CTPlayerIconFrames[i]->SetVisible(false);
         
-        // Аватар CT 
         Q_snprintf(panelName, sizeof(panelName), "CTPlayerIcon%d", i);
         m_CTPlayerIcons[i] = new CAvatarImagePanel(this, panelName);
         m_CTPlayerIcons[i]->SetShouldScaleImage(true);
@@ -104,12 +102,10 @@ CHudTeamCounter::CHudTeamCounter(const char *pElementName) : CHudElement(pElemen
         Q_snprintf(panelName, sizeof(panelName), "CTPlayerStatus%d", i);
         m_CTPlayerStatus[i] = new Label(this, panelName, "");
 
-        // T Team 
         Q_snprintf(panelName, sizeof(panelName), "TPlayerIconFrame%d", i);
         m_TPlayerIconFrames[i] = new vgui::Panel(this, panelName);
         m_TPlayerIconFrames[i]->SetVisible(false);
         
-        // Аватар T
         Q_snprintf(panelName, sizeof(panelName), "TPlayerIcon%d", i);
         m_TPlayerIcons[i] = new CAvatarImagePanel(this, panelName);
         m_TPlayerIcons[i]->SetShouldScaleImage(true);
@@ -274,8 +270,6 @@ bool CHudTeamCounter::ShouldDraw()
 void CHudTeamCounter::OnThink()
 {
     UpdateTimer();
-    UpdateMiniScoreboard(); 
-    UpdateScore();
 
     if (m_bIsAtTheBottom != hud_playercount_pos.GetBool())
     {
@@ -465,8 +459,7 @@ static C_CSPlayer* GetPlayerByIndex(int iIndex)
 // Sort function for normal mode (pointer-to-pointer version)
 int CHudTeamCounter::PlayerSortFunc(const MiniStatus *a, const MiniStatus *b)
 {
-    // No sorting - keep server join order
-    // Players stay in the order they joined the server
+    // Keep server join order - no sorting in normal modes
     return 0;
 }
 
@@ -492,19 +485,17 @@ int CHudTeamCounter::GGProgSortFunction(MiniStatus* const* entry1, MiniStatus* c
         return 1;
     else
     {
-        // Team leader on top
         if ((*entry1)->bTeamLeader && (*entry2)->bTeamLeader == false)
             return -1;
         else if ((*entry2)->bTeamLeader && (*entry1)->bTeamLeader == false)
             return 1;
 
-        // Current GG leader
         if ((*entry1)->nPlayerIdx == g_GGProgLeaderPlayerIdx)
             return -1;
         else if ((*entry2)->nPlayerIdx == g_GGProgLeaderPlayerIdx)
             return 1;
         else
-            return 0; // Keep server join order
+            return 0;
     }
 }
 
@@ -517,13 +508,12 @@ int CHudTeamCounter::DMSortFunction(MiniStatus* const* entry1, MiniStatus* const
     if (entry2 == NULL || (*entry2) == NULL)
         return -1;
 
-    // Higher points = better
     if ((*entry1)->nPoints > (*entry2)->nPoints)
         return -1;
     else if ((*entry1)->nPoints < (*entry2)->nPoints)
         return 1;
     else
-        return 0; // Keep server join order when points are equal
+        return 0;
 }
 
 void CHudTeamCounter::UpdateMiniScoreboard()
@@ -583,7 +573,6 @@ void CHudTeamCounter::UpdateMiniScoreboard()
         int entIdx = pPlayer->entindex();
         int health = 0;
         int armor = 0;
-        int points = g_PR->GetPlayerScore(playerIndex); // Используем базовый метод
         int ggLevel = -1;
 
         // Gun Game level
@@ -646,7 +635,6 @@ void CHudTeamCounter::UpdateMiniScoreboard()
         if (g_PR->IsAlive(playerHealthIndex) && bShowHealth)
         {
             health = pCSPR->GetHealth(playerHealthIndex);
-            // GetArmor может отсутствовать, используем прямой доступ к игроку
             C_CSPlayer *pHealthPlayer = GetPlayerByIndex(playerHealthIndex);
             if (pHealthPlayer)
                 armor = pHealthPlayer->ArmorValue();
@@ -705,7 +693,7 @@ void CHudTeamCounter::UpdateMiniScoreboard()
         // Update status
         bool bChanged = ms->Update(
             playerIndex, entIdx, health, armor, bIsCT, bIsLocal, bDead,
-            bTeamLeader, points, ggLevel, teamId,
+            bTeamLeader, ggLevel, teamId,
             pLocalPlayer->IsPlayerDominated(playerIndex),
             pLocalPlayer->IsPlayerDominatingMe(playerIndex),
             bSpeaking,
@@ -714,6 +702,7 @@ void CHudTeamCounter::UpdateMiniScoreboard()
             nPlayerIdxForColor,
             gpGlobals->curtime
         );
+
     }
 
     // Gun Game sorting and ranking
@@ -807,9 +796,9 @@ void CHudTeamCounter::UpdateMiniScoreboard()
         m_TPlayerStatus[i]->SetText(L"");
     }
     
+    
     if (bGunGameProgressive || bDeathmatch)
     {
-        // Gun Game:
         for (int i = 0; i < nCTTeamCount; i++)
         {
             if (i < MAX_TEAM_SIZE && m_CTTeam[i].nPlayerIdx >= 0)
@@ -853,7 +842,6 @@ void CHudTeamCounter::UpdateMiniScoreboard()
     m_nTerroristTeamCount = nTerroristTeamCount;
     m_bForceRefresh = false;
     
-    // PerformLayout
     InvalidateLayout();
 }
 
@@ -863,8 +851,8 @@ void CHudTeamCounter::CalculateAvatarPosition(int slotIdx, int totalPlayers, boo
     
     bool bGunGameProgressive = CSGameRules() && CSGameRules()->IsPlayingGunGameProgressive();
     bool bDeathmatch = CSGameRules() && CSGameRules()->IsPlayingGunGameDeathmatch();
+    bool bCompetitive = CSGameRules() && CSGameRules()->IsPlayingAnyCompetitiveStrictRuleset();
     
-    // Gun Game:
     if (bGunGameProgressive || bDeathmatch)
     {
         row = 0;
@@ -880,20 +868,27 @@ void CHudTeamCounter::CalculateAvatarPosition(int slotIdx, int totalPlayers, boo
         return;
     }
     
-    int playersPerRow = min(totalPlayers, m_iAvatarXMax);
-    int numRows = min(m_iAvatarYMax, (totalPlayers + playersPerRow - 1) / playersPerRow);
-    
     int firstRowCount, secondRowCount;
     
-    if (m_iAvatarYMax == 1 || totalPlayers <= m_iAvatarXMax)
+    if (bCompetitive)
     {
-        firstRowCount = totalPlayers;
-        secondRowCount = 0;
+        // Competitive: single row if possible, two rows if too many
+        if (totalPlayers <= m_iAvatarXMax)
+        {
+            firstRowCount = totalPlayers;
+            secondRowCount = 0;
+        }
+        else
+        {
+            firstRowCount = (totalPlayers + 1) / 2;
+            secondRowCount = totalPlayers - firstRowCount;
+        }
     }
     else
     {
-        firstRowCount = (totalPlayers + 1) / 2; 
-        secondRowCount = totalPlayers - firstRowCount;  
+        // Casual and custom modes: always two rows
+        firstRowCount = (totalPlayers + 1) / 2;
+        secondRowCount = totalPlayers - firstRowCount;
     }
     
     int currentRow = 0;
@@ -907,11 +902,11 @@ void CHudTeamCounter::CalculateAvatarPosition(int slotIdx, int totalPlayers, boo
     
     row = currentRow;
     
+    int rowCount = (currentRow == 0) ? firstRowCount : secondRowCount;
+    
     if (bIsCT)
     {
-        int rowCount = (currentRow == 0) ? firstRowCount : secondRowCount;
         int rowWidth = rowCount * (avatarWithBorder + m_iAvatarXMargin) - m_iAvatarXMargin;
-        
         x = m_iTimerXPos - m_iAvatarXMargin - rowWidth + (posInRow * (avatarWithBorder + m_iAvatarXMargin));
     }
     else
@@ -919,13 +914,11 @@ void CHudTeamCounter::CalculateAvatarPosition(int slotIdx, int totalPlayers, boo
         x = m_iTimerXPos + m_iTimerWide + m_iAvatarXMargin + (posInRow * (avatarWithBorder + m_iAvatarXMargin));
     }
     
+    int numRows = (secondRowCount > 0) ? 2 : 1;
     int totalHeight = numRows * (m_iAvatarTall + m_iAvatarBorderSize * 2) + (numRows - 1) * m_iAvatarYMargin;
     int startY;
     
-    bool bGunGameMode = CSGameRules() && (CSGameRules()->IsPlayingGunGameProgressive() || CSGameRules()->IsPlayingGunGameDeathmatch());
-    bool bCompetitiveMode = CSGameRules() && CSGameRules()->IsPlayingAnyCompetitiveStrictRuleset();
-    
-    if (bCompetitiveMode || m_iAvatarTall >= 64)
+    if (bCompetitive || m_iAvatarTall >= 64)
     {
         startY = m_iTimerYPos;
     }
@@ -949,16 +942,11 @@ void CHudTeamCounter::LayoutPlayerAvatars()
     {
         m_iAvatarWide = 64;
         m_iAvatarTall = 64;
-        m_iAvatarXMax = 5;
-        m_iAvatarYMax = 1;
     }
     else if (bGunGameProgressive || bDeathmatch)
     {
-        // Gun Game:
         m_iAvatarWide = 64;
         m_iAvatarTall = 64;
-        m_iAvatarXMax = 10; 
-        m_iAvatarYMax = 1;
         
         int totalGGPlayers = m_nCTTeamCount + m_nTerroristTeamCount;
         int avatarWithBorder = m_iAvatarWide + (m_iAvatarBorderSize * 2);
@@ -1001,7 +989,7 @@ void CHudTeamCounter::LayoutPlayerAvatars()
                     m_TPlayerIcons[slotIdx]->SetSize(m_iAvatarWide, m_iAvatarTall);
                     
                     m_TSkulls[slotIdx]->SetPos(xPos + m_iAvatarBorderSize, yPos + m_iAvatarBorderSize);
-                    m_CTSkulls[slotIdx]->SetRenderSize(m_iAvatarWide, m_iAvatarTall);
+                    m_TSkulls[slotIdx]->SetRenderSize(m_iAvatarWide, m_iAvatarTall);
                     m_TSkulls[slotIdx]->SetSize(m_iAvatarWide, m_iAvatarTall);
                     
                     int micSize = m_iAvatarWide / 3;
@@ -1011,14 +999,12 @@ void CHudTeamCounter::LayoutPlayerAvatars()
             }
         }
         
-        return; // Gun Game layout
+        return;
     }
     else
     {
         m_iAvatarWide = 27;
         m_iAvatarTall = 27;
-        m_iAvatarXMax = 6; 
-        m_iAvatarYMax = 2;
     }
     
     for (int i = 0; i < MAX_TEAM_SIZE; i++)
@@ -1089,16 +1075,21 @@ void CHudTeamCounter::UpdatePlayerSlot(int slotIdx, const MiniStatus* ms, bool b
     ImagePanel **pMicIcons = bIsCT ? m_CTMicIcons : m_TMicIcons;
     int *pLastAvatarIdx = bIsCT ? m_nLastAvatarPlayerIdx_CT : m_nLastAvatarPlayerIdx_T;
 
-    pIcons[slotIdx]->SetPlayer(ms->nPlayerIdx, k_EAvatarSize32x32);
-    
-    C_CSPlayer *pSlotPlayer = GetPlayerByIndex(ms->nPlayerIdx);
-    pIcons[slotIdx]->SetDefaultAvatar(GetDefaultAvatarImage(pSlotPlayer));
-    
-    pLastAvatarIdx[slotIdx] = ms->nPlayerIdx;
+    // Only update avatar if player changed - reduces Steam API calls
+    if (pLastAvatarIdx[slotIdx] != ms->nPlayerIdx)
+    {
+        pIcons[slotIdx]->SetPlayer(ms->nPlayerIdx, k_EAvatarSize32x32);
+        
+        C_CSPlayer *pSlotPlayer = GetPlayerByIndex(ms->nPlayerIdx);
+        pIcons[slotIdx]->SetDefaultAvatar(GetDefaultAvatarImage(pSlotPlayer));
+        
+        pLastAvatarIdx[slotIdx] = ms->nPlayerIdx;
+    }
 
     C_CSPlayer *pLocalPlayer = C_CSPlayer::GetLocalCSPlayer();
     bool bIsTeammate = false;
     
+    C_CSPlayer *pSlotPlayer = GetPlayerByIndex(ms->nPlayerIdx);
     if (pLocalPlayer && pSlotPlayer)
     {
         bIsTeammate = (pLocalPlayer->GetTeamNumber() == pSlotPlayer->GetTeamNumber());
@@ -1112,43 +1103,43 @@ void CHudTeamCounter::UpdatePlayerSlot(int slotIdx, const MiniStatus* ms, bool b
     else
     {
         if (bIsCT)
-            skullColor = Color(150, 200, 255, 128); 
+            skullColor = Color(150, 200, 255, 128);
         else
             skullColor = Color(255, 180, 100, 128);
     }
     
     pSkulls[slotIdx]->SetFgColor(skullColor);
 
+    // Frame color priority: 1) Local player (white), 2) Teammate color, 3) Team color
     Color frameColor;
-    if (ms->nTeammateColor >= 0)
+    
+    if (ms->bIsLocalPlayer)
+    {
+        frameColor = Color(255, 255, 255, 255);
+    }
+    else if (ms->nTeammateColor >= 0)
     {
         switch (ms->nTeammateColor)
         {
-            case 0: frameColor = Color(242, 242, 0, 255); break;      // Yellow
-            case 1: frameColor = Color(244, 67, 54, 255); break;      // Red/Purple
-            case 2: frameColor = Color(76, 175, 80, 255); break;      // Green
-            case 3: frameColor = Color(33, 150, 243, 255); break;     // Blue
-            case 4: frameColor = Color(255, 152, 0, 255); break;      // Orange
-            default: frameColor = Color(200, 200, 200, 255); break;   // Gray (default)
+            case 0: frameColor = Color(242, 242, 0, 255); break;
+            case 1: frameColor = Color(244, 67, 54, 255); break;
+            case 2: frameColor = Color(76, 175, 80, 255); break;
+            case 3: frameColor = Color(33, 150, 243, 255); break;
+            case 4: frameColor = Color(255, 152, 0, 255); break;
+            default: frameColor = Color(200, 200, 200, 255); break;
         }
-    }
-    else if ( pLocalPlayer && pSlotPlayer )
-    {
-        frameColor = Color(255, 255, 255, 255);
     }
     else
     {
         frameColor = bIsCT ? Color(150, 200, 255, 255) : Color(255, 180, 100, 255);
     }
     
-    // Устанавливаем цвет фона панели
     pFrames[slotIdx]->SetBgColor(frameColor);
     pFrames[slotIdx]->SetPaintBackgroundEnabled(true);
     pFrames[slotIdx]->SetPaintBackgroundType(0); // Flat fill
 
-    // Update visibility - видимость обновляется всегда
     pIcons[slotIdx]->SetVisible(!ms->bDead);
-    pFrames[slotIdx]->SetVisible(!ms->bDead); // Рамка скрывается вместе с аватаркой
+    pFrames[slotIdx]->SetVisible(!ms->bDead);
     pSkulls[slotIdx]->SetVisible(ms->bDead);
     pMicIcons[slotIdx]->SetVisible(ms->bSpeaking && !ms->bDead);
 }

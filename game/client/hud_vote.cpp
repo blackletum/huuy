@@ -31,7 +31,8 @@
 #include <vgui_controls/Label.h>
 #include <vgui_controls/ComboBox.h>
 #include <vgui_controls/ImageList.h>
-#include "vgui_avatarimage.h"
+//#include "vgui_avatarimage.h"
+#include "vgui_avatarimage_nonsteam.h"
 
 #ifdef TF_CLIENT_DLL
 #include "ienginevgui.h"
@@ -842,10 +843,10 @@ void CVoteSetupDialog::RefreshIssueParameters()
 						pKeyValues->SetString( "Properties", "" );
 					}*/
 					pKeyValues->SetString( "Properties", "" );
-
-					CSteamID steamID;
+#if 0
+			//		CSteamID steamID;
 					C_BasePlayer* pPlayer = UTIL_PlayerByIndex( playerIndex );
-					if ( pPlayer && pPlayer->GetSteamID( &steamID ) && steamID.GetAccountID() != 0 )
+					if ( pPlayer )
 					{
 						CAvatarImage *pAvatar = new CAvatarImage();
 						pAvatar->SetAvatarSteamID( steamID );
@@ -855,6 +856,20 @@ void CVoteSetupDialog::RefreshIssueParameters()
 					}
 
 					m_pVoteParameterList->InvalidateItem( index );
+					
+#else 
+
+player_info_t pi;
+					if ( engine->GetPlayerInfo( playerIndex, &pi ) && !CRC_AVATAR_INVALID( CRC_AVATAR( pi ) ) )
+					{
+						CAvatarImage *pAvatar = new CAvatarImage();
+						pAvatar->SetAvatarFromPI( pi );
+						pAvatar->SetAvatarSize( 32, 32 );
+						int iImageIndex = m_pImageList->AddImage( pAvatar );
+						pKeyValues->SetInt( "Avatar", iImageIndex );
+						m_pVoteParameterList->InvalidateItem(index);
+#endif
+                   }
 				}
 			}
 		}
