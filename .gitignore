@@ -32,6 +32,11 @@ game/server/*/server.lib
 .DS_Store
 build*/
 out*/
+lib/
+hooks/
+objects/
+logs/
+ivp/
 .cache/
 .ccache/
 waf3*/
