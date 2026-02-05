@@ -225,6 +225,9 @@ public:
 
 	// Get the dimensions of the back buffer.
 	virtual void GetBackBufferDimensions( int& width, int& height ) const = 0;
+    
+    // Get the dimensions of the current render target
+      virtual void GetCurrentRenderTargetDimensions( int& nWidth, int& nHeight ) const = 0;
 
 	// Get the current viewport
 	virtual void GetCurrentViewport( int& nX, int& nY, int& nWidth, int& nHeight ) const = 0;
