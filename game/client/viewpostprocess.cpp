@@ -19,14 +19,19 @@
 #include "filesystem.h"
 #include "tier0/vprof.h"
 #include "viewpostprocess.h"
-//#include "imaterialproxydict.h"    ndke_01 why???
-#include "renderparm.h"
+#include "clienteffectprecachesystem.h"
 
 #ifdef CSTRIKE_DLL
 #include "c_cs_player.h"
 #endif
 
 #include "proxyentity.h"
+
+// PiMoN: I just don't want to precache the entire post processing
+// material table for only one texture
+CLIENTEFFECT_REGISTER_BEGIN( PrecachePostProcessingEffectsDX80 )
+	CLIENTEFFECT_MATERIAL( "dev/engine_post" )
+CLIENTEFFECT_REGISTER_END_CONDITIONAL( engine->GetDXSupportLevel() < 90 )
 
 //-----------------------------------------------------------------------------
 // Globals
@@ -43,20 +48,7 @@ float g_flCustomBloomScaleMinimum = 0.0f;
 
 float g_flBloomExponent = 2.5f;
 float g_flBloomSaturation = 1.0f;
-float g_flTonemapPercentBrightPixels = 2.0f;
-float g_flTonemapMinAvgLum = 3.0f;
 float g_flTonemapRate = 1.0f;
-
-#if defined( _X360 )
-#if defined( CSTRIKE_DLL )
-float g_flTonemapPercentTarget = 60.0f;
-#else
-// Move "up" the percent target to make X360 a bit brighter than it's been to compensate for our bad 8-bit histogram utilization and to also compensate for the non-PWL texture change.
-float g_flTonemapPercentTarget = 80.0f
-#endif
-#else
-float g_flTonemapPercentTarget = 60.0f;
-#endif
 
 extern void GetTonemapSettingsFromEnvTonemapController( void );
 
@@ -64,26 +56,27 @@ bool g_bFlashlightIsOn = false;
 
 // hdr parameters
 ConVar mat_bloomscale( "mat_bloomscale", "1" );
+ConVar mat_hdr_level( "mat_hdr_level", "0", FCVAR_ARCHIVE );
 
-ConVar mat_hdr_level( "mat_hdr_level", "2", FCVAR_ARCHIVE );
 ConVar mat_bloomamount_rate( "mat_bloomamount_rate", "0.05f", FCVAR_CHEAT );
 static ConVar debug_postproc( "mat_debug_postprocessing_effects", "0", FCVAR_NONE, "0 = off, 1 = show post-processing passes in quadrants of the screen, 2 = only apply post-processing to the centre of the screen" );
+static ConVar split_postproc( "mat_debug_process_halfscreen", "0", FCVAR_CHEAT );
+static ConVar mat_postprocessing_combine( "mat_postprocessing_combine", "1", FCVAR_NONE, "Combine bloom, software anti-aliasing and color correction into one post-processing pass" );
 static ConVar mat_dynamic_tonemapping( "mat_dynamic_tonemapping", "1", FCVAR_CHEAT );
 static ConVar mat_show_ab_hdr( "mat_show_ab_hdr", "0" );
-static ConVar mat_tonemapping_occlusion_use_stencil( "mat_tonemapping_occlusion_use_stencil", "0", FCVAR_DEVELOPMENTONLY );
-
+static ConVar mat_tonemapping_occlusion_use_stencil( "mat_tonemapping_occlusion_use_stencil", "0" );
+ConVar mat_debug_autoexposure("mat_debug_autoexposure","0", FCVAR_CHEAT);
 static ConVar mat_autoexposure_max( "mat_autoexposure_max", "2" );
-static ConVar mat_autoexposure_max_multiplier( "mat_autoexposure_max_multiplier", "1.0", FCVAR_CHEAT );
 static ConVar mat_autoexposure_min( "mat_autoexposure_min", "0.5" );
 static ConVar mat_show_histogram( "mat_show_histogram", "0" );
+ConVar mat_hdr_tonemapscale( "mat_hdr_tonemapscale", "1.0", FCVAR_CHEAT );
 ConVar mat_hdr_uncapexposure( "mat_hdr_uncapexposure", "0", FCVAR_CHEAT );
 ConVar mat_force_bloom("mat_force_bloom","0", FCVAR_CHEAT);
-
 ConVar mat_disable_bloom("mat_disable_bloom","0");
 ConVar mat_debug_bloom("mat_debug_bloom","0", FCVAR_CHEAT);
-ConVar mat_colorcorrection( "mat_colorcorrection", "1" );
+ConVar mat_colorcorrection( "mat_colorcorrection", "0" );
 
-ConVar mat_accelerate_adjust_exposure_down( "mat_accelerate_adjust_exposure_down", "40.0", FCVAR_CHEAT );
+ConVar mat_accelerate_adjust_exposure_down( "mat_accelerate_adjust_exposure_down", "3.0", FCVAR_CHEAT );
 
 // fudge factor to make non-hdr bloom more closely match hdr bloom. Because of auto-exposure, high
 // bloomscales don't blow out as much in hdr. this factor was derived by comparing images in a
@@ -104,15 +97,11 @@ ConVar mat_exposure_center_region_x_flashlight( "mat_exposure_center_region_x_fl
 ConVar mat_exposure_center_region_y_flashlight( "mat_exposure_center_region_y_flashlight","0.85", FCVAR_CHEAT );
 
 ConVar mat_tonemap_algorithm( "mat_tonemap_algorithm", "1", FCVAR_CHEAT, "0 = Original Algorithm 1 = New Algorithm" );
-ConVar mat_force_tonemap_percent_target( "mat_force_tonemap_percent_target", "-1", FCVAR_CHEAT, "Override. Old default was 60." );
-ConVar mat_force_tonemap_percent_bright_pixels( "mat_force_tonemap_percent_bright_pixels", "-1", FCVAR_CHEAT, "Override. Old value was 2.0" );
-ConVar mat_force_tonemap_min_avglum( "mat_force_tonemap_min_avglum", "-1", FCVAR_CHEAT, "Override. Old default was 3.0" );
-ConVar mat_force_tonemap_scale( "mat_force_tonemap_scale", "0.0", FCVAR_CHEAT );
+ConVar mat_tonemap_percent_target( "mat_tonemap_percent_target", "60.0", FCVAR_CHEAT );
+ConVar mat_tonemap_percent_bright_pixels( "mat_tonemap_percent_bright_pixels", "2.0", FCVAR_CHEAT );
+ConVar mat_tonemap_min_avglum( "mat_tonemap_min_avglum", "3.0", FCVAR_CHEAT );
+ConVar mat_tonemap_multiplier( "mat_tonemap_multiplier", "0.75", FCVAR_ARCHIVE, "Tonemap multiplier", true, 0.1f, true, 1.0f);
 ConVar mat_fullbright( "mat_fullbright", "0", FCVAR_CHEAT );
-
-ConVar mat_grain_enable( "mat_grain_enable", "1" );
-//ConVar mat_vignette_enable( "mat_vignette_enable", "1", FCVAR_REPLICATED );
-ConVar mat_local_contrast_enable( "mat_local_contrast_enable", "1", FCVAR_DEVELOPMENTONLY );
 
 ConVar mat_blur_r( "mat_blur_r", "0.5", FCVAR_ARCHIVE );
 ConVar mat_blur_g( "mat_blur_g", "0.5", FCVAR_ARCHIVE );
@@ -306,8 +295,17 @@ void ApplyPostProcessingPasses(PostProcessingPass *pass_list, // table of effect
 			}
 			else
 			{
-				DrawClippedScreenSpaceRectangle(src_mat,0,0,dest_width,dest_height,
-					0,0,1,1,1,1,cb);
+				// just draw the whole source
+				if ((pass_list->dest_rendering_target==0) && split_postproc.GetInt())
+				{
+					DrawClippedScreenSpaceRectangle(src_mat,0,0,dest_width/2,dest_height,
+						0,0,.5,1,1,1,cb);
+				}
+				else
+				{
+					DrawClippedScreenSpaceRectangle(src_mat,0,0,dest_width,dest_height,
+						0,0,1,1,1,1,cb);
+				}
 				if ((pass_list->dest_rendering_target) && (debug_postproc.GetInt() == 1))
 				{
 					pRenderContext->SetRenderTarget(NULL);
@@ -404,286 +402,249 @@ static void DrawScreenSpaceRectangleWithSlop(
 											  src_texture_width, src_texture_height );
 }
 
-enum HistogramEntryState_t
+enum Histogram_entry_state_t
 {
-	HESTATE_INITIAL = 0,
+	HESTATE_INITIAL=0,
 	HESTATE_FIRST_QUERY_IN_FLIGHT,
 	HESTATE_QUERY_IN_FLIGHT,
 	HESTATE_QUERY_DONE,
 };
 
-#define NUM_HISTOGRAM_BUCKETS 31
-#define NUM_HISTOGRAM_BUCKETS_NEW 17
+#define N_LUMINANCE_RANGES 31
+#define N_LUMINANCE_RANGES_NEW 17
 #define MAX_QUERIES_PER_FRAME 1
 
-class CHistogramBucket
+class CHistogram_entry_t
 {
 public:
-	HistogramEntryState_t m_state;
-	OcclusionQueryObjectHandle_t m_hOcclusionQueryHandle;
-	int m_nFrameQueued;									// when this query was last queued
-	int m_nPixels;										// # of pixels this histogram represents
-	int m_nPixelsInRange;
-	float m_flMinLuminance, m_flMaxLuminance;			// the luminance range this entry was queried with
-	float m_flScreenMinX, m_flScreenMinY, m_flScreenMaxX, m_flScreenMaxY; // range is 0..1 in fractions of the screen
+	Histogram_entry_state_t m_state;
+	OcclusionQueryObjectHandle_t m_occ_handle;				// the occlusion query handle
+	int m_frame_queued;										// when this query was last queued
+	int m_npixels;										   // # of pixels this histogram represents
+	int m_npixels_in_range;
+	float m_min_lum, m_max_lum;					 // the luminance range this entry was queried with
+	float m_minx, m_miny, m_maxx, m_maxy;				// range is 0..1 in fractions of the screen
 
 	bool ContainsValidData( void )
 	{
 		return ( m_state == HESTATE_QUERY_DONE ) || ( m_state == HESTATE_QUERY_IN_FLIGHT );
 	}
 
-	void IssueQuery( int nFrameNum );
+	void IssueQuery( int frm_num );
 };
 
-void CHistogramBucket::IssueQuery( int nFrameNum )
+void CHistogram_entry_t::IssueQuery( int frm_num )
 {
 	CMatRenderContextPtr pRenderContext( materials );
-	if ( !m_hOcclusionQueryHandle )
+	if ( !m_occ_handle )
 	{
-		m_hOcclusionQueryHandle = pRenderContext->CreateOcclusionQueryObject();
+		m_occ_handle = pRenderContext->CreateOcclusionQueryObject();
 	}
 
-	int nViewportX, nViewportY, nViewportWidth, nViewportHeight;
-	pRenderContext->GetViewport( nViewportX, nViewportY, nViewportWidth, nViewportHeight );
+	int xl, yl, dest_width, dest_height;
+	pRenderContext->GetViewport( xl, yl, dest_width, dest_height );
 
 	// Find min and max gamma-space text range
-	float flTestRangeMin = ( m_flMinLuminance == 0.0f ) ? -1e20f : m_flMinLuminance; // Count all pixels < 0.0 as 0.0 (for float HDR buffers)
-	float flTestRangeMax = ( m_flMaxLuminance == 1.0f ) ? 1e20f : m_flMaxLuminance; // Count all pixels >1.0 as 1.0
+	float flTestRangeMin = m_min_lum;
+	float flTestRangeMax = ( m_max_lum == 1.0f ) ? 10000.0f : m_max_lum; // Count all pixels >1.0 as 1.0
 
-	// Set stencil bits where the colors match
-	IMaterial *pLumCompareMaterial;
-
-	pLumCompareMaterial = materials->FindMaterial( "dev/lumcompare", TEXTURE_GROUP_OTHER, true );
-
-	IMaterialVar *pMinVar = pLumCompareMaterial->FindVar( "$C0_X", NULL );
+	// First, set stencil bits where the colors match
+	IMaterial *test_mat=materials->FindMaterial( "dev/lumcompare", TEXTURE_GROUP_OTHER, true );
+	IMaterialVar *pMinVar = test_mat->FindVar( "$C0_X", NULL );
 	pMinVar->SetFloatValue( flTestRangeMin );
-
-	IMaterialVar *pMaxVar = pLumCompareMaterial->FindVar( "$C0_Y", NULL );
+	IMaterialVar *pMaxVar = test_mat->FindVar( "$C0_Y", NULL );
 	pMaxVar->SetFloatValue( flTestRangeMax );
+	int scrx_min = FLerp( xl, ( xl + dest_width - 1 ), 0, 1, m_minx );
+	int scrx_max = FLerp( xl, ( xl + dest_width - 1 ), 0, 1, m_maxx );
+	int scry_min = FLerp( yl, ( yl + dest_height - 1 ), 0, 1, m_miny );
+	int scry_max = FLerp( yl, ( yl + dest_height - 1 ), 0, 1, m_maxy );
 
-	int nScreenMinX = FLerp( nViewportX, ( nViewportX + nViewportWidth - 1 ), 0, 1, m_flScreenMinX );
-	int nScreenMaxX = FLerp( nViewportX, ( nViewportX + nViewportWidth - 1 ), 0, 1, m_flScreenMaxX );
-	int nScreenMinY = FLerp( nViewportY, ( nViewportY + nViewportHeight - 1 ), 0, 1, m_flScreenMinY );
-	int nScreenMaxY = FLerp( nViewportY, ( nViewportY + nViewportHeight - 1 ), 0, 1, m_flScreenMaxY );
+	float exposure_width_scale, exposure_height_scale;
 
-	float flExposureWidthScale, flExposureHeightScale;
+	// now, shrink region of interest if the flashlight is on
+	if ( g_bFlashlightIsOn )
+	{
+		exposure_width_scale = ( 0.5f * ( 1.0f - mat_exposure_center_region_x_flashlight.GetFloat() ) );
+		exposure_height_scale = ( 0.5f * ( 1.0f - mat_exposure_center_region_y_flashlight.GetFloat() ) );
+	}
+	else
+	{
+		exposure_width_scale = ( 0.5f * ( 1.0f - mat_exposure_center_region_x.GetFloat() ) );
+		exposure_height_scale = ( 0.5f * ( 1.0f - mat_exposure_center_region_y.GetFloat() ) );
+	}
+	int skip_edgex = ( 1 + scrx_max - scrx_min ) * exposure_width_scale;
+	int skip_edgey = ( 1 + scry_max - scry_min ) * exposure_height_scale;
 
-	// Shrink region of interest if the flashlight is on
-	flExposureWidthScale = ( 0.5f * ( 1.0f - mat_exposure_center_region_x.GetFloat() ) );
-	flExposureHeightScale = ( 0.5f * ( 1.0f - mat_exposure_center_region_y.GetFloat() ) );
+	// now, do luminance compare
+	float tscale = 1.0;
+	if ( g_pMaterialSystemHardwareConfig->GetHDRType() == HDR_TYPE_FLOAT )
+	{
+		tscale = pRenderContext->GetToneMappingScaleLinear().x;
+	}
+	IMaterialVar *use_t_scale = test_mat->FindVar( "$C0_Z", NULL );
+	use_t_scale->SetFloatValue( tscale );
 
-	int nBorderWidth = ( nScreenMaxX - nScreenMinX + 1 ) * flExposureWidthScale;
-	int nBorderHeight = ( nScreenMaxY - nScreenMinY + 1 ) * flExposureHeightScale;
-
-	// Do luminance compare
-	m_nPixels = ( 1 + nScreenMaxX - nScreenMinX ) * ( 1 + nScreenMaxY - nScreenMinY );
+	m_npixels = ( 1 + scrx_max - scrx_min ) * ( 1 + scry_max - scry_min );
 
 	if ( mat_tonemapping_occlusion_use_stencil.GetInt() )
 	{
-		pRenderContext->SetStencilEnable( true );
 		pRenderContext->SetStencilWriteMask( 1 );
+
+		// AV - We don't need to clear stencil here because it's already been cleared at the beginning of the frame
+		//pRenderContext->ClearStencilBufferRectangle( scrx_min, scry_min, scrx_max, scry_max, 0 );
+
+		pRenderContext->SetStencilEnable( true );
 		pRenderContext->SetStencilPassOperation( STENCILOPERATION_REPLACE );
 		pRenderContext->SetStencilCompareFunction( STENCILCOMPARISONFUNCTION_ALWAYS );
 		pRenderContext->SetStencilFailOperation( STENCILOPERATION_KEEP );
 		pRenderContext->SetStencilZFailOperation( STENCILOPERATION_KEEP );
-		pRenderContext->SetStencilReferenceValue( 0x80 );
-		pRenderContext->SetStencilWriteMask( 0x80 );
+		pRenderContext->SetStencilReferenceValue( 1 );
 	}
 	else
 	{
-		pRenderContext->BeginOcclusionQueryDrawing( m_hOcclusionQueryHandle );
+		pRenderContext->BeginOcclusionQueryDrawing( m_occ_handle );
 	}
 
-	int nWindowWidth = 0;
-	int nWindowHeight = 0;
-	pRenderContext->GetWindowSize( nWindowWidth, nWindowHeight );
-
-	nScreenMinX += nBorderWidth;
-	nScreenMinY += nBorderHeight;
-	nScreenMaxX -= nBorderWidth;
-	nScreenMaxY -= nBorderHeight;
-	pRenderContext->DrawScreenSpaceRectangle( pLumCompareMaterial,
-											  nScreenMinX - nViewportX, nScreenMinY - nViewportY,
-											  1 + nScreenMaxX - nScreenMinX,
-											  1 + nScreenMaxY - nScreenMinY,
-											  nScreenMinX, nScreenMinY,
-											  nScreenMaxX, nScreenMaxY,
-											  nWindowWidth, nWindowHeight );
+	scrx_min += skip_edgex;
+	scry_min += skip_edgey;
+	scrx_max -= skip_edgex;
+	scry_max -= skip_edgey;
+	pRenderContext->DrawScreenSpaceRectangle( test_mat,
+											  scrx_min, scry_min,
+											  1 + scrx_max - scrx_min,
+											  1 + scry_max - scry_min,
+											  scrx_min, scry_min,
+											  scrx_max, scry_max,
+											  dest_width, dest_height);
 
 	if ( mat_tonemapping_occlusion_use_stencil.GetInt() )
 	{
-		// Start counting how many pixels had their stencil bit set via an occlusion query
-		pRenderContext->BeginOcclusionQueryDrawing( m_hOcclusionQueryHandle );
+		// now, start counting how many pixels had their stencil bit set via an occlusion query
+		pRenderContext->BeginOcclusionQueryDrawing( m_occ_handle );
 
-		// Issue an occlusion query using stencil as the mask
+		// now, issue an occlusion query using stencil as the mask
 		pRenderContext->SetStencilEnable( true );
-		pRenderContext->SetStencilTestMask( 0x80 );
+		pRenderContext->SetStencilTestMask( 1 );
 		pRenderContext->SetStencilPassOperation( STENCILOPERATION_KEEP );
 		pRenderContext->SetStencilCompareFunction( STENCILCOMPARISONFUNCTION_EQUAL );
 		pRenderContext->SetStencilFailOperation( STENCILOPERATION_KEEP );
 		pRenderContext->SetStencilZFailOperation( STENCILOPERATION_KEEP );
-		pRenderContext->SetStencilReferenceValue( 0x80 );
-
-		IMaterial *pLumCompareStencilMaterial = materials->FindMaterial( "dev/no_pixel_write", TEXTURE_GROUP_OTHER, true);
-
-		pRenderContext->DrawScreenSpaceRectangle( pLumCompareStencilMaterial,
-												  nScreenMinX, nScreenMinY,
-												  1 + nScreenMaxX - nScreenMinX,
-												  1 + nScreenMaxY - nScreenMinY,
-												  nScreenMinX, nScreenMinY,
-												  nScreenMaxX, nScreenMaxY,
-												  nWindowWidth, nWindowHeight );
-
+		pRenderContext->SetStencilReferenceValue( 1 );
+		IMaterial *stest_mat=materials->FindMaterial( "dev/no_pixel_write", TEXTURE_GROUP_OTHER, true);
+		pRenderContext->DrawScreenSpaceRectangle( stest_mat,
+												  scrx_min, scry_min,
+												  1 + scrx_max - scrx_min,
+												  1 + scry_max - scry_min,
+												  scrx_min, scry_min,
+												  scrx_max, scry_max,
+												  dest_width, dest_height);
 		pRenderContext->SetStencilEnable( false );
 	}
-
-	pRenderContext->EndOcclusionQueryDrawing( m_hOcclusionQueryHandle );
+	pRenderContext->EndOcclusionQueryDrawing( m_occ_handle );
 	if ( m_state == HESTATE_INITIAL )
 		m_state = HESTATE_FIRST_QUERY_IN_FLIGHT;
 	else
 		m_state = HESTATE_QUERY_IN_FLIGHT;
-	m_nFrameQueued = nFrameNum;
+	m_frame_queued = frm_num;
 }
 
 #define HISTOGRAM_BAR_SIZE 200
 
-class CTonemapSystem
+class CLuminanceHistogramSystem
 {
-	CHistogramBucket m_histogramBucketArray[NUM_HISTOGRAM_BUCKETS];
-	int m_nCurrentQueryFrame;
-	int m_nCurrentAlgorithm;
-
-	float m_flTargetTonemapScale;
-	float m_flCurrentTonemapScale;
-
-	int m_nNumMovingAverageValid;
-	float m_movingAverageTonemapScale[10];
-
-	bool m_bOverrideTonemapScaleEnabled;
-	float m_flOverrideTonemapScale;
-
+	CHistogram_entry_t CurHistogram[N_LUMINANCE_RANGES];
+	int cur_query_frame;
 public:
-	void IssueAndReceiveBucketQueries();
-	void UpdateBucketRanges();
 	float FindLocationOfPercentBrightPixels( float flPercentBrightPixels, float flPercentTarget );
-	float ComputeTargetTonemapScalar( bool bGetIdealTargetForDebugMode );
 
-	void UpdateMaterialSystemTonemapScalar();
-	void SetTargetTonemappingScale( float flTonemapScale );
-	void ResetTonemappingScale( float flTonemapScale );
-	void SetTonemapScale( IMatRenderContext *pRenderContext, float newvalue, float minvalue, float maxvalue );
+	float GetTargetTonemapScalar( bool bGetIdealTargetForDebugMode );
 
-	float GetTargetTonemappingScale() { return m_flTargetTonemapScale; }
-	float GetCurrentTonemappingScale() { return m_flCurrentTonemapScale; }
+	void Update( void );
 
-	void SetOverrideTonemapScale( bool bEnableOverride, float flTonemapScale );
+	void DisplayHistogram( void );
 
-	// Dev functions
-	void DisplayHistogram();
+	void UpdateLuminanceRanges( void );
 
-	// Constructor
-	CTonemapSystem()
+	CLuminanceHistogramSystem(void)
 	{
-		m_nCurrentQueryFrame = 0;
-		m_nCurrentAlgorithm = -1;
-		m_flTargetTonemapScale = 1.0f;
-		m_flCurrentTonemapScale = 1.0f;
-
-		m_nNumMovingAverageValid = 0;
-		for ( int i = 0; i < ARRAYSIZE( m_movingAverageTonemapScale ) - 1; i++ )
-		{
-			m_movingAverageTonemapScale[i] = 1.0f;
-		}
-
-		m_bOverrideTonemapScaleEnabled = false;
-		m_flOverrideTonemapScale = 1.0f;
-
-		UpdateBucketRanges();
+		UpdateLuminanceRanges();
 	}
 };
 
-CTonemapSystem * GetCurrentTonemappingSystem()
+void CLuminanceHistogramSystem::Update( void )
 {
-	static CTonemapSystem s_HDR_HistogramSystem;
-	return &( s_HDR_HistogramSystem );
-}
+	UpdateLuminanceRanges();
 
-void CTonemapSystem::IssueAndReceiveBucketQueries()
-{
-	UpdateBucketRanges();
+	// find which histogram entries should have something done this frame
+	int n_queries_issued_this_frame=0;
+	cur_query_frame++;
 
-	// Find which histogram entries should have something done this frame
-	int nQueriesIssuedThisFrame = 0;
-	m_nCurrentQueryFrame++;
-
-	int nNumHistogramBuckets = NUM_HISTOGRAM_BUCKETS;
+	int nNumRanges = N_LUMINANCE_RANGES;
 	if ( mat_tonemap_algorithm.GetInt() == 1 )
-		nNumHistogramBuckets = NUM_HISTOGRAM_BUCKETS_NEW;
+		nNumRanges = N_LUMINANCE_RANGES_NEW;
 
-	for ( int i = 0; i < nNumHistogramBuckets; i++ )
+	for ( int i=0; i<nNumRanges; i++ )
 	{
-		switch ( m_histogramBucketArray[i].m_state )
+		switch ( CurHistogram[i].m_state )
 		{
 			case HESTATE_INITIAL:
-				if ( nQueriesIssuedThisFrame<MAX_QUERIES_PER_FRAME )
+				if ( n_queries_issued_this_frame<MAX_QUERIES_PER_FRAME )
 				{
-					m_histogramBucketArray[i].IssueQuery(m_nCurrentQueryFrame);
-					nQueriesIssuedThisFrame++;
+					CurHistogram[i].IssueQuery(cur_query_frame);
+					n_queries_issued_this_frame++;
 				}
 				break;
 
 			case HESTATE_FIRST_QUERY_IN_FLIGHT:
 			case HESTATE_QUERY_IN_FLIGHT:
-				if ( m_nCurrentQueryFrame > m_histogramBucketArray[i].m_nFrameQueued + 2 )
+				if ( cur_query_frame > CurHistogram[i].m_frame_queued + 2 )
 				{
 					CMatRenderContextPtr pRenderContext( materials );
 					int np = pRenderContext->OcclusionQuery_GetNumPixelsRendered(
-						m_histogramBucketArray[i].m_hOcclusionQueryHandle );
-					if ( np != -1 ) // -1 = Query not finished...wait until next time
+						CurHistogram[i].m_occ_handle );
+					if ( np !=- 1 ) 						// -1=query not finished. wait until
+						// next time
 					{
-						m_histogramBucketArray[i].m_nPixelsInRange = np;
-						m_histogramBucketArray[i].m_state = HESTATE_QUERY_DONE;
+						CurHistogram[i].m_npixels_in_range = np;
+						// 						    if (mat_debug_autoexposure.GetInt())
+						// 								Warning("min=%f max=%f np = %d\n",CurHistogram[i].m_min_lum,CurHistogram[i].m_max_lum,np);
+						CurHistogram[i].m_state = HESTATE_QUERY_DONE;
 					}
 				}
 				break;
 		}
 	}
-
-	// Now, issue queries for the oldest finished queries we have
-	while ( nQueriesIssuedThisFrame < MAX_QUERIES_PER_FRAME )
+	// now, issue queries for the oldest finished queries we have
+	while( n_queries_issued_this_frame < MAX_QUERIES_PER_FRAME )
 	{
-		int nNumHistogramBuckets = NUM_HISTOGRAM_BUCKETS;
+		nNumRanges = N_LUMINANCE_RANGES;
 		if ( mat_tonemap_algorithm.GetInt() == 1 )
-			nNumHistogramBuckets = NUM_HISTOGRAM_BUCKETS_NEW;
+			nNumRanges = N_LUMINANCE_RANGES_NEW;
 
-		int nOldestSoFar = -1;
-		for ( int i = 0; i < nNumHistogramBuckets; i++ )
-		{
-			if ( ( m_histogramBucketArray[i].m_state == HESTATE_QUERY_DONE ) &&
-				 ( ( nOldestSoFar == -1 ) || ( m_histogramBucketArray[i].m_nFrameQueued < m_histogramBucketArray[nOldestSoFar].m_nFrameQueued ) ) )
-			{
-				nOldestSoFar = i;
-			}
-		}
-
-		if ( nOldestSoFar == -1 ) // Nothing to do
+		int oldest_so_far =- 1;
+		for( int i = 0;i < nNumRanges;i ++ )
+			if ( ( CurHistogram[i].m_state == HESTATE_QUERY_DONE ) &&
+				 ( ( oldest_so_far ==- 1 ) ||
+				   ( CurHistogram[i].m_frame_queued <
+					 CurHistogram[oldest_so_far].m_frame_queued ) ) )
+				oldest_so_far = i;
+		if ( oldest_so_far ==- 1 )								// nothing to do
 			break;
-
-		m_histogramBucketArray[nOldestSoFar].IssueQuery( m_nCurrentQueryFrame );
-		nQueriesIssuedThisFrame++;
+		CurHistogram[oldest_so_far].IssueQuery( cur_query_frame );
+		n_queries_issued_this_frame ++;
 	}
 }
 
-float CTonemapSystem::FindLocationOfPercentBrightPixels( float flPercentBrightPixels, float flPercentTargetToSnapToIfInSameBin = -1.0f )
+float CLuminanceHistogramSystem::FindLocationOfPercentBrightPixels( float flPercentBrightPixels, float flPercentTargetToSnapToIfInSameBin = -1.0f )
 {
 	if ( mat_tonemap_algorithm.GetInt() == 1 ) // New algorithm
 	{
 		int nTotalValidPixels = 0;
-		for ( int i = 0; i < ( NUM_HISTOGRAM_BUCKETS_NEW - 1 ); i++ )
+		for ( int i=0; i<N_LUMINANCE_RANGES_NEW-1; i++ )
 		{
-			if ( m_histogramBucketArray[i].ContainsValidData() )
+			if ( CurHistogram[i].ContainsValidData() )
 			{
-				nTotalValidPixels += m_histogramBucketArray[i].m_nPixelsInRange;
+				nTotalValidPixels += CurHistogram[i].m_npixels_in_range;
 			}
 		}
 
@@ -695,19 +656,19 @@ float CTonemapSystem::FindLocationOfPercentBrightPixels( float flPercentBrightPi
 		// Find where percent range border is
 		float flTotalPercentRangeTested = 0.0f;
 		float flTotalPercentPixelsTested = 0.0f;
-		for ( int i = ( NUM_HISTOGRAM_BUCKETS_NEW - 2 ); i >= 0; i-- ) // Start at the bright end
+		for ( int i=N_LUMINANCE_RANGES_NEW-2; i>=0; i-- ) // Start at the bright end
 		{
-			if ( !m_histogramBucketArray[i].ContainsValidData() )
+			if ( !CurHistogram[i].ContainsValidData() )
 				return -1.0f;
 
 			float flPixelPercentNeeded = ( flPercentBrightPixels / 100.0f ) - flTotalPercentPixelsTested;
-			float flThisBinPercentOfTotalPixels = float( m_histogramBucketArray[i].m_nPixelsInRange ) / float( nTotalValidPixels );
-			float flThisBinLuminanceRange = m_histogramBucketArray[i].m_flMaxLuminance - m_histogramBucketArray[i].m_flMinLuminance;
+			float flThisBinPercentOfTotalPixels = float( CurHistogram[i].m_npixels_in_range ) / float( nTotalValidPixels );
+			float flThisBinLuminanceRange = CurHistogram[i].m_max_lum - CurHistogram[i].m_min_lum;
 			if ( flThisBinPercentOfTotalPixels >= flPixelPercentNeeded ) // We found the bin needed
 			{
 				if ( flPercentTargetToSnapToIfInSameBin >= 0.0f )
 				{
-					if ( ( m_histogramBucketArray[i].m_flMinLuminance <= ( flPercentTargetToSnapToIfInSameBin / 100.0f ) ) && ( m_histogramBucketArray[i].m_flMaxLuminance >= ( flPercentTargetToSnapToIfInSameBin / 100.0f ) ) )
+					if ( ( CurHistogram[i].m_min_lum <= ( flPercentTargetToSnapToIfInSameBin / 100.0f ) ) && ( CurHistogram[i].m_max_lum >= ( flPercentTargetToSnapToIfInSameBin / 100.0f ) ) )
 					{
 						// Sticky bin...We're in the same bin as the target so keep the tonemap scale where it is
 						return ( flPercentTargetToSnapToIfInSameBin / 100.0f );
@@ -716,7 +677,7 @@ float CTonemapSystem::FindLocationOfPercentBrightPixels( float flPercentBrightPi
 
 				float flPercentOfThesePixelsNeeded = flPixelPercentNeeded / flThisBinPercentOfTotalPixels;
 				float flPercentLocationOfBorder = 1.0f - ( flTotalPercentRangeTested + ( flThisBinLuminanceRange * flPercentOfThesePixelsNeeded ) );
-				flPercentLocationOfBorder = MAX( m_histogramBucketArray[i].m_flMinLuminance, MIN( m_histogramBucketArray[i].m_flMaxLuminance, flPercentLocationOfBorder ) ); // Clamp to this bin just in case
+				flPercentLocationOfBorder = MAX( CurHistogram[i].m_min_lum, MIN( CurHistogram[i].m_max_lum, flPercentLocationOfBorder ) ); // Clamp to this bin just in case
 				return flPercentLocationOfBorder;
 			}
 
@@ -733,34 +694,31 @@ float CTonemapSystem::FindLocationOfPercentBrightPixels( float flPercentBrightPi
 	}
 }
 
-float CTonemapSystem::ComputeTargetTonemapScalar( bool bGetIdealTargetForDebugMode = false )
+float CLuminanceHistogramSystem::GetTargetTonemapScalar( bool bGetIdealTargetForDebugMode = false )
 {
 	if ( mat_tonemap_algorithm.GetInt() == 1 ) // New algorithm
 	{
-		float flTonemapPercentTarget = mat_force_tonemap_percent_target.GetFloat() >= 0.0f ? mat_force_tonemap_percent_target.GetFloat() : g_flTonemapPercentTarget;
-		float flTonemapPercentBrightPixels = mat_force_tonemap_percent_bright_pixels.GetFloat() >= 0.0f ? mat_force_tonemap_percent_bright_pixels.GetFloat() : g_flTonemapPercentBrightPixels;
-		float flTonemapMinAvgLum = mat_force_tonemap_min_avglum.GetFloat() >= 0.0f ? mat_force_tonemap_min_avglum.GetFloat() : g_flTonemapMinAvgLum;
 		float flPercentLocationOfTarget;
 		if ( bGetIdealTargetForDebugMode == true)
-			flPercentLocationOfTarget = FindLocationOfPercentBrightPixels( flTonemapPercentBrightPixels ); // Don't pass in the second arg so the scalar doesn't snap to a bin
+			flPercentLocationOfTarget = FindLocationOfPercentBrightPixels( mat_tonemap_percent_bright_pixels.GetFloat() ); // Don't pass in the second arg so the scalar doesn't snap to a bin
 		else
-			flPercentLocationOfTarget = FindLocationOfPercentBrightPixels( flTonemapPercentBrightPixels, flTonemapPercentTarget );
+			flPercentLocationOfTarget = FindLocationOfPercentBrightPixels( mat_tonemap_percent_bright_pixels.GetFloat(), mat_tonemap_percent_target.GetFloat() );
 		if ( flPercentLocationOfTarget < 0.0f ) // This is the return error code
 		{
-			flPercentLocationOfTarget = flTonemapPercentTarget / 100.0f; // Pretend we're at the target
+			flPercentLocationOfTarget = mat_tonemap_percent_target.GetFloat() / 100.0f; // Pretend we're at the target
 		}
 
 		// Make sure this is > 0.0f
 		flPercentLocationOfTarget = MAX( 0.0001f, flPercentLocationOfTarget );
 
 		// Compute target scalar
-		float flTargetScalar = ( flTonemapPercentTarget / 100.0f ) / flPercentLocationOfTarget;
+		float flTargetScalar = ( mat_tonemap_percent_target.GetFloat() / 100.0f ) / flPercentLocationOfTarget;
 
 		// Compute secondary target scalar
 		float flAverageLuminanceLocation = FindLocationOfPercentBrightPixels( 50.0f );
 		if ( flAverageLuminanceLocation > 0.0f )
 		{
-			float flTargetScalar2 = ( flTonemapMinAvgLum / 100.0f ) / flAverageLuminanceLocation;
+			float flTargetScalar2 = ( mat_tonemap_min_avglum.GetFloat() / 100.0f ) / flAverageLuminanceLocation;
 
 			// Only override it if it's trying to brighten the image more than the primary algorithm
 			if ( flTargetScalar2 > flTargetScalar )
@@ -771,49 +729,57 @@ float CTonemapSystem::ComputeTargetTonemapScalar( bool bGetIdealTargetForDebugMo
 
 		// Apply this against last frames scalar
 		CMatRenderContextPtr pRenderContext( materials );
-		float flLastScale = m_flCurrentTonemapScale;
+		float flLastScale = pRenderContext->GetToneMappingScaleLinear().x;
 		flTargetScalar *= flLastScale;
 
 		flTargetScalar = MAX( 0.001f, flTargetScalar );
-		return flTargetScalar;
+		return flTargetScalar * mat_tonemap_multiplier.GetFloat();
 	}
-	else // Original tonemapping algorithm
+	else // Original tonemapping
 	{
-		float flScaleValue = 1.0f;
-		if ( m_histogramBucketArray[NUM_HISTOGRAM_BUCKETS-1].ContainsValidData() )
-		{
-			flScaleValue = m_histogramBucketArray[NUM_HISTOGRAM_BUCKETS-1].m_nPixels * ( 1.0f / m_histogramBucketArray[NUM_HISTOGRAM_BUCKETS-1].m_nPixelsInRange );
-		}
+		float average_luminance = 0.5f;
 
-		if ( !IsFinite( flScaleValue ) )
+		float total = 0;
+		int total_pixels = 0;
+		float scale_value = 1.0;
+		if ( CurHistogram[N_LUMINANCE_RANGES-1].ContainsValidData() )
 		{
-			flScaleValue = 1.0f;
-		}
+			scale_value = CurHistogram[N_LUMINANCE_RANGES-1].m_npixels * ( 1.0f / CurHistogram[N_LUMINANCE_RANGES-1].m_npixels_in_range );
 
-		float flTotal = 0.0f;
-		int nTotalPixels = 0;
-		for ( int i=0; i<NUM_HISTOGRAM_BUCKETS-1; i++ )
-		{
-			if ( m_histogramBucketArray[i].ContainsValidData() )
+			if ( mat_debug_autoexposure.GetInt() )
 			{
-				flTotal += flScaleValue * m_histogramBucketArray[i].m_nPixelsInRange * AVG( m_histogramBucketArray[i].m_flMinLuminance, m_histogramBucketArray[i].m_flMaxLuminance );
-				nTotalPixels += m_histogramBucketArray[i].m_nPixels;
+				engine->Con_NPrintf( 20, "Scale value = %f", scale_value );
+				//Warning( "scale value=%f\n", scale_value );
 			}
 		}
-
-		float flAverageLuminance = 0.5f;
-		if ( nTotalPixels > 0 )
-			flAverageLuminance = flTotal * ( 1.0f / nTotalPixels );
 		else
-			flAverageLuminance = 0.5f;
+			average_luminance = 0.5;
+
+		if ( !IsFinite( scale_value ) )
+			scale_value = 1.0f;
+
+		for ( int i=0; i<N_LUMINANCE_RANGES-1; i++ )
+		{
+			if ( CurHistogram[i].ContainsValidData() )
+			{
+				total += scale_value * CurHistogram[i].m_npixels_in_range * AVG( CurHistogram[i].m_min_lum, CurHistogram[i].m_max_lum );
+				total_pixels += CurHistogram[i].m_npixels;
+			}
+			else
+				average_luminance = 0.5; // always return 0.5 until we've queried a whole frame
+		}
+		if ( total_pixels > 0 )
+			average_luminance = total * ( 1.0 / total_pixels );
+		else
+			average_luminance = 0.5;
 
 		// Make sure this is > 0.0f
-		flAverageLuminance = MAX( 0.0001f, flAverageLuminance );
+		average_luminance = MAX( 0.0001f, average_luminance );
 
 		// Compute target scalar
-		float flTargetScalar = 0.005f / flAverageLuminance;
+		float flTargetScalar = 0.005f / average_luminance;
 
-		return flTargetScalar;
+		return flTargetScalar * mat_tonemap_multiplier.GetFloat();
 	}
 }
 
@@ -832,50 +798,52 @@ static float GetCurrentBloomScale( void )
 	return flCurrentBloomScale;
 }
 
-static void GetExposureRange( float *pflAutoExposureMin, float *pflAutoExposureMax )
+static void GetExposureRange( float *flAutoExposureMin, float *flAutoExposureMax )
 {
 	// Get min
 	if ( ( g_bUseCustomAutoExposureMin ) && ( g_flCustomAutoExposureMin > 0.0f ) )
 	{
-		*pflAutoExposureMin = g_flCustomAutoExposureMin;
+		*flAutoExposureMin = g_flCustomAutoExposureMin;
 	}
 	else
 	{
-		*pflAutoExposureMin = mat_autoexposure_min.GetFloat();
+		*flAutoExposureMin = mat_autoexposure_min.GetFloat();
 	}
 
 	// Get max
 	if ( ( g_bUseCustomAutoExposureMax ) && ( g_flCustomAutoExposureMax > 0.0f ) )
 	{
-		*pflAutoExposureMax = g_flCustomAutoExposureMax;
+		*flAutoExposureMax = g_flCustomAutoExposureMax;
 	}
 	else
 	{
-		*pflAutoExposureMax = mat_autoexposure_max.GetFloat();
+		*flAutoExposureMax = mat_autoexposure_max.GetFloat();
 	}
-
-	*pflAutoExposureMax *= mat_autoexposure_max_multiplier.GetFloat();
 
 	// Override
 	if ( mat_hdr_uncapexposure.GetInt() )
 	{
-		*pflAutoExposureMax = 100.0f;
-		*pflAutoExposureMin = 0.0f;
+		*flAutoExposureMax = 20.0f;
+		*flAutoExposureMin = 0.0f;
 	}
 
+	*flAutoExposureMax *= mat_tonemap_multiplier.GetFloat();
+	*flAutoExposureMin *= mat_tonemap_multiplier.GetFloat();
+
 	// Make sure min <= max
-	if ( *pflAutoExposureMin > *pflAutoExposureMax )
+	if ( *flAutoExposureMin > *flAutoExposureMax )
 	{
-		*pflAutoExposureMax = *pflAutoExposureMin;
+		*flAutoExposureMax = *flAutoExposureMin;
 	}
 }
 
-void CTonemapSystem::UpdateBucketRanges()
+void CLuminanceHistogramSystem::UpdateLuminanceRanges( void )
 {
 	// Only update if our mode changed
-	if ( m_nCurrentAlgorithm == mat_tonemap_algorithm.GetInt() )
+	static int s_nCurrentBucketAlgorithm = -1;
+	if ( s_nCurrentBucketAlgorithm == mat_tonemap_algorithm.GetInt() )
 		return;
-	m_nCurrentAlgorithm = mat_tonemap_algorithm.GetInt();
+	s_nCurrentBucketAlgorithm = mat_tonemap_algorithm.GetInt();
 
 	//==================================================================//
 	// Force fallback to original tone mapping algorithm for these mods //
@@ -884,14 +852,14 @@ void CTonemapSystem::UpdateBucketRanges()
 	if ( engine == NULL )
 	{
 		// Force this code to get hit again so we can change algorithm based on the client
-		m_nCurrentAlgorithm = -1;
+		s_nCurrentBucketAlgorithm = -1;
 	}
 	else if ( s_bFirstTime == true )
 	{
 		s_bFirstTime = false;
 
 		// This seems like a bad idea but it's fine for now
-		const char *sModsForOriginalAlgorithm[] = { "dod", "cstrike", "lostcoast" };
+		const char *sModsForOriginalAlgorithm[] = { "dod", "cstrike", "lostcoast", "hl1"};
 		for ( int i=0; i<3; i++ )
 		{
 			if ( strlen( engine->GetGameDirectory() ) >= strlen( sModsForOriginalAlgorithm[i] ) )
@@ -899,44 +867,45 @@ void CTonemapSystem::UpdateBucketRanges()
 				if ( stricmp( &( engine->GetGameDirectory()[strlen( engine->GetGameDirectory() ) - strlen( sModsForOriginalAlgorithm[i] )] ), sModsForOriginalAlgorithm[i] ) == 0 )
 				{
 					mat_tonemap_algorithm.SetValue( 0 ); // Original algorithm
-					m_nCurrentAlgorithm = mat_tonemap_algorithm.GetInt();
+					s_nCurrentBucketAlgorithm = mat_tonemap_algorithm.GetInt();
 					break;
 				}
 			}
 		}
 	}
 
-	// Get num buckets
-	int nNumHistogramBuckets = NUM_HISTOGRAM_BUCKETS;
-	if ( mat_tonemap_algorithm.GetInt() == 1 )
-		nNumHistogramBuckets = NUM_HISTOGRAM_BUCKETS_NEW;
+	int nNumRanges = N_LUMINANCE_RANGES;
 
-	m_nCurrentQueryFrame = 0;
-	for ( int nBucket = 0; nBucket < nNumHistogramBuckets; nBucket++ )
+	if ( mat_tonemap_algorithm.GetInt() == 1 )
+		nNumRanges = N_LUMINANCE_RANGES_NEW;
+
+	cur_query_frame=0;
+	for ( int bucket = 0; bucket < nNumRanges; bucket ++ )
 	{
-		CHistogramBucket *pBucket = &( m_histogramBucketArray[ nBucket ] );
-		pBucket->m_state = HESTATE_INITIAL;
-		pBucket->m_flScreenMinX = 0.0f;
-		pBucket->m_flScreenMaxX = 1.0f;
-		pBucket->m_flScreenMinY = 0.0f;
-		pBucket->m_flScreenMaxY = 1.0f;
-		if ( nBucket != ( nNumHistogramBuckets - 1 ) ) // Last bucket is special
+		int idx = bucket;
+		CHistogram_entry_t & e = CurHistogram[idx];
+		e.m_state = HESTATE_INITIAL;
+		e.m_minx = 0;
+		e.m_maxx = 1;
+		e.m_miny = 0;
+		e.m_maxy = 1;
+		if ( bucket != nNumRanges-1 ) // Last bucket is special
 		{
 			if ( mat_tonemap_algorithm.GetInt() == 0 ) // Original algorithm
 			{
 				// Use a logarithmic ramp for high range in the low range
-				pBucket->m_flMinLuminance = -0.01f + exp( FLerp( log( 0.01f ), log( 0.01f + 1.0f ), 0.0f, nNumHistogramBuckets - 1.0f, nBucket ) );
-				pBucket->m_flMaxLuminance = -0.01f + exp( FLerp( log( 0.01f ), log( 0.01f + 1.0f ), 0.0f, nNumHistogramBuckets - 1.0f, nBucket + 1.0f ) );
+				e.m_min_lum = - 0.01 + exp( FLerp( log( .01 ), log( .01 + 1 ), 0, nNumRanges - 1, bucket ) );
+				e.m_max_lum = - 0.01 + exp( FLerp( log( .01 ), log( .01 + 1 ), 0, nNumRanges - 1, bucket + 1 ) );
 			}
 			else
 			{
 				// Use even distribution
-				pBucket->m_flMinLuminance = float( nBucket ) / float( nNumHistogramBuckets - 1 );
-				pBucket->m_flMaxLuminance = float( nBucket + 1 ) / float( nNumHistogramBuckets - 1 );
+				e.m_min_lum = float( bucket ) / float( nNumRanges - 1 );
+				e.m_max_lum = float( bucket + 1 ) / float( nNumRanges - 1 );
 
 				// Use a distribution with slightly more bins in the low range
-				pBucket->m_flMinLuminance = pBucket->m_flMinLuminance > 0.0f ? powf( pBucket->m_flMinLuminance, 2.5f ) : pBucket->m_flMinLuminance;
-				pBucket->m_flMaxLuminance = pBucket->m_flMaxLuminance > 0.0f ? powf( pBucket->m_flMaxLuminance, 2.5f ) : pBucket->m_flMaxLuminance;
+				e.m_min_lum = e.m_min_lum > 0.0f ? powf( e.m_min_lum, 1.5f ) : e.m_min_lum;
+				e.m_max_lum = e.m_max_lum > 0.0f ? powf( e.m_max_lum, 1.5f ) : e.m_max_lum;
 			}
 		}
 		else
@@ -944,158 +913,185 @@ void CTonemapSystem::UpdateBucketRanges()
 			// The last bucket is used as a test to determine the return range for occlusion
 			// queries to use as a scale factor. some boards (nvidia) have their occlusion
 			// query return values larger when using AA.
-			pBucket->m_flMinLuminance = 0.0f;
-			pBucket->m_flMaxLuminance = 100000.0f;
+			e.m_min_lum = 0;
+			e.m_max_lum = 100000.0;
 		}
 
-		//Warning( "Bucket %d: min/max %f / %f ", nBucket, pBucket->m_flMinLuminance, pBucket->m_flMaxLuminance );
+		//Warning( "Bucket %d: min/max %f / %f ", bucket, e.m_min_lum, e.m_max_lum );
 	}
 }
 
 
-void CTonemapSystem::SetOverrideTonemapScale( bool bEnableOverride, float flTonemapScale )
+void CLuminanceHistogramSystem::DisplayHistogram( void )
 {
-	m_bOverrideTonemapScaleEnabled = bEnableOverride;
-	m_flOverrideTonemapScale = flTonemapScale;
-}
+	bool bDrawTextThisFrame = true;
+	if ( IsX360() )
+	{
+		static float s_flLastTimeUpdate = 0.0f;
+		if ( int( gpGlobals->curtime ) - int( s_flLastTimeUpdate ) >= 2 )
+		{
+			s_flLastTimeUpdate = gpGlobals->curtime;
+			bDrawTextThisFrame = true;
+		}
+		else
+		{
+			bDrawTextThisFrame = false;
+		}
+	}
 
-void CTonemapSystem::DisplayHistogram()
-{
-	if ( !mat_show_histogram.GetInt() || !mat_dynamic_tonemapping.GetInt() || ( g_pMaterialSystemHardwareConfig->GetHDRType() == HDR_TYPE_NONE ) )
-		return;
-
-	// Get render context
 	CMatRenderContextPtr pRenderContext( materials );
 	pRenderContext->PushRenderTargetAndViewport();
 
-	// Prep variables for drawing histogram
-	int nViewportX, nViewportY, nViewportWidth, nViewportHeight;
-	pRenderContext->GetViewport( nViewportX, nViewportY, nViewportWidth, nViewportHeight );
-
-	// Get num bins
-	int nNumHistogramBuckets = NUM_HISTOGRAM_BUCKETS-1;
+	int nNumRanges = N_LUMINANCE_RANGES-1;
 	if ( mat_tonemap_algorithm.GetInt() == 1 )
-		nNumHistogramBuckets = NUM_HISTOGRAM_BUCKETS_NEW-1;
+		nNumRanges = N_LUMINANCE_RANGES_NEW-1;
 
-	// Count total pixels in current bins
 	int nMaxValidPixels = 0;
 	int nTotalValidPixels = 0;
 	int nTotalGraphPixelsWide = 0;
-	for ( int nBucket = 0; nBucket < nNumHistogramBuckets; nBucket++ )
+	for ( int l=0; l<nNumRanges; l++ )
 	{
-		CHistogramBucket *pBucket = &( m_histogramBucketArray[ nBucket ] );
-		if ( pBucket->ContainsValidData() )
+		CHistogram_entry_t &e = CurHistogram[l];
+		if ( e.ContainsValidData() )
 		{
-			nTotalValidPixels += pBucket->m_nPixelsInRange;
-			if ( pBucket->m_nPixelsInRange > nMaxValidPixels )
+			nTotalValidPixels += e.m_npixels_in_range;
+			if ( e.m_npixels_in_range > nMaxValidPixels )
 			{
-				nMaxValidPixels = pBucket->m_nPixelsInRange;
+				nMaxValidPixels = e.m_npixels_in_range;
 			}
 		}
 
-		int nWidth = MAX( 1, 500 * ( pBucket->m_flMaxLuminance - pBucket->m_flMinLuminance ) );
-		nTotalGraphPixelsWide += nWidth + 2;
+		int width = MAX( 1, 500 * ( e.m_max_lum - e.m_min_lum ) );
+		nTotalGraphPixelsWide += width + 2;
 	}
 
-	// Clear background to gray for screenshots
-	//int nBoxWidth = ( nTotalGraphPixelsWide + 20 );
-	//pRenderContext->ClearColor3ub( 150, 150, 150 );
-	//pRenderContext->Viewport( nViewportWidth - nBoxWidth, 0, nBoxWidth, 245 );
-	//pRenderContext->ClearBuffers( true, true );
+	int xl, yl, dest_width, dest_height;
+	pRenderContext->GetViewport( xl, yl, dest_width, dest_height );
 
-	// Output some text data
-	if ( !IsGameConsole() && ( mat_show_histogram.GetInt() == 1 ) )
+	if ( bDrawTextThisFrame == true )
 	{
-		float flTonemapMinAvgLum = mat_force_tonemap_min_avglum.GetFloat() >= 0.0f ? mat_force_tonemap_min_avglum.GetFloat() : g_flTonemapMinAvgLum;
-		engine->Con_NPrintf( 23 + ( nViewportY / 10 ), "(Histogram luminance is in linear space)" );
+		engine->Con_NPrintf( 17, "(All values in linear space)" );
 
-		engine->Con_NPrintf( 27 + ( nViewportY / 10 ), "AvgLum @ %4.2f%%  flTonemapMinAvgLum = %4.2f%%  Using %d pixels  Override(%s): %4.2f", 
-			MAX( 0.0f, FindLocationOfPercentBrightPixels( 50.0f ) ) * 100.0f, flTonemapMinAvgLum, nTotalValidPixels, m_bOverrideTonemapScaleEnabled ? "On" : "Off", m_flOverrideTonemapScale );
-		engine->Con_NPrintf( 29 + ( nViewportY / 10 ), "BloomScale = %4.2f  flTonemapRate = %4.2f  mat_accelerate_adjust_exposure_down = %4.2f", 
+		engine->Con_NPrintf( 21, "AvgLum @ %4.2f%%  mat_tonemap_min_avglum = %4.2f%%  Using %d pixels of %d pixels on screen (%3d%%)", 
+			MAX( 0.0f, FindLocationOfPercentBrightPixels( 50.0f ) ) * 100.0f, mat_tonemap_min_avglum.GetFloat(),
+			nTotalValidPixels, ( dest_width * dest_height ), int( float( nTotalValidPixels ) * 100.0f / float( dest_width * dest_height ) ) );
+		engine->Con_NPrintf( 23, "BloomScale = %4.2f  flTonemapRate = %4.2f  mat_accelerate_adjust_exposure_down = %4.2f", 
 			GetCurrentBloomScale(), g_flTonemapRate, mat_accelerate_adjust_exposure_down.GetFloat() );
 	}
 
-	int xpStart = nViewportX + nViewportWidth - nTotalGraphPixelsWide - 10;
-	if ( IsGameConsole() )
+	if ( mat_tonemap_algorithm.GetInt() == 1 ) // New algorithm only
+	{
+		float vTotalPixelsAndHigher[N_LUMINANCE_RANGES];
+		for ( int i=0; i<nNumRanges; i++ )
+		{
+			vTotalPixelsAndHigher[i] = CurHistogram[nNumRanges-1-i].m_npixels_in_range;
+			if ( i > 0 )
+			{
+				vTotalPixelsAndHigher[i] += vTotalPixelsAndHigher[i-1];
+			}
+		}
+
+		/* // This code works when N_LUMINANCE_RANGES_NEW = 11
+		if ( bDrawTextThisFrame == true )
+		{
+			engine->Con_NPrintf( 17, "%04.2f         %04.2f         %04.2f         %04.2f         %04.2f         %04.2f         %04.2f         %04.2f         %04.2f         %04.2f   ",
+			   100.0f * float( vTotalPixelsAndHigher[9] ) / float( nTotalValidPixels ),
+			   100.0f * float( vTotalPixelsAndHigher[8] ) / float( nTotalValidPixels ),
+			   100.0f * float( vTotalPixelsAndHigher[7] ) / float( nTotalValidPixels ),
+			   100.0f * float( vTotalPixelsAndHigher[6] ) / float( nTotalValidPixels ),
+			   100.0f * float( vTotalPixelsAndHigher[5] ) / float( nTotalValidPixels ),
+			   100.0f * float( vTotalPixelsAndHigher[4] ) / float( nTotalValidPixels ),
+			   100.0f * float( vTotalPixelsAndHigher[3] ) / float( nTotalValidPixels ),
+			   100.0f * float( vTotalPixelsAndHigher[2] ) / float( nTotalValidPixels ),
+			   100.0f * float( vTotalPixelsAndHigher[1] ) / float( nTotalValidPixels ),
+			   100.0f * float( vTotalPixelsAndHigher[0] ) / float( nTotalValidPixels ) );
+
+			engine->Con_NPrintf( 15, "%04.2f         %04.2f         %04.2f         %04.2f         %04.2f         %04.2f         %04.2f         %04.2f         %04.2f         %04.2f   ",
+			   100.0f * float( CurHistogram[nNumRanges-1-9].m_npixels_in_range ) / float( nTotalValidPixels ),
+			   100.0f * float( CurHistogram[nNumRanges-1-8].m_npixels_in_range ) / float( nTotalValidPixels ),
+			   100.0f * float( CurHistogram[nNumRanges-1-7].m_npixels_in_range ) / float( nTotalValidPixels ),
+			   100.0f * float( CurHistogram[nNumRanges-1-6].m_npixels_in_range ) / float( nTotalValidPixels ),
+			   100.0f * float( CurHistogram[nNumRanges-1-5].m_npixels_in_range ) / float( nTotalValidPixels ),
+			   100.0f * float( CurHistogram[nNumRanges-1-4].m_npixels_in_range ) / float( nTotalValidPixels ),
+			   100.0f * float( CurHistogram[nNumRanges-1-3].m_npixels_in_range ) / float( nTotalValidPixels ),
+			   100.0f * float( CurHistogram[nNumRanges-1-2].m_npixels_in_range ) / float( nTotalValidPixels ),
+			   100.0f * float( CurHistogram[nNumRanges-1-1].m_npixels_in_range ) / float( nTotalValidPixels ),
+			   100.0f * float( CurHistogram[nNumRanges-1-0].m_npixels_in_range ) / float( nTotalValidPixels ) );
+			}
+		//*/
+	}
+	else
+	{
+		if ( bDrawTextThisFrame == true )
+		{
+			engine->Con_NPrintf( 17, "" );
+			engine->Con_NPrintf( 15, "" );
+		}
+	}
+
+	int xpStart = dest_width - nTotalGraphPixelsWide - 10;
+	if ( IsX360() )
 	{
 		xpStart -= 50;
 	}
 
-	int yOffset = 4 + nViewportY;
-
-	if ( mat_show_histogram.GetInt() == 1 )
+	int xp = xpStart;
+	for ( int l=0; l<nNumRanges; l++ )
 	{
-		int xp = xpStart;
-		for ( int nBucket = 0; nBucket < nNumHistogramBuckets; nBucket++ )
-		{
-			int np = 0;
-			CHistogramBucket &e = m_histogramBucketArray[ nBucket ];
-			if ( e.ContainsValidData() )
-				np += e.m_nPixelsInRange;
-			int width = MAX( 1, 500 * ( e.m_flMaxLuminance - e.m_flMinLuminance ) );
-	
-			//Warning( "Bucket %d: min/max %f / %f.  m_nPixelsInRange=%d   m_nPixels=%d\n", nBucket, e.m_flMinLuminance, e.m_flMaxLuminance, e.m_nPixelsInRange, e.m_nPixels );
-	
-			if ( np )
-			{
-				int height = MAX( 1, MIN( HISTOGRAM_BAR_SIZE, ( (float)np / (float)nMaxValidPixels ) * HISTOGRAM_BAR_SIZE ) );
-	
-				pRenderContext->ClearColor3ub( 255, 0, 0 );
-				pRenderContext->Viewport( xp, yOffset + HISTOGRAM_BAR_SIZE - height, width, height );
-				pRenderContext->ClearBuffers( true, true );
-			}
-			else
-			{
-				int height = 1;
-				pRenderContext->ClearColor3ub( 0, 0, 0 );
-				pRenderContext->Viewport( xp, yOffset + HISTOGRAM_BAR_SIZE - height, width, height );
-				pRenderContext->ClearBuffers( true, true );
-			}
-			xp += width + 2;
-		}
-	
-		if ( mat_tonemap_algorithm.GetInt() == 1 ) // New algorithm only
-		{
-			float flTonemapPercentTarget = mat_force_tonemap_percent_target.GetFloat() >= 0.0f ? mat_force_tonemap_percent_target.GetFloat() : g_flTonemapPercentTarget;
-			float flYellowTargetPixelStart = ( xpStart + ( float( nTotalGraphPixelsWide ) * flTonemapPercentTarget / 100.0f ) );
+		int np = 0;
+		CHistogram_entry_t &e = CurHistogram[l];
+		if ( e.ContainsValidData() )
+			np += e.m_npixels_in_range;
+		int width = MAX( 1, 500 * ( e.m_max_lum - e.m_min_lum ) );
 
-			float flTonemapMinAvgLum = mat_force_tonemap_min_avglum.GetFloat() >= 0.0f ? mat_force_tonemap_min_avglum.GetFloat() : g_flTonemapMinAvgLum;
-			float flYellowAveragePixelStart = ( xpStart + ( float( nTotalGraphPixelsWide ) * flTonemapMinAvgLum / 100.0f ) );
+		//Warning( "Bucket %d: min/max %f / %f.  m_npixels_in_range=%d   m_npixels=%d\n", l, e.m_min_lum, e.m_max_lum, e.m_npixels_in_range, e.m_npixels );
 
-			float flTonemapPercentBrightPixels = mat_force_tonemap_percent_bright_pixels.GetFloat() >= 0.0f ? mat_force_tonemap_percent_bright_pixels.GetFloat() : g_flTonemapPercentBrightPixels;
-			float flTargetPixelStart = ( xpStart + ( float( nTotalGraphPixelsWide ) * FindLocationOfPercentBrightPixels( flTonemapPercentBrightPixels, flTonemapPercentTarget ) ) );
-			float flAveragePixelStart = ( xpStart + ( float( nTotalGraphPixelsWide ) * FindLocationOfPercentBrightPixels( 50.0f ) ) );
-	
-			// Draw target yellow border bar
-			int nHeight = HISTOGRAM_BAR_SIZE * 3 / 4;
-			int nHeightOffset = -( HISTOGRAM_BAR_SIZE - nHeight ) / 2;
-	
-			// Green is current percent target location
-			pRenderContext->Viewport( flYellowTargetPixelStart-1, yOffset + nHeightOffset + HISTOGRAM_BAR_SIZE - nHeight - 2, 8, nHeight + 4 );
-			pRenderContext->ClearColor3ub( 0, 127, 0 );
-			pRenderContext->ClearBuffers( true, true );
-			
-			pRenderContext->Viewport( flYellowTargetPixelStart+1, yOffset + nHeightOffset + HISTOGRAM_BAR_SIZE - nHeight, 4, nHeight );
-			pRenderContext->ClearColor3ub( 0, 0, 0 );
-			pRenderContext->ClearBuffers( true, true );
-	
-			pRenderContext->Viewport( flTargetPixelStart+1, yOffset + nHeightOffset + HISTOGRAM_BAR_SIZE - nHeight, 4, nHeight );
-			pRenderContext->ClearColor3ub( 0, 255, 0 );
-			pRenderContext->ClearBuffers( true, true );
-			
-			// Blue is average luminance location
-			pRenderContext->Viewport( flYellowAveragePixelStart-1, yOffset + nHeightOffset + HISTOGRAM_BAR_SIZE - nHeight - 2, 8, nHeight + 4 );
-			pRenderContext->ClearColor3ub( 0, 114, 188 );
-			pRenderContext->ClearBuffers( true, true );
-			
-			pRenderContext->Viewport( flYellowAveragePixelStart+1, yOffset + nHeightOffset + HISTOGRAM_BAR_SIZE - nHeight, 4, nHeight );
-			pRenderContext->ClearColor3ub( 0, 0, 0 );
-			pRenderContext->ClearBuffers( true, true );
-	
-			pRenderContext->Viewport( flAveragePixelStart+1, yOffset + nHeightOffset + HISTOGRAM_BAR_SIZE - nHeight, 4, nHeight );
-			pRenderContext->ClearColor3ub( 0, 191, 243 );
+		if ( np )
+		{
+			int height = MAX( 1, MIN( HISTOGRAM_BAR_SIZE, ( (float)np / (float)nMaxValidPixels ) * HISTOGRAM_BAR_SIZE ) );
+
+			pRenderContext->ClearColor3ub( 255, 0, 0 );
+			pRenderContext->Viewport( xp, 4 + HISTOGRAM_BAR_SIZE - height, width, height );
 			pRenderContext->ClearBuffers( true, true );
 		}
+		else
+		{
+			int height = 1;
+			pRenderContext->ClearColor3ub( 0, 0, 255 );
+			pRenderContext->Viewport( xp, 4 + HISTOGRAM_BAR_SIZE - height, width, height );
+			pRenderContext->ClearBuffers( true, true );
+		}
+		xp += width + 2;
+	}
+
+	if ( mat_tonemap_algorithm.GetInt() == 1 ) // New algorithm only
+	{
+		float flYellowTargetPixelStart = ( xpStart + ( float( nTotalGraphPixelsWide ) * mat_tonemap_percent_target.GetFloat() / 100.0f ) );
+		float flYellowAveragePixelStart = ( xpStart + ( float( nTotalGraphPixelsWide ) * mat_tonemap_min_avglum.GetFloat() / 100.0f ) );
+
+		float flTargetPixelStart = ( xpStart + ( float( nTotalGraphPixelsWide ) * FindLocationOfPercentBrightPixels( mat_tonemap_percent_bright_pixels.GetFloat(), mat_tonemap_percent_target.GetFloat() ) ) );
+		float flAveragePixelStart = ( xpStart + ( float( nTotalGraphPixelsWide ) * FindLocationOfPercentBrightPixels( 50.0f ) ) );
+
+		// Draw target yellow border bar
+		int height = HISTOGRAM_BAR_SIZE;
+
+		// Green is current percent target location
+		pRenderContext->Viewport( flYellowTargetPixelStart, 4 + HISTOGRAM_BAR_SIZE - height, 4, height );
+		pRenderContext->ClearColor3ub( 200, 200, 0 );
+		pRenderContext->ClearBuffers( true, true );
+
+		pRenderContext->Viewport( flTargetPixelStart, 4 + HISTOGRAM_BAR_SIZE - height, 4, height );
+		pRenderContext->ClearColor3ub( 0, 255, 0 );
+		pRenderContext->ClearBuffers( true, true );
+
+		// Blue is average luminance location
+		pRenderContext->Viewport( flYellowAveragePixelStart, 4 + HISTOGRAM_BAR_SIZE - height, 4, height );
+		pRenderContext->ClearColor3ub( 200, 200, 0 );
+		pRenderContext->ClearBuffers( true, true );
+
+		pRenderContext->Viewport( flAveragePixelStart, 4 + HISTOGRAM_BAR_SIZE - height, 4, height );
+		pRenderContext->ClearColor3ub( 0, 200, 200 );
+		pRenderContext->ClearBuffers( true, true );
 	}
 
 	// Show actual tonemap value
@@ -1105,43 +1101,32 @@ void CTonemapSystem::DisplayHistogram()
 		float flAutoExposureMax;
 		GetExposureRange( &flAutoExposureMin, &flAutoExposureMax );
 
-		float flBarWidth = nTotalGraphPixelsWide;
-		float flBarStart = xpStart;
-
-		float flHistogramBarSize = HISTOGRAM_BAR_SIZE;
-		if ( mat_show_histogram.GetInt() == 2 ) // No histogram
+		float flBarWidth = 600.0f;
+		float flBarStart = dest_width - flBarWidth - 10.0f;
+		if ( IsX360() )
 		{
-			flHistogramBarSize = 0.0f;
+			flBarStart -= 50;
 		}
 
-		pRenderContext->Viewport( flBarStart, yOffset + flHistogramBarSize - 4 + 20, flBarWidth, 4 );
+		pRenderContext->Viewport( flBarStart, 4 + HISTOGRAM_BAR_SIZE - 4 + 75, flBarWidth, 4 );
 		pRenderContext->ClearColor3ub( 200, 200, 200 );
 		pRenderContext->ClearBuffers( true, true );
 
-		pRenderContext->Viewport( flBarStart, yOffset + flHistogramBarSize - 4 + 20 + 1, flBarWidth, 2 );
+		pRenderContext->Viewport( flBarStart, 4 + HISTOGRAM_BAR_SIZE - 4 + 75 + 1, flBarWidth, 2 );
 		pRenderContext->ClearColor3ub( 0, 0, 0 );
 		pRenderContext->ClearBuffers( true, true );
 
-		pRenderContext->Viewport( flBarStart + ( flBarWidth * ( ( m_flCurrentTonemapScale - flAutoExposureMin ) / ( flAutoExposureMax - flAutoExposureMin ) ) ) - 1,
-								  yOffset + flHistogramBarSize - 4 + 20 - 6 - 1, 4 + 2, 16 + 2 );
-		pRenderContext->ClearColor3ub( 0, 0, 0 );
+		pRenderContext->Viewport( flBarStart + ( flBarWidth * ( ( pRenderContext->GetToneMappingScaleLinear().x - flAutoExposureMin ) / ( flAutoExposureMax - flAutoExposureMin ) ) ),
+								  4 + HISTOGRAM_BAR_SIZE - 4 + 75 - 6, 4, 16 );
+		pRenderContext->ClearColor3ub( 255, 0, 0 );
 		pRenderContext->ClearBuffers( true, true );
 
-		pRenderContext->Viewport( flBarStart + ( flBarWidth * ( ( m_flCurrentTonemapScale - flAutoExposureMin ) / ( flAutoExposureMax - flAutoExposureMin ) ) ),
-								  yOffset + flHistogramBarSize - 4 + 20 - 6, 4, 16 );
-		pRenderContext->ClearColor3ub( 255, 255, 0 );
-		pRenderContext->ClearBuffers( true, true );
-
-		if ( !IsGameConsole() )
+		if ( bDrawTextThisFrame == true )
 		{
-			int nHeight = 21;
-			if ( mat_show_histogram.GetInt() == 2 ) // No histogram
-			{
-				nHeight = 1;
-			}
-
-			engine->Con_NPrintf( nHeight + ( nViewportY / 10 ), "%.2f                                                                             %.2f                                                                           %.2f",
-								 flAutoExposureMin, ( flAutoExposureMax + flAutoExposureMin ) / 2.0f, flAutoExposureMax );
+			if ( IsX360() )
+				engine->Con_NPrintf( 26, "Min: %.2f  Max: %.2f", flAutoExposureMin, flAutoExposureMax );
+			else
+				engine->Con_NPrintf( 26, "%.2f                                                                                       %.2f                                                                                           %.2f", flAutoExposureMin, ( flAutoExposureMax + flAutoExposureMin ) / 2.0f, flAutoExposureMax );
 		}
 	}
 
@@ -1153,283 +1138,74 @@ void CTonemapSystem::DisplayHistogram()
 	pRenderContext->PopRenderTargetAndViewport();
 }
 
-void UpdateMaterialSystemTonemapScalar()
+
+static CLuminanceHistogramSystem g_HDR_HistogramSystem;
+
+static float s_MovingAverageToneMapScale[10] = { 1.0f, 1.0f, 1.0f, 1.0f, 1.0f, 1.0f, 1.0f, 1.0f, 1.0f, 1.0f };
+static int s_nInAverage = 0;
+
+void ResetToneMapping(float value)
 {
-	GetCurrentTonemappingSystem()->UpdateMaterialSystemTonemapScalar();
-}
-
-void CTonemapSystem::UpdateMaterialSystemTonemapScalar()
-{
-	if ( g_pMaterialSystemHardwareConfig->GetHDRType() != HDR_TYPE_NONE )
-	{
-		// Deal with forced tone map scalar
-		float flForcedTonemapScale = mat_force_tonemap_scale.GetFloat();
-
-		if ( mat_fullbright.GetInt() == 1 )
-		{
-			flForcedTonemapScale = 1.0f;
-		}
-
-		if ( flForcedTonemapScale > 0.0f )
-		{
-			ResetTonemappingScale( flForcedTonemapScale );
-
-			// Send this value to the material system
-			CMatRenderContextPtr pRenderContext( materials );
-			pRenderContext->SetToneMappingScaleLinear( Vector( m_flCurrentTonemapScale, m_flCurrentTonemapScale, m_flCurrentTonemapScale ) );
-			return;
-		}
-
-		// Override tone map scalar
-		if ( m_bOverrideTonemapScaleEnabled )
-		{
-			float flAutoExposureMin;
-			float flAutoExposureMax;
-			GetExposureRange( &flAutoExposureMin, &flAutoExposureMax );
-
-			float fScale = clamp( m_flOverrideTonemapScale, flAutoExposureMin, flAutoExposureMax );
-			ResetTonemappingScale( fScale );
-
-			// Send this value to the material system
-			CMatRenderContextPtr pRenderContext( materials );
-			pRenderContext->SetToneMappingScaleLinear( Vector( m_flCurrentTonemapScale, m_flCurrentTonemapScale, m_flCurrentTonemapScale ) );
-			return;
-		}
-
-		// Send this value to the material system
-		CMatRenderContextPtr pRenderContext( materials );
-		pRenderContext->SetToneMappingScaleLinear( Vector( m_flCurrentTonemapScale, m_flCurrentTonemapScale, m_flCurrentTonemapScale ) );
-	}
-	else
-	{
-		// Send 1.0 to the material system since HDR is disabled
-		CMatRenderContextPtr pRenderContext( materials );
-		pRenderContext->SetToneMappingScaleLinear( Vector( 1.0f, 1.0f, 1.0f ) );
-	}
-}
-
-void CTonemapSystem::ResetTonemappingScale( float flTonemapScale )
-{
-	if ( flTonemapScale <= 0.0f )
-	{
-		// L4D Hack to reset the tonemapping scale to the average of min and max since we have such dark lighting
-		// compared to our other games. 1.0 is no longer a good value when changing spectator targets.
-		float flAutoExposureMin = 0.0f;
-		float flAutoExposureMax = 0.0f;
-		GetExposureRange( &flAutoExposureMin, &flAutoExposureMax );
-		flTonemapScale = ( flAutoExposureMin + flAutoExposureMax ) * 0.5f;
-		flTonemapScale = clamp( flTonemapScale, 1.0f, 10.0f ); // Restrict this to the 1-10 range
-	}
-
-	// Force current and target tonemap scalar
-	m_flCurrentTonemapScale = flTonemapScale;
-	m_flTargetTonemapScale = flTonemapScale;
-
-	// Clear averaging history
-	m_nNumMovingAverageValid = 0;
-}
-
-void CTonemapSystem::SetTargetTonemappingScale( float flTonemapScale )
-{
-	Assert( IsFinite( flTonemapScale ) );
-	if ( IsFinite( flTonemapScale ) )
-	{
-		m_flTargetTonemapScale = flTonemapScale;
-	}
-}
-
-// Local contrast setting
-PostProcessParameters_t s_LocalPostProcessParameters;
-
-// view fade param settings
-static Vector4D s_viewFadeColor = { 0.0f, 0.0f, 0.0f, 0.0f };
-static bool  s_bViewFadeModulate = false;
-
-void ResetToneMapping( float flTonemappingScale )
-{
-	GetCurrentTonemappingSystem()->ResetTonemappingScale( flTonemappingScale );
-
-	// Send this value to the material system
 	CMatRenderContextPtr pRenderContext( materials );
-	pRenderContext->SetToneMappingScaleLinear( Vector( flTonemappingScale, flTonemappingScale, flTonemappingScale ) );
+	s_nInAverage = 0;
+	pRenderContext->ResetToneMappingScale(value);
 }
 
-void CTonemapSystem::SetTonemapScale( IMatRenderContext *pRenderContext, float flTargetTonemapScalar, float flMinValue, float flMaxValue )
+static ConVar mat_force_tonemap_scale( "mat_force_tonemap_scale", "0.0", FCVAR_CHEAT );
+
+static void SetToneMapScale(IMatRenderContext *pRenderContext, float newvalue, float minvalue, float maxvalue)
 {
-	Assert( IsFinite( flTargetTonemapScalar ) );
-	if ( !IsFinite( flTargetTonemapScalar ) )
+	Assert( IsFinite( newvalue ) );
+	if( !IsFinite( newvalue ) )
 		return;
 
-	//=========================================================================//
-	// Save off new target tonemap scalar so we can compute a weighted average //
-	//=========================================================================//
-	if ( m_nNumMovingAverageValid < ARRAYSIZE( m_movingAverageTonemapScale ))
-	{
-		m_movingAverageTonemapScale[ m_nNumMovingAverageValid++ ] = flTargetTonemapScalar;
-	}
-	else
-	{
-		// Scroll, losing oldest
-		for ( int i = 0; i < ARRAYSIZE( m_movingAverageTonemapScale ) - 1; i++ )
-			m_movingAverageTonemapScale[ i ] = m_movingAverageTonemapScale[ i + 1 ];
-		m_movingAverageTonemapScale[ ARRAYSIZE( m_movingAverageTonemapScale ) - 1 ] = flTargetTonemapScalar;
-	}
-
-	//==================================================================//
-	// Compute a weighted average of the last 10 target tonemap scalars //
-	//==================================================================//
-	if ( m_nNumMovingAverageValid == ARRAYSIZE( m_movingAverageTonemapScale ) ) // If we have a full buffer
-	{
-		float flWeightedAverage = 0.0f;
-		float flSumWeights = 0.0f;
-		int iMidPoint = ARRAYSIZE( m_movingAverageTonemapScale ) / 2;
-		for ( int i = 0; i < ARRAYSIZE( m_movingAverageTonemapScale ); i++ )
-		{
-			float flWeight = abs( i - iMidPoint ) * ( 1.0f / ( ARRAYSIZE( m_movingAverageTonemapScale ) / 2 ) );
-			flSumWeights += flWeight;
-			flWeightedAverage += flWeight * m_movingAverageTonemapScale[i];
-		}
-		flWeightedAverage *= ( 1.0f / flSumWeights );
-		flWeightedAverage = clamp( flWeightedAverage, flMinValue, flMaxValue );
-
-		SetTargetTonemappingScale( flWeightedAverage );
-	}
-	else
-	{
-		SetTargetTonemappingScale( flTargetTonemapScalar );
-	}
-
-	//=======================================//
-	// Smoothly lerp to the target over time //
-	//=======================================//
-	float flElapsedTime = MAX( gpGlobals->frametime, 0.0f ); // Clamp to positive
-	float flRate = g_flTonemapRate;
-
-	if ( mat_tonemap_algorithm.GetInt() == 1 )
-	{
-		flRate *= 2.0f; // Default 2x for the new tone mapping algorithm so it feels the same as the original
-	}
-
-	if ( flRate == 0.0f ) // Zero indicates instantaneous tonemap scaling
-	{
-		m_flCurrentTonemapScale = m_flTargetTonemapScale;
-	}
-	else
-	{
-		if ( m_flTargetTonemapScale < m_flCurrentTonemapScale )
-		{
-			float acc_exposure_adjust = mat_accelerate_adjust_exposure_down.GetFloat();
-
-			// Adjust at up to 4x rate when over-exposed.
-			flRate = MIN( ( acc_exposure_adjust * flRate ), FLerp( flRate, ( acc_exposure_adjust * flRate ), 0.0f, 1.5f, ( m_flCurrentTonemapScale - m_flTargetTonemapScale ) ) );
-		}
-
-		float flRateTimesTime = flRate * flElapsedTime;
-		if ( mat_tonemap_algorithm.GetInt() == 1 )
-		{
-			// For the new tone mapping algorithm, limit the rate based on the number of bins to 
-			// help reduce the tone map scalar "riding the wave" of the histogram re-building
-
-			//Warning( "flRateTimesTime = %.4f", flRateTimesTime );
-			flRateTimesTime = MIN( flRateTimesTime, ( 1.0f / ( float )( NUM_HISTOGRAM_BUCKETS_NEW - 1 ) ) * 0.25f );
-			//Warning( " --> %.4f\n", flRateTimesTime );
-		}
-
-		float flAlpha = clamp( flRateTimesTime, 0.0f, 1.0f );
-		m_flCurrentTonemapScale = ( m_flTargetTonemapScale * flAlpha ) + ( m_flCurrentTonemapScale * ( 1.0f - flAlpha ) );
-		//m_flCurrentTonemapScale = FLerp( m_flCurrentTonemapScale, m_flTargetTonemapScale, flAlpha );
-
-		if ( !IsFinite( m_flCurrentTonemapScale ) )
-		{
-			Assert( 0 );
-			m_flCurrentTonemapScale = m_flTargetTonemapScale;
-		}
-	}
-
-	//==========================================//
-	// Step on values if we're forcing a scalar //
-	//==========================================//
 	float flForcedTonemapScale = mat_force_tonemap_scale.GetFloat();
-	if ( flForcedTonemapScale > 0.0f )
+
+	if( mat_fullbright.GetInt() == 1 )
 	{
-		ResetTonemappingScale( flForcedTonemapScale );
+		flForcedTonemapScale = 1.0f;
+	}
+
+	if( flForcedTonemapScale > 0.0f )
+	{
+		mat_hdr_tonemapscale.SetValue( flForcedTonemapScale );
+		pRenderContext->ResetToneMappingScale( flForcedTonemapScale );
+		return;
+	}
+
+	mat_hdr_tonemapscale.SetValue( newvalue );
+	pRenderContext->SetGoalToneMappingScale( newvalue );
+
+	if ( s_nInAverage < ARRAYSIZE( s_MovingAverageToneMapScale ))
+	{
+		s_MovingAverageToneMapScale[s_nInAverage ++]= newvalue;
+	}
+	else
+	{
+		// scroll, losing oldest
+		for( int i = 0;i < ARRAYSIZE( s_MovingAverageToneMapScale ) - 1;i ++ )
+			s_MovingAverageToneMapScale[i]= s_MovingAverageToneMapScale[i + 1];
+		s_MovingAverageToneMapScale[ARRAYSIZE( s_MovingAverageToneMapScale ) - 1]= newvalue;
+	}
+
+	// now, use the average of the last tonemap calculations as our goal scale
+	if ( s_nInAverage == ARRAYSIZE( s_MovingAverageToneMapScale ))	// got full buffer yet?
+	{
+		float avg = 0.;
+		float sumweights = 0;
+		int sample_pt = ARRAYSIZE( s_MovingAverageToneMapScale ) / 2;
+		for( int i = 0;i < ARRAYSIZE( s_MovingAverageToneMapScale );i ++ )
+		{
+			float weight = abs( i - sample_pt ) * ( 1.0 / ( ARRAYSIZE( s_MovingAverageToneMapScale ) / 2 ));
+			sumweights += weight;
+			avg += weight * s_MovingAverageToneMapScale[i];
+		}
+		avg *= ( 1.0 / sumweights );
+		avg = MIN( maxvalue, MAX( minvalue, avg ));
+		pRenderContext->SetGoalToneMappingScale( avg );
+		mat_hdr_tonemapscale.SetValue( avg );
 	}
 }
-
-//=====================================================================================================================
-// Public functions for messing with tone mapping
-//=====================================================================================================================
-
-float GetCurrentTonemapScale()
-{
-	return GetCurrentTonemappingSystem()->GetCurrentTonemappingScale();
-}
-
-void SetOverrideTonemapScale( bool bEnableOverride, float flTonemapScale )
-{
-	GetCurrentTonemappingSystem()->SetOverrideTonemapScale( bEnableOverride, flTonemapScale );
-}
-
-void SetViewFadeParams( byte r, byte g, byte b, byte a, bool bModulate )
-{
-	s_viewFadeColor.Init( float(r)/255.0f, float(g)/255.0f, float(b)/255.0f, float(a)/255.0f );
-	s_bViewFadeModulate = bModulate;
-}
-
-//=====================================================================================================================
-// BloomAdd material proxy ============================================================================================
-//=====================================================================================================================
-
-class CBloomAddMaterialProxy : public CEntityMaterialProxy
-{
-public:
-	CBloomAddMaterialProxy();
-	virtual ~CBloomAddMaterialProxy() {}
-	virtual bool Init( IMaterial *pMaterial, KeyValues *pKeyValues );
-	virtual void OnBind( C_BaseEntity *pEntity );
-	virtual IMaterial *GetMaterial();
-
-private:
-	IMaterialVar *m_pMaterialParam_BloomAmount;
-
-public:
-	static void SetBloomAmount( float flBloomAmount ) { s_flBloomAmount = flBloomAmount; }
-
-private:
-	static float s_flBloomAmount;
-};
-
-float CBloomAddMaterialProxy::s_flBloomAmount = 1.0f;
-
-CBloomAddMaterialProxy::CBloomAddMaterialProxy()
-: m_pMaterialParam_BloomAmount( NULL )
-{
-}
-
-bool CBloomAddMaterialProxy::Init( IMaterial *pMaterial, KeyValues *pKeyValues )
-{
-	bool bFoundVar = false;
-
-	m_pMaterialParam_BloomAmount = pMaterial->FindVar( "$c0_x", &bFoundVar, false );
-
-	return true;
-}
-
-void CBloomAddMaterialProxy::OnBind( C_BaseEntity *pEnt )
-{
-	if ( m_pMaterialParam_BloomAmount )
-		m_pMaterialParam_BloomAmount->SetFloatValue( s_flBloomAmount );
-}
-
-IMaterial *CBloomAddMaterialProxy::GetMaterial()
-{
-	if ( m_pMaterialParam_BloomAmount == NULL)
-		return NULL;
-
-	return m_pMaterialParam_BloomAmount->GetOwningMaterial();
-}
-
-//EXPOSE_MATERIAL_PROXY( CBloomAddMaterialProxy, BloomAdd );    need proxymaterials
 
 
 //=====================================================================================================================
@@ -1457,32 +1233,15 @@ private:
 	IMaterialVar *m_pMaterialParam_AAValues;
 	IMaterialVar *m_pMaterialParam_AAValues2;
 	IMaterialVar *m_pMaterialParam_BloomEnable;
-	IMaterialVar *m_pMaterialParam_BloomAmount;
 	IMaterialVar *m_pMaterialParam_BloomUVTransform;
 	IMaterialVar *m_pMaterialParam_ColCorrectEnable;
 	IMaterialVar *m_pMaterialParam_ColCorrectNumLookups;
 	IMaterialVar *m_pMaterialParam_ColCorrectDefaultWeight;
 	IMaterialVar *m_pMaterialParam_ColCorrectLookupWeights;
-	IMaterialVar *m_pMaterialParam_LocalContrastStrength;
-	IMaterialVar *m_pMaterialParam_LocalContrastEdgeStrength;
-	IMaterialVar *m_pMaterialParam_VignetteStart;
-	IMaterialVar *m_pMaterialParam_VignetteEnd;
-	IMaterialVar *m_pMaterialParam_VignetteBlurEnable;
-	IMaterialVar *m_pMaterialParam_VignetteBlurStrength;
-	IMaterialVar *m_pMaterialParam_FadeToBlackStrength;
-	IMaterialVar *m_pMaterialParam_DepthBlurFocalDistance;
-	IMaterialVar *m_pMaterialParam_DepthBlurStrength;
-	IMaterialVar *m_pMaterialParam_ScreenBlurStrength;
-	IMaterialVar *m_pMaterialParam_FilmGrainStrength;
-	IMaterialVar *m_pMaterialParam_VomitEnable;
-	IMaterialVar *m_pMaterialParam_VomitColor1;
-	IMaterialVar *m_pMaterialParam_VomitColor2;
-	IMaterialVar *m_pMaterialParam_FadeColor;
-	IMaterialVar *m_pMaterialParam_FadeType;
 
 public:
-	static void SetupEnginePostMaterial( const Vector4D & fullViewportBloomUVs, const Vector4D & fullViewportFBUVs, const Vector2D & destTexSize,
-										 bool bPerformSoftwareAA, bool bPerformBloom, bool bPerformColCorrect, float flAAStrength, float flBloomAmount );
+	static IMaterial * SetupEnginePostMaterial( const Vector4D & fullViewportBloomUVs, const Vector4D & fullViewportFBUVs, const Vector2D & destTexSize,
+												bool bPerformSoftwareAA, bool bPerformBloom, bool bPerformColCorrect, float flAAStrength );
 	static void SetupEnginePostMaterialAA( bool bPerformSoftwareAA, float flAAStrength );
 	static void SetupEnginePostMaterialTextureTransform( const Vector4D & fullViewportBloomUVs, const Vector4D & fullViewportFBUVs, Vector2D destTexSize );
 
@@ -1491,14 +1250,12 @@ private:
 	static float s_vBloomAAValues2[4];
 	static float s_vBloomUVTransform[4];
 	static int   s_PostBloomEnable;
-	static float s_PostBloomAmount;
 };
 
 float CEnginePostMaterialProxy::s_vBloomAAValues[4]					= { 0.0f, 0.0f, 0.0f, 0.0f };
 float CEnginePostMaterialProxy::s_vBloomAAValues2[4]				= { 0.0f, 0.0f, 0.0f, 0.0f };
 float CEnginePostMaterialProxy::s_vBloomUVTransform[4]				= { 0.0f, 0.0f, 0.0f, 0.0f };
 int   CEnginePostMaterialProxy::s_PostBloomEnable					= 1;
-float CEnginePostMaterialProxy::s_PostBloomAmount					= 1.0f;
 
 CEnginePostMaterialProxy::CEnginePostMaterialProxy()
 {
@@ -1506,22 +1263,10 @@ CEnginePostMaterialProxy::CEnginePostMaterialProxy()
 	m_pMaterialParam_AAValues2					= NULL;
 	m_pMaterialParam_BloomUVTransform			= NULL;
 	m_pMaterialParam_BloomEnable				= NULL;
-	m_pMaterialParam_BloomAmount				= NULL;
 	m_pMaterialParam_ColCorrectEnable			= NULL;
 	m_pMaterialParam_ColCorrectNumLookups		= NULL;
 	m_pMaterialParam_ColCorrectDefaultWeight	= NULL;
 	m_pMaterialParam_ColCorrectLookupWeights	= NULL;
-	m_pMaterialParam_LocalContrastStrength		= NULL;
-	m_pMaterialParam_LocalContrastEdgeStrength	= NULL;
-	m_pMaterialParam_VignetteStart				= NULL;
-	m_pMaterialParam_VignetteEnd				= NULL;
-	m_pMaterialParam_VignetteBlurEnable			= NULL;
-	m_pMaterialParam_VignetteBlurStrength		= NULL;
-	m_pMaterialParam_FadeToBlackStrength		= NULL;
-	m_pMaterialParam_DepthBlurFocalDistance		= NULL;
-	m_pMaterialParam_DepthBlurStrength			= NULL;
-	m_pMaterialParam_ScreenBlurStrength			= NULL;
-	m_pMaterialParam_FilmGrainStrength			= NULL;
 }
 
 CEnginePostMaterialProxy::~CEnginePostMaterialProxy()
@@ -1537,27 +1282,10 @@ bool CEnginePostMaterialProxy::Init( IMaterial *pMaterial, KeyValues *pKeyValues
 	m_pMaterialParam_AAValues2 = pMaterial->FindVar( "$AAInternal3", &bFoundVar, false );
 	m_pMaterialParam_BloomUVTransform = pMaterial->FindVar( "$AAInternal2", &bFoundVar, false );
 	m_pMaterialParam_BloomEnable = pMaterial->FindVar( "$bloomEnable", &bFoundVar, false );
-	m_pMaterialParam_BloomAmount = pMaterial->FindVar( "$bloomAmount", &bFoundVar, false );
 	m_pMaterialParam_ColCorrectEnable = pMaterial->FindVar( "$colCorrectEnable", &bFoundVar, false );
 	m_pMaterialParam_ColCorrectNumLookups = pMaterial->FindVar( "$colCorrect_NumLookups", &bFoundVar, false );
 	m_pMaterialParam_ColCorrectDefaultWeight = pMaterial->FindVar( "$colCorrect_DefaultWeight", &bFoundVar, false );
 	m_pMaterialParam_ColCorrectLookupWeights = pMaterial->FindVar( "$colCorrect_LookupWeights", &bFoundVar, false );
-	m_pMaterialParam_LocalContrastStrength = pMaterial->FindVar( "$localContrastScale", &bFoundVar, false );
-	m_pMaterialParam_LocalContrastEdgeStrength = pMaterial->FindVar( "$localContrastEdgeScale", &bFoundVar, false );
-	m_pMaterialParam_VignetteStart = pMaterial->FindVar( "$localContrastVignetteStart", &bFoundVar, false );
-	m_pMaterialParam_VignetteEnd = pMaterial->FindVar( "$localContrastVignetteEnd", &bFoundVar, false );
-	m_pMaterialParam_VignetteBlurEnable = pMaterial->FindVar( "$blurredVignetteEnable", &bFoundVar, false );
-	m_pMaterialParam_VignetteBlurStrength = pMaterial->FindVar( "$blurredVignetteScale", &bFoundVar, false );
-	m_pMaterialParam_FadeToBlackStrength = pMaterial->FindVar( "$fadeToBlackScale", &bFoundVar, false );
-	m_pMaterialParam_DepthBlurFocalDistance = pMaterial->FindVar( "$depthBlurFocalDistance", &bFoundVar, false );
-	m_pMaterialParam_DepthBlurStrength = pMaterial->FindVar( "$depthBlurStrength", &bFoundVar, false );
-	m_pMaterialParam_ScreenBlurStrength = pMaterial->FindVar( "$screenBlurStrength", &bFoundVar, false );
-	m_pMaterialParam_FilmGrainStrength = pMaterial->FindVar( "$noiseScale", &bFoundVar, false );
-	m_pMaterialParam_VomitEnable = pMaterial->FindVar( "$vomitEnable", &bFoundVar, false );
-	m_pMaterialParam_VomitColor1 = pMaterial->FindVar( "$vomitColor1", &bFoundVar, false );
-	m_pMaterialParam_VomitColor2 = pMaterial->FindVar( "$vomitColor2", &bFoundVar, false );
-	m_pMaterialParam_FadeColor = pMaterial->FindVar( "$fadeColor", &bFoundVar, false );
-	m_pMaterialParam_FadeType = pMaterial->FindVar( "$fade", &bFoundVar, false );
 
 	return true;
 }
@@ -1575,54 +1303,6 @@ void CEnginePostMaterialProxy::OnBind( C_BaseEntity *pEnt )
 
 	if ( m_pMaterialParam_BloomEnable )
 		m_pMaterialParam_BloomEnable->SetIntValue( s_PostBloomEnable );
-
-	if ( m_pMaterialParam_BloomAmount )
-		m_pMaterialParam_BloomAmount->SetFloatValue( s_PostBloomAmount );
-
-	if ( m_pMaterialParam_LocalContrastStrength )
-		m_pMaterialParam_LocalContrastStrength->SetFloatValue( s_LocalPostProcessParameters.m_flParameters[ PPPN_LOCAL_CONTRAST_STRENGTH ] );
-
-	if ( m_pMaterialParam_LocalContrastEdgeStrength )
-		m_pMaterialParam_LocalContrastEdgeStrength->SetFloatValue( s_LocalPostProcessParameters.m_flParameters[ PPPN_LOCAL_CONTRAST_EDGE_STRENGTH ] );
-
-	if ( m_pMaterialParam_VignetteStart )
-		m_pMaterialParam_VignetteStart->SetFloatValue( s_LocalPostProcessParameters.m_flParameters[ PPPN_VIGNETTE_START ] );
-
-	if ( m_pMaterialParam_VignetteEnd )
-		m_pMaterialParam_VignetteEnd->SetFloatValue( s_LocalPostProcessParameters.m_flParameters[ PPPN_VIGNETTE_END ] );
-
-	if ( m_pMaterialParam_VignetteBlurEnable )
-		m_pMaterialParam_VignetteBlurEnable->SetIntValue( s_LocalPostProcessParameters.m_flParameters[ PPPN_VIGNETTE_BLUR_STRENGTH ] > 0.0f ? 1 : 0 );
-
-	if ( m_pMaterialParam_VignetteBlurStrength )
-		m_pMaterialParam_VignetteBlurStrength->SetFloatValue( s_LocalPostProcessParameters.m_flParameters[ PPPN_VIGNETTE_BLUR_STRENGTH ] );
-
-	if ( m_pMaterialParam_FadeToBlackStrength )
-		m_pMaterialParam_FadeToBlackStrength->SetFloatValue( s_LocalPostProcessParameters.m_flParameters[ PPPN_FADE_TO_BLACK_STRENGTH ] );
-
-	if ( m_pMaterialParam_DepthBlurFocalDistance )
-		m_pMaterialParam_DepthBlurFocalDistance->SetFloatValue( s_LocalPostProcessParameters.m_flParameters[ PPPN_DEPTH_BLUR_FOCAL_DISTANCE ] );
-
-	if ( m_pMaterialParam_DepthBlurStrength )
-		m_pMaterialParam_DepthBlurStrength->SetFloatValue( s_LocalPostProcessParameters.m_flParameters[ PPPN_DEPTH_BLUR_STRENGTH ] );
-
-	if ( m_pMaterialParam_ScreenBlurStrength )
-		m_pMaterialParam_ScreenBlurStrength->SetFloatValue( s_LocalPostProcessParameters.m_flParameters[ PPPN_SCREEN_BLUR_STRENGTH ] );
-
-	if ( m_pMaterialParam_FilmGrainStrength )
-		m_pMaterialParam_FilmGrainStrength->SetFloatValue( s_LocalPostProcessParameters.m_flParameters[ PPPN_FILM_GRAIN_STRENGTH ] );
-
-	if ( m_pMaterialParam_FadeType )
-	{
-		int nFadeType = ( s_bViewFadeModulate ) ? 2 : 1;
-		nFadeType = ( s_viewFadeColor[3] > 0.0f ) ? nFadeType : 0;
-		m_pMaterialParam_FadeType->SetIntValue( nFadeType );
-	}
-
-	if ( m_pMaterialParam_FadeColor )
-	{
-		m_pMaterialParam_FadeColor->SetVecValue( s_viewFadeColor.Base(), 4 );
-	}
 }
 
 IMaterial *CEnginePostMaterialProxy::GetMaterial()
@@ -1638,7 +1318,6 @@ void CEnginePostMaterialProxy::SetupEnginePostMaterialAA( bool bPerformSoftwareA
 	if ( bPerformSoftwareAA )
 	{
 		// Pass ConVars to the material by proxy
-
 		//  - the strength of the AA effect (from 0 to 1)
 		//  - how much to allow 1-pixel lines to be blurred (from 0 to 1)
 		//  - pick one of the two quality modes (5-tap or 9-tap filter)
@@ -1695,28 +1374,41 @@ void CEnginePostMaterialProxy::SetupEnginePostMaterialTextureTransform( const Ve
 	s_vBloomUVTransform[3]	= uvScale.y;
 }
 
-void CEnginePostMaterialProxy::SetupEnginePostMaterial(	const Vector4D & fullViewportBloomUVs, const Vector4D & fullViewportFBUVs, const Vector2D & destTexSize,
-														bool bPerformSoftwareAA, bool bPerformBloom, bool bPerformColCorrect, float flAAStrength, float flBloomAmount )
+IMaterial * CEnginePostMaterialProxy::SetupEnginePostMaterial(	const Vector4D & fullViewportBloomUVs, const Vector4D & fullViewportFBUVs, const Vector2D & destTexSize,
+																bool bPerformSoftwareAA, bool bPerformBloom, bool bPerformColCorrect, float flAAStrength )
 {
-	s_PostBloomEnable = bPerformBloom ? 1 : 0;
-	s_PostBloomAmount = flBloomAmount;
+	// Shouldn't get here if none of the effects are enabled
+	Assert( bPerformSoftwareAA || bPerformBloom || bPerformColCorrect );
+
+	s_PostBloomEnable		= bPerformBloom ? 1 : 0;
 
 	SetupEnginePostMaterialAA( bPerformSoftwareAA, flAAStrength );
 
-	SetupEnginePostMaterialTextureTransform( fullViewportBloomUVs, fullViewportFBUVs, destTexSize );
+	if ( bPerformSoftwareAA || bPerformColCorrect )
+	{
+		SetupEnginePostMaterialTextureTransform( fullViewportBloomUVs, fullViewportFBUVs, destTexSize );
+		return materials->FindMaterial( "dev/engine_post", TEXTURE_GROUP_OTHER, true);
+	}
+	else
+	{
+		// Just use the old bloomadd material (which uses additive blending, unlike engine_post)
+		// NOTE: this path is what gets used for DX8 (which cannot enable AA or col-correction)
+		return materials->FindMaterial( "dev/bloomadd", TEXTURE_GROUP_OTHER, true);
+	}
 }
 
-//EXPOSE_MATERIAL_PROXY( CEnginePostMaterialProxy, engine_post );    need proxymaterials 
+EXPOSE_INTERFACE( CEnginePostMaterialProxy, IMaterialProxy, "engine_post" IMATERIAL_PROXY_INTERFACE_VERSION );
 
 
-static void DrawBloomDebugBoxes( IMatRenderContext *pRenderContext, int nX, int nY, int nWidth, int nHeight )
+static void DrawBloomDebugBoxes( IMatRenderContext *pRenderContext )
 {
 	// draw inset rects which should have a centered bloom 
-	pRenderContext->PushRenderTargetAndViewport();
-	pRenderContext->SetRenderTarget( IsPS3() ? materials->FindTexture( "_rt_FullFrameFB", TEXTURE_GROUP_RENDER_TARGET ) : NULL );
+	pRenderContext->SetRenderTarget(NULL);
+	int dest_width, dest_height;
+	pRenderContext->GetRenderTargetDimensions( dest_width, dest_height );
 
 	// full screen clear
-	pRenderContext->Viewport( nX, nY, nWidth, nHeight );
+	pRenderContext->Viewport( 0, 0, dest_width, dest_height );
 	pRenderContext->ClearColor3ub( 0, 0, 0 );
 	pRenderContext->ClearBuffers( true, true );
 
@@ -1728,32 +1420,36 @@ static void DrawBloomDebugBoxes( IMatRenderContext *pRenderContext, int nX, int 
 	static int wx = 0;
 	wx = ( wx + 1 ) & 63;
 
-	pRenderContext->Viewport( nWidth / 2 + nX + wx, nY + nHeight / 2, size, size );
+	pRenderContext->Viewport( dest_width / 2 + wx, dest_height / 2, size, size );
 	pRenderContext->ClearColor3ub( 255, 255, 255 );
 	pRenderContext->ClearBuffers( true, true );
 
 	// upper left
-	pRenderContext->Viewport( nX + inset, nY + inset, size, size );
+	pRenderContext->Viewport( inset, inset, size, size );
 	pRenderContext->ClearBuffers( true, true );
 
 	// upper right
-	pRenderContext->Viewport( nX + nWidth - inset - size, nY + inset, size, size );
+	pRenderContext->Viewport( dest_width - inset - size, inset, size, size );
 	pRenderContext->ClearBuffers( true, true );
 	
 	// lower right
-	pRenderContext->Viewport( nX + nWidth - inset - size, nY + nHeight - inset - size, size, size );
+	pRenderContext->Viewport( dest_width - inset - size, dest_height - inset - size, size, size );
 	pRenderContext->ClearBuffers( true, true );
 	
 	// lower left
-	pRenderContext->Viewport( nX + inset, nX + nHeight - inset - size, size, size );
+	pRenderContext->Viewport( inset, dest_height - inset - size, size, size );
 	pRenderContext->ClearBuffers( true, true );
 	
 	// restore
-	pRenderContext->PopRenderTargetAndViewport();
+	pRenderContext->Viewport( 0, 0, dest_width, dest_height );
 }
 
 static float GetBloomAmount( void )
 {
+	// return bloom amount ( 0.0 if disabled or otherwise turned off )
+	if ( engine->GetDXSupportLevel() < 80 )
+		return 0.0;
+
 	HDRType_t hdrType = g_pMaterialSystemHardwareConfig->GetHDRType();
 
 	bool bBloomEnabled = (mat_hdr_level.GetInt() >= 1);
@@ -1770,6 +1466,10 @@ static float GetBloomAmount( void )
 	{
 		bBloomEnabled = false;
 	}
+	if( !g_pMaterialSystemHardwareConfig->CanDoSRGBReadFromRTs() && g_pMaterialSystemHardwareConfig->FakeSRGBWrite() )
+	{
+		bBloomEnabled = false;		
+	}
 
 	float flBloomAmount=0.0;
 
@@ -1781,20 +1481,6 @@ static float GetBloomAmount( void )
 		// Use the appropriate bloom scale settings.  Mapmakers's overrides the convar settings.
 		currentBloomAmount = GetCurrentBloomScale() * rate + ( 1.0f - rate ) * currentBloomAmount;
 		flBloomAmount = currentBloomAmount;
-
-		if (IsGameConsole())
-		{
-			//we want to scale the bloom effect down because the effect textures are lower reolution on the 360.
-			//target match 1280x1024
-			if ( (g_pMaterialSystem->GetCurrentConfigForVideoCard().m_VideoMode.m_Height == 720) )
-			{
-				flBloomAmount *= (720.0f/1024.0f);
-			}
-			else //640x480
-			{
-				flBloomAmount *= (480.0f/1024.0f);
-			}
-		}
 	}
 
 	if ( hdrType == HDR_TYPE_NONE )
@@ -2017,72 +1703,74 @@ static void Generate8BitBloomTexture( IMatRenderContext *pRenderContext,
 	pRenderContext->PopRenderTargetAndViewport();
 }
 
-static void DoTonemapping( IMatRenderContext *pRenderContext, int nX, int nY, int nWidth, int nHeight, float flAutoExposureMin, float flAutoExposureMax )
+static void DoPreBloomTonemapping( IMatRenderContext *pRenderContext, int nX, int nY, int nWidth, int nHeight, float flAutoExposureMin, float flAutoExposureMax )
 {
-	// Skip if HDR disabled
-	if ( g_pMaterialSystemHardwareConfig->GetHDRType() == HDR_TYPE_NONE )
-		return;
-
-	// Update HDR histogram
-	if ( mat_dynamic_tonemapping.GetInt() )
+	// Update HDR histogram before bloom
+	if ( mat_dynamic_tonemapping.GetInt() || mat_show_histogram.GetInt() )
 	{
-		if ( s_bScreenEffectTextureIsUpdated == false && !IsPS3() )
+		tmZone( TELEMETRY_LEVEL0, TMZF_NONE, "%s", __FUNCTION__ );
+
+		if ( s_bScreenEffectTextureIsUpdated == false )
 		{
 			// FIXME: nX/nY/nWidth/nHeight are used here, but the equivalent parameters are ignored in Generate8BitBloomTexture
-			UpdateScreenEffectTexture( 0, nX, nY, nWidth, nHeight, false );
+			UpdateScreenEffectTexture( 0, nX, nY, nWidth, nHeight, true );
 			s_bScreenEffectTextureIsUpdated = true;
 		}
 
-		GetCurrentTonemappingSystem()->IssueAndReceiveBucketQueries();
-
-		float flTargetScalar = GetCurrentTonemappingSystem()->ComputeTargetTonemapScalar();
-		float flTargetScalarClamped = MAX( flAutoExposureMin, MIN( flAutoExposureMax, flTargetScalar ) );
-		flTargetScalarClamped = MAX( 0.001f, flTargetScalarClamped ); // Don't let this go to 0!
-		GetCurrentTonemappingSystem()->SetTonemapScale( pRenderContext, flTargetScalarClamped, flAutoExposureMin, flAutoExposureMax );
-
-		if ( mat_show_histogram.GetInt() )
+		g_HDR_HistogramSystem.Update();
+		if ( mat_dynamic_tonemapping.GetInt() || mat_show_histogram.GetInt() )
 		{
-			float flTonemapPercentTarget = mat_force_tonemap_percent_target.GetFloat() >= 0.0f ? mat_force_tonemap_percent_target.GetFloat() : g_flTonemapPercentTarget;
-			float flTonemapPercentBrightPixels = mat_force_tonemap_percent_bright_pixels.GetFloat() >= 0.0f ? mat_force_tonemap_percent_bright_pixels.GetFloat() : g_flTonemapPercentBrightPixels;
-			bool bDrawTextThisFrame = ( mat_show_histogram.GetInt() == 1 );
-			if ( IsGameConsole() )
+			float flTargetScalar = g_HDR_HistogramSystem.GetTargetTonemapScalar();
+			float flTargetScalarClamped = MAX( flAutoExposureMin, MIN( flAutoExposureMax, flTargetScalar ) );
+			flTargetScalarClamped = MAX( 0.001f, flTargetScalarClamped ); // Don't let this go to 0!
+			if ( mat_dynamic_tonemapping.GetInt() )
 			{
-				static float s_flLastTimeUpdate = 0.0f;
-				if ( int( gpGlobals->curtime ) - int( s_flLastTimeUpdate ) >= 2 )
-				{
-					s_flLastTimeUpdate = gpGlobals->curtime;
-					bDrawTextThisFrame = true;
-				}
-				else
-				{
-					bDrawTextThisFrame = false;
-				}
+				SetToneMapScale( pRenderContext, flTargetScalarClamped, flAutoExposureMin, flAutoExposureMax );
 			}
-
-			if ( bDrawTextThisFrame == true )
+			
+			if ( mat_debug_autoexposure.GetInt() || mat_show_histogram.GetInt() )
 			{
-				if ( mat_tonemap_algorithm.GetInt() == 0 )
+				bool bDrawTextThisFrame = true;
+
+				if ( IsX360() )
 				{
-					engine->Con_NPrintf( 25 + ( nY / 10 ), "(Original algorithm) Target Scalar = %4.2f  Min/Max( %4.2f, %4.2f )  Current Scalar: %4.2f",
-										 flTargetScalar, flAutoExposureMin, flAutoExposureMax, GetCurrentTonemappingSystem()->GetCurrentTonemappingScale() );
-				}
-				else
-				{
-					if ( IsGameConsole() )
+					static float s_flLastTimeUpdate = 0.0f;
+					if ( int( gpGlobals->curtime ) - int( s_flLastTimeUpdate ) >= 2 )
 					{
-						engine->Con_NPrintf( 25 + ( nY / 10 ), "[mat_show_histogram]  Target Scalar = %4.2f  Min/Max( %4.2f, %4.2f )  Final Scalar: %4.2f\n",
-							GetCurrentTonemappingSystem()->ComputeTargetTonemapScalar( true ), flAutoExposureMin, flAutoExposureMax, GetCurrentTonemappingSystem()->GetCurrentTonemappingScale() );
+						s_flLastTimeUpdate = gpGlobals->curtime;
+						bDrawTextThisFrame = true;
 					}
 					else
 					{
-						engine->Con_NPrintf( 25 + ( nY / 10 ), "%.2f%% of pixels above %d%% target @ %4.2f%%  Target Scalar = %4.2f  Min/Max( %4.2f, %4.2f )  Final Scalar: %4.2f",
-											 flTonemapPercentBrightPixels, (int)flTonemapPercentTarget,
-											 ( GetCurrentTonemappingSystem()->FindLocationOfPercentBrightPixels( flTonemapPercentBrightPixels, flTonemapPercentTarget ) * 100.0f ),
-											 GetCurrentTonemappingSystem()->ComputeTargetTonemapScalar( true ), flAutoExposureMin, flAutoExposureMax, GetCurrentTonemappingSystem()->GetCurrentTonemappingScale() );
+						bDrawTextThisFrame = false;
+					}
+				}
+
+				if ( bDrawTextThisFrame == true )
+				{
+					if ( mat_tonemap_algorithm.GetInt() == 0 )
+					{
+						engine->Con_NPrintf( 19, "(Original algorithm) Target Scalar = %4.2f  Min/Max( %4.2f, %4.2f )  Final Scalar: %4.2f  Actual: %4.2f",
+											 flTargetScalar, flAutoExposureMin, flAutoExposureMax, mat_hdr_tonemapscale.GetFloat(), pRenderContext->GetToneMappingScaleLinear().x );
+					}
+					else
+					{
+						engine->Con_NPrintf( 19, "%.2f%% of pixels above %d%% target @ %4.2f%%  Target Scalar = %4.2f  Min/Max( %4.2f, %4.2f )  Final Scalar: %4.2f  Actual: %4.2f",
+											 mat_tonemap_percent_bright_pixels.GetFloat(), mat_tonemap_percent_target.GetInt(),
+											 ( g_HDR_HistogramSystem.FindLocationOfPercentBrightPixels( mat_tonemap_percent_bright_pixels.GetFloat(), mat_tonemap_percent_target.GetFloat() ) * 100.0f ),
+											 g_HDR_HistogramSystem.GetTargetTonemapScalar( true ), flAutoExposureMin, flAutoExposureMax, mat_hdr_tonemapscale.GetFloat(), pRenderContext->GetToneMappingScaleLinear().x );
 					}
 				}
 			}
 		}
+	}
+}
+
+static void DoPostBloomTonemapping( IMatRenderContext *pRenderContext, int nX, int nY, int nWidth, int nHeight, float flAutoExposureMin, float flAutoExposureMax )
+{
+	if ( mat_show_histogram.GetInt() && ( engine->GetDXSupportLevel() >= 90 ) )
+	{
+		g_HDR_HistogramSystem.DisplayHistogram();
 	}
 }
 
@@ -2646,30 +2334,30 @@ static ConVar r_queued_post_processing( "r_queued_post_processing", "0" );
 // This has really marginal effects, but 4x1 does seem vaguely better for post-processing
 static ConVar mat_postprocess_x( "mat_postprocess_x", "4" );
 static ConVar mat_postprocess_y( "mat_postprocess_y", "1" );
-static ConVar mat_postprocess_enable( "mat_postprocess_enable", "1", FCVAR_CHEAT );
 
 void DoEnginePostProcessing( int x, int y, int w, int h, bool bFlashlightIsOn, bool bPostVGui )
 {
-	// don't do this if in alt-tab
-	if ( w <=0 || h <= 0 )
-	{
-		return;
-	}
+	tmZone( TELEMETRY_LEVEL0, TMZF_NONE, "%s", __FUNCTION__ );
+
+	CMatRenderContextPtr pRenderContext( materials );
 
 	if ( g_bDumpRenderTargets )
 	{
-		g_bDumpRenderTargets = false;	// Turn off from previous frame
+		g_bDumpRenderTargets = false;   // Turn off from previous frame
 	}
 
 	if ( mat_dump_rts.GetBool() )
 	{
-		g_bDumpRenderTargets = true;	// Dump intermediate render targets this frame
-		s_nRTIndex = 0;					// Used for numbering the TGA files for easy browsing
-		mat_dump_rts.SetValue( 0 );		// We only want to capture one frame, on rising edge of this convar
+		g_bDumpRenderTargets = true;    // Dump intermediate render targets this frame
+		s_nRTIndex = 0;                 // Used for numbering the TGA files for easy browsing
+		mat_dump_rts.SetValue( 0 );     // We only want to capture one frame, on rising edge of this convar
+
+		DumpTGAofRenderTarget( x, y, w, h, "BackBuffer" );
 	}
-	
-	CMatRenderContextPtr pRenderContext( materials );
-	PIXEVENT( pRenderContext, "DoEnginePostProcessing" );
+
+#if defined( _X360 )
+	pRenderContext->PushVertexShaderGPRAllocation( 16 ); //max out pixel shader threads
+#endif
 
 	if ( r_queued_post_processing.GetInt() )
 	{
@@ -2681,11 +2369,11 @@ void DoEnginePostProcessing( int x, int y, int w, int h, bool bFlashlightIsOn, b
 		}
 	}
 
-	#if defined( _X360 )
-		pRenderContext->PushVertexShaderGPRAllocation( 16 ); //max out pixel shader threads
-	#endif
-
 	GetTonemapSettingsFromEnvTonemapController();
+
+	float flBloomScale = GetBloomAmount();
+
+	HDRType_t hdrType = g_pMaterialSystemHardwareConfig->GetHDRType();
 
 	g_bFlashlightIsOn = bFlashlightIsOn;
 
@@ -2697,208 +2385,376 @@ void DoEnginePostProcessing( int x, int y, int w, int h, bool bFlashlightIsOn, b
 
 	if ( mat_debug_bloom.GetInt() == 1 )
 	{
-		DrawBloomDebugBoxes( pRenderContext, x, y, w, h );
+		DrawBloomDebugBoxes( pRenderContext );
 	}
 
-	s_bScreenEffectTextureIsUpdated = false; // Force an update in tone mapping code
-	DoTonemapping( pRenderContext, x, y, w, h, flAutoExposureMin, flAutoExposureMax );
-
-	if ( mat_postprocess_enable.GetInt() == 0 )
-	{
-		GetCurrentTonemappingSystem()->DisplayHistogram();
-
-		#if defined( _X360 )
-			pRenderContext->PopVertexShaderGPRAllocation();
-		#endif
-
-		return;
-	}
-
-	ConVarRef mat_software_aa_strength( "mat_software_aa_strength" );
-
-	// Set software-AA on by default for 360
-	if ( mat_software_aa_strength.GetFloat() == -1.0f )
-	{
-		if ( IsGameConsole() )
+	switch( hdrType )
+	{   
+		case HDR_TYPE_NONE:
+		case HDR_TYPE_INTEGER:
 		{
-			mat_software_aa_strength.SetValue( 1.0f );
-			if ( g_pMaterialSystem->GetCurrentConfigForVideoCard().m_VideoMode.m_Height > 480 )
+			s_bScreenEffectTextureIsUpdated = false;
+
+			if ( hdrType != HDR_TYPE_NONE )
 			{
-				mat_software_aa_quality.SetValue( 0 );
+				DoPreBloomTonemapping( pRenderContext, x, y, w, h, flAutoExposureMin, flAutoExposureMax );
+			}
+
+			// Set software-AA on by default for 360
+			if ( mat_software_aa_strength.GetFloat() == -1.0f )
+			{
+				if ( IsX360() )
+				{
+					mat_software_aa_strength.SetValue( 1.0f );
+					if ( g_pMaterialSystem->GetCurrentConfigForVideoCard().m_VideoMode.m_Height > 480 )
+					{
+						mat_software_aa_quality.SetValue( 0 );
+					}
+					else
+					{
+						// For standard-def, we have fewer pixels so we can afford 'high quality' mode (5->9 taps/pixel)
+						mat_software_aa_quality.SetValue( 1 );
+					}
+				}
+				else
+				{
+					mat_software_aa_strength.SetValue( 0.0f );
+				}
+			}
+
+			// Same trick for setting up the vgui aa strength
+			if ( mat_software_aa_strength_vgui.GetFloat() == -1.0f )
+			{
+				if ( IsX360() && (g_pMaterialSystem->GetCurrentConfigForVideoCard().m_VideoMode.m_Height == 720) )
+				{
+					mat_software_aa_strength_vgui.SetValue( 2.0f );
+				}
+				else
+				{
+					mat_software_aa_strength_vgui.SetValue( 1.0f );
+				}
+			}
+
+			float flAAStrength;
+
+			// We do a second AA blur pass over the TF intro menus. use mat_software_aa_strength_vgui there instead
+			if ( IsX360() && bPostVGui )
+			{
+				flAAStrength = mat_software_aa_strength_vgui.GetFloat();
 			}
 			else
 			{
-				// For standard-def, we have fewer pixels so we can afford 'high quality' mode (5->9 taps/pixel)
-				mat_software_aa_quality.SetValue( 1 );
-
-				// Disable in 480p for now
-				mat_software_aa_strength.SetValue( 0.0f );
+				flAAStrength = mat_software_aa_strength.GetFloat();
 			}
-		}
-		else
-		{
-			mat_software_aa_strength.SetValue( 0.0f );
-		}
-	}
 
-	// Same trick for setting up the vgui aa strength
-	if ( mat_software_aa_strength_vgui.GetFloat() == -1.0f )
-	{
-		if ( IsGameConsole() && (g_pMaterialSystem->GetCurrentConfigForVideoCard().m_VideoMode.m_Height == 720) )
-		{
-			mat_software_aa_strength_vgui.SetValue( 2.0f );
-		}
-		else
-		{
-			mat_software_aa_strength_vgui.SetValue( 1.0f );
-		}
-	}
-
-	float flAAStrength;
-
-	// We do a second AA blur pass over the TF intro menus. use mat_software_aa_strength_vgui there instead
-	if ( IsGameConsole() && bPostVGui )
-	{
-		flAAStrength = mat_software_aa_strength_vgui.GetFloat();
-	}
-	else
-	{
-		flAAStrength = mat_software_aa_strength.GetFloat();
-	}
-
-	// Bloom, software-AA and color-correction (applied in 1 pass, after generation of the bloom texture)
-	float flBloomScale = GetBloomAmount();
-	bool  bPerformSoftwareAA	= IsX360() && ( engine->GetDXSupportLevel() >= 90 ) && ( flAAStrength != 0.0f );
-	bool  bPerformBloom			= !bPostVGui && ( flBloomScale > 0.0f ) && ( engine->GetDXSupportLevel() >= 90 );
-	bool  bPerformColCorrect	= !bPostVGui && 
-								  ( g_pMaterialSystemHardwareConfig->GetDXSupportLevel() >= 90) &&
-								  ( g_pMaterialSystemHardwareConfig->GetHDRType() != HDR_TYPE_FLOAT ) &&
-								  g_pColorCorrectionMgr->HasNonZeroColorCorrectionWeights() &&
-								  mat_colorcorrection.GetInt();
-
-	pRenderContext->EnableColorCorrection( bPerformColCorrect );
-
-	bool bPerformLocalContrastEnhancement = false;
-	IMaterial* pPostMat = materials->FindMaterial( "dev/engine_post", TEXTURE_GROUP_OTHER, true );
-
-	if ( pPostMat )
-	{
-		IMaterialVar* pMatVar = pPostMat->FindVar( "$localcontrastenable", NULL, false );
-
-		if ( pMatVar )
-		{
-			bPerformLocalContrastEnhancement = pMatVar->GetIntValue() && mat_local_contrast_enable.GetBool();
-		}
-	}
-
-	if ( true )
-	{
-		ITexture *pSrc = materials->FindTexture( "_rt_FullFrameFB", TEXTURE_GROUP_RENDER_TARGET );
-
-		int nSrcWidth = pSrc->GetActualWidth();
-		int nSrcHeight = pSrc->GetActualHeight();
-
-		ITexture *dest_rt1 = materials->FindTexture( "_rt_SmallFB1", TEXTURE_GROUP_RENDER_TARGET );
-
-		if ( !s_bScreenEffectTextureIsUpdated && !IsPS3() )
-		{
-			UpdateScreenEffectTexture( 0, x, y, w, h, false );
-			s_bScreenEffectTextureIsUpdated = true;
-		}
-
-		if ( g_bDumpRenderTargets )
-		{
-			DumpTGAofRenderTarget( 0, 0, nSrcWidth, nSrcHeight, "FullFrameFB" );
-		}
-
-		if ( bPerformBloom || bPerformLocalContrastEnhancement )
-		{
-			Generate8BitBloomTexture( pRenderContext, x, y, w, h, true, false );
-		}
-
-		// Now add bloom (dest_rt0) to the framebuffer and perform software anti-aliasing and
-		// colour correction, all in one pass (improves performance, reduces quantization errors)
-		//
-		// First, set up texel coords (in the bloom and fb textures) at the centres of the outer pixel of the viewport:
-		float flFbWidth = ( float )pSrc->GetActualWidth();
-		float flFbHeight = ( float )pSrc->GetActualHeight();
-
-		Vector4D fullViewportPostSrcCorners(	0.0f,	-0.5f,	nSrcWidth/4-1,	nSrcHeight/4-1 );
-		Vector4D fullViewportPostSrcRect( nSrcWidth * ( ( x + 0 ) / flFbWidth ) / 4.0f + 0.0f, nSrcHeight * ( ( y + 0 ) / flFbHeight ) / 4.0f - 0.5f,
-										  nSrcWidth * ( ( x + w ) / flFbWidth ) / 4.0f - 1.0f, nSrcHeight * ( ( y + h ) / flFbHeight ) / 4.0f - 1.0f );
-		Vector4D fullViewportPostDestCorners(	0.0f,	 0.0f,	nSrcWidth - 1,	nSrcHeight - 1 );
-		Rect_t   fullViewportPostDestRect = {	x,		 y,		w,				h };
-		Vector2D destTexSize(									nSrcWidth,		nSrcHeight );
-
-		// When the viewport is not fullscreen, the UV-space size of a pixel changes
-		// (due to a stretchrect blit being used in UpdateScreenEffectTexture()), so
-		// we need to adjust the corner-pixel UVs sent to our drawrect call:
-		Vector2D uvScale(	( nSrcWidth  - ( nSrcWidth  / (float)w ) ) / ( nSrcWidth  - 1 ),
-							( nSrcHeight - ( nSrcHeight / (float)h ) ) / ( nSrcHeight - 1 ) );
-		CenterScaleQuadUVs( fullViewportPostSrcCorners,  uvScale );
-		CenterScaleQuadUVs( fullViewportPostDestCorners, uvScale );
-
-		Rect_t   partialViewportPostDestRect   = fullViewportPostDestRect;
-		Vector4D partialViewportPostSrcCorners = fullViewportPostSrcCorners;
-		if ( debug_postproc.GetInt() == 2 )
-		{
-			// Restrict the post effects to the centre quarter of the screen
-			// (we only use a portion of the bloom texture, so this *does* affect bloom texture UVs)
-			partialViewportPostDestRect.x		+= 0.25f*fullViewportPostDestRect.width;
-			partialViewportPostDestRect.y		+= 0.25f*fullViewportPostDestRect.height;
-			partialViewportPostDestRect.width	-= 0.50f*fullViewportPostDestRect.width;
-			partialViewportPostDestRect.height	-= 0.50f*fullViewportPostDestRect.height;
-
-			// This math interprets texel coords as being at corner pixel centers (*not* at corner vertices):
-			Vector2D uvScale(	1.0f - ( (w / 2) / (float)(w - 1) ),
-								1.0f - ( (h / 2) / (float)(h - 1) ) );
-			CenterScaleQuadUVs( partialViewportPostSrcCorners, uvScale );
-		}
-
-		// Temporary hack... Color correction was crashing on the first frame 
-		// when run outside the debugger for some mods (DoD). This forces it to skip
-		// a frame, ensuring we don't get the weird texture crash we otherwise would.
-		// FIXME: This will be removed when the true cause is found [added: Main CL 144694]
-		static bool bFirstFrame = !IsGameConsole();
-		if ( !bFirstFrame || !bPerformColCorrect )
-		{
-			HDRType_t hdrType = g_pMaterialSystemHardwareConfig->GetHDRType();
-			if ( hdrType == HDR_TYPE_FLOAT )
+			// bloom, software-AA and colour-correction (applied in 1 pass, after generation of the bloom texture)
+			bool  bPerformSoftwareAA	= IsX360() && ( engine->GetDXSupportLevel() >= 90 ) && ( flAAStrength != 0.0f );
+			bool  bPerformBloom			= !bPostVGui && ( flBloomScale > 0.0f ) && ( engine->GetDXSupportLevel() >= 90 );
+			bool  bPerformColCorrect	= !bPostVGui &&
+										  ( g_pMaterialSystemHardwareConfig->GetHDRType() != HDR_TYPE_FLOAT ) &&
+										  g_pColorCorrectionMgr->HasNonZeroColorCorrectionWeights() &&
+										  mat_colorcorrection.GetInt();
+			bool  bSplitScreenHDR		= mat_show_ab_hdr.GetInt();
+			pRenderContext->EnableColorCorrection( bPerformColCorrect );
+			if ( bPerformBloom || bPerformSoftwareAA || bPerformColCorrect )
 			{
-				// reset to render the final combine passes to the "real" display backbuffer
-				pRenderContext->SetIntRenderingParameter( INT_RENDERPARM_BACK_BUFFER_INDEX, BACK_BUFFER_INDEX_DEFAULT );
-				pRenderContext->SetRenderTarget( NULL );
+				tmZone( TELEMETRY_LEVEL0, TMZF_NONE, "ColorCorrection" );
+
+				ITexture *pSrc = materials->FindTexture( "_rt_FullFrameFB", TEXTURE_GROUP_RENDER_TARGET );
+				int nSrcWidth = pSrc->GetActualWidth();
+				int nSrcHeight = pSrc->GetActualHeight();
+
+				ITexture *dest_rt1 = materials->FindTexture( "_rt_SmallFB1", TEXTURE_GROUP_RENDER_TARGET );
+
+				if ( !s_bScreenEffectTextureIsUpdated )
+				{
+					// NOTE: UpdateScreenEffectTexture() uses StretchRect, so _rt_FullFrameFB is always 100%
+					//		 filled, even when the viewport is not fullscreen (e.g. with 'mat_viewportscale 0.5')
+					UpdateScreenEffectTexture( 0, x, y, w, h, true );
+					s_bScreenEffectTextureIsUpdated = true;
+				}
+
+				if ( bPerformBloom )
+				{
+					Generate8BitBloomTexture( pRenderContext, x, y, w, h, true, false );
+				}
+
+				// Now add bloom (dest_rt0) to the framebuffer and perform software anti-aliasing and
+				// colour correction, all in one pass (improves performance, reduces quantization errors)
+				//
+				// First, set up texel coords (in the bloom and fb textures) at the centres of the outer pixel of the viewport:
+				Vector4D fullViewportPostSrcCorners(	0.0f,	-0.5f,	nSrcWidth/4-1,	nSrcHeight/4-1 );
+				Vector4D fullViewportPostDestCorners(	0.0f,	 0.0f,	nSrcWidth - 1,	nSrcHeight - 1 );
+				Rect_t   fullViewportPostDestRect = {	x,		 y,		w,				h };
+				Vector2D destTexSize(									nSrcWidth,		nSrcHeight );
+
+				// When the viewport is not fullscreen, the UV-space size of a pixel changes
+				// (due to a stretchrect blit being used in UpdateScreenEffectTexture()), so
+				// we need to adjust the corner-pixel UVs sent to our drawrect call:
+				Vector2D uvScale(	( nSrcWidth  - ( nSrcWidth  / (float)w ) ) / ( nSrcWidth  - 1 ),
+									( nSrcHeight - ( nSrcHeight / (float)h ) ) / ( nSrcHeight - 1 ) );
+				CenterScaleQuadUVs( fullViewportPostSrcCorners,  uvScale );
+				CenterScaleQuadUVs( fullViewportPostDestCorners, uvScale );
+
+				Rect_t   partialViewportPostDestRect   = fullViewportPostDestRect;
+				Vector4D partialViewportPostSrcCorners = fullViewportPostSrcCorners;
+				if ( debug_postproc.GetInt() == 2 )
+				{
+					// Restrict the post effects to the centre quarter of the screen
+					// (we only use a portion of the bloom texture, so this *does* affect bloom texture UVs)
+					partialViewportPostDestRect.x		+= 0.25f*fullViewportPostDestRect.width;
+					partialViewportPostDestRect.y		+= 0.25f*fullViewportPostDestRect.height;
+					partialViewportPostDestRect.width	-= 0.50f*fullViewportPostDestRect.width;
+					partialViewportPostDestRect.height	-= 0.50f*fullViewportPostDestRect.height;
+
+					// This math interprets texel coords as being at corner pixel centers (*not* at corner vertices):
+					Vector2D uvScalePost(	1.0f - ( (w / 2) / (float)(w - 1) ),
+										1.0f - ( (h / 2) / (float)(h - 1) ) );
+					CenterScaleQuadUVs( partialViewportPostSrcCorners, uvScalePost );
+				}
+
+				// Temporary hack... Color correction was crashing on the first frame 
+				// when run outside the debugger for some mods (DoD). This forces it to skip
+				// a frame, ensuring we don't get the weird texture crash we otherwise would.
+				// FIXME: This will be removed when the true cause is found [added: Main CL 144694]
+				static bool bFirstFrame = !IsX360();
+				if( !bFirstFrame || !bPerformColCorrect )
+				{
+					bool bFBUpdated = false;
+
+					if ( mat_postprocessing_combine.GetInt() )
+					{
+						// Perform post-processing in one combined pass
+
+						IMaterial *post_mat = CEnginePostMaterialProxy::SetupEnginePostMaterial( fullViewportPostSrcCorners, fullViewportPostDestCorners, destTexSize, bPerformSoftwareAA, bPerformBloom, bPerformColCorrect, flAAStrength );
+
+						if (bSplitScreenHDR)
+						{
+							pRenderContext->SetScissorRect( partialViewportPostDestRect.width / 2, 0, partialViewportPostDestRect.width, partialViewportPostDestRect.height, true );
+						}
+
+						pRenderContext->DrawScreenSpaceRectangle(post_mat,
+                                                                 // TomF - offset already done by the viewport.
+																 0,0, //partialViewportPostDestRect.x,				partialViewportPostDestRect.y, 
+																 partialViewportPostDestRect.width,			partialViewportPostDestRect.height, 
+																 partialViewportPostSrcCorners.x,			partialViewportPostSrcCorners.y, 
+																 partialViewportPostSrcCorners.z,			partialViewportPostSrcCorners.w, 
+																 dest_rt1->GetActualWidth(),dest_rt1->GetActualHeight(),
+																 GetClientWorldEntity()->GetClientRenderable(),
+																 mat_postprocess_x.GetInt(), mat_postprocess_y.GetInt() );
+
+						if (bSplitScreenHDR)
+						{
+							pRenderContext->SetScissorRect( -1, -1, -1, -1, false );
+						}
+						bFBUpdated = true;
+					}
+					else
+					{
+						// Perform post-processing in three separate passes
+						if ( bPerformSoftwareAA )
+						{
+							IMaterial *aa_mat = CEnginePostMaterialProxy::SetupEnginePostMaterial( fullViewportPostSrcCorners, fullViewportPostDestCorners, destTexSize, bPerformSoftwareAA, false, false, flAAStrength );
+
+							if (bSplitScreenHDR)
+							{
+								pRenderContext->SetScissorRect( partialViewportPostDestRect.width / 2, 0, partialViewportPostDestRect.width, partialViewportPostDestRect.height, true );
+							}
+
+							pRenderContext->DrawScreenSpaceRectangle(aa_mat,
+                                                                     // TODO: check if offsets should be 0,0 here, as with the combined-pass case
+																	 partialViewportPostDestRect.x,				partialViewportPostDestRect.y, 
+																	 partialViewportPostDestRect.width,			partialViewportPostDestRect.height, 
+																	 partialViewportPostSrcCorners.x,			partialViewportPostSrcCorners.y, 
+																	 partialViewportPostSrcCorners.z,			partialViewportPostSrcCorners.w, 
+																	 dest_rt1->GetActualWidth(),dest_rt1->GetActualHeight(),
+																	 GetClientWorldEntity()->GetClientRenderable());
+
+							if (bSplitScreenHDR)
+							{
+								pRenderContext->SetScissorRect( -1, -1, -1, -1, false );
+							}
+							bFBUpdated = true;
+						}
+
+						if ( bPerformBloom )
+						{
+							IMaterial *bloom_mat = CEnginePostMaterialProxy::SetupEnginePostMaterial( fullViewportPostSrcCorners, fullViewportPostDestCorners, destTexSize, false, bPerformBloom, false, flAAStrength );
+
+							if (bSplitScreenHDR)
+							{
+								pRenderContext->SetScissorRect( partialViewportPostDestRect.width / 2, 0, partialViewportPostDestRect.width, partialViewportPostDestRect.height, true );
+							}
+
+							pRenderContext->DrawScreenSpaceRectangle(bloom_mat,
+                                                                     // TODO: check if offsets should be 0,0 here, as with the combined-pass case
+																	 partialViewportPostDestRect.x,				partialViewportPostDestRect.y, 
+																	 partialViewportPostDestRect.width,			partialViewportPostDestRect.height, 
+																	 partialViewportPostSrcCorners.x,			partialViewportPostSrcCorners.y, 
+																	 partialViewportPostSrcCorners.z,			partialViewportPostSrcCorners.w, 
+																	 dest_rt1->GetActualWidth(),dest_rt1->GetActualHeight(),
+																	 GetClientWorldEntity()->GetClientRenderable());
+
+							if (bSplitScreenHDR)
+							{
+								pRenderContext->SetScissorRect( -1, -1, -1, -1, false );
+							}
+							bFBUpdated = true;
+						}
+
+						if ( bPerformColCorrect )
+						{
+							if ( bFBUpdated )
+							{
+								Rect_t actualRect;
+								UpdateScreenEffectTexture( 0, x, y, w, h, false, &actualRect );
+							}
+
+							IMaterial *colcorrect_mat = CEnginePostMaterialProxy::SetupEnginePostMaterial( fullViewportPostSrcCorners, fullViewportPostDestCorners, destTexSize, false, false, bPerformColCorrect, flAAStrength );
+
+							if (bSplitScreenHDR)
+							{
+								pRenderContext->SetScissorRect( partialViewportPostDestRect.width / 2, 0, partialViewportPostDestRect.width, partialViewportPostDestRect.height, true );
+							}
+
+							pRenderContext->DrawScreenSpaceRectangle(colcorrect_mat,
+                                                                     // TODO: check if offsets should be 0,0 here, as with the combined-pass case
+																	 partialViewportPostDestRect.x,				partialViewportPostDestRect.y, 
+																	 partialViewportPostDestRect.width,			partialViewportPostDestRect.height, 
+																	 partialViewportPostSrcCorners.x,			partialViewportPostSrcCorners.y, 
+																	 partialViewportPostSrcCorners.z,			partialViewportPostSrcCorners.w, 
+																	 dest_rt1->GetActualWidth(),dest_rt1->GetActualHeight(),
+																	 GetClientWorldEntity()->GetClientRenderable());
+
+							if (bSplitScreenHDR)
+							{
+								pRenderContext->SetScissorRect( -1, -1, -1, -1, false );
+							}
+							bFBUpdated  = true;
+						}
+					}
+
+					bool bVisionOverride = ( localplayer_visionflags.GetInt() & ( 0x01 ) ); // Pyro-vision Goggles
+
+					if ( bVisionOverride && g_pMaterialSystemHardwareConfig->SupportsPixelShaders_2_0() && pyro_vignette.GetInt() > 0 )
+					{
+						if ( bFBUpdated )
+						{
+							Rect_t actualRect;
+							UpdateScreenEffectTexture( 0, x, y, w, h, false, &actualRect );
+						}
+
+						DrawPyroVignette(
+                            // TODO: check if offsets should be 0,0 here, as with the combined-pass case
+                            partialViewportPostDestRect.x,				partialViewportPostDestRect.y, 
+							partialViewportPostDestRect.width,			partialViewportPostDestRect.height, 
+							partialViewportPostSrcCorners.x,			partialViewportPostSrcCorners.y, 
+							partialViewportPostSrcCorners.z,			partialViewportPostSrcCorners.w, 
+							GetClientWorldEntity()->GetClientRenderable() );
+
+						IMaterial *pPyroVisionPostMaterial = materials->FindMaterial( "dev/pyro_post", TEXTURE_GROUP_OTHER, true);
+						DrawPyroPost( pPyroVisionPostMaterial,
+                            // TODO: check if offsets should be 0,0 here, as with the combined-pass case
+							partialViewportPostDestRect.x,				partialViewportPostDestRect.y, 
+							partialViewportPostDestRect.width,			partialViewportPostDestRect.height, 
+							partialViewportPostSrcCorners.x,			partialViewportPostSrcCorners.y, 
+							partialViewportPostSrcCorners.z,			partialViewportPostSrcCorners.w, 
+							dest_rt1->GetActualWidth(),dest_rt1->GetActualHeight(),
+							GetClientWorldEntity()->GetClientRenderable() );
+					}
+
+					if ( g_bDumpRenderTargets )
+					{
+						DumpTGAofRenderTarget( partialViewportPostDestRect.x, partialViewportPostDestRect.y,
+											   partialViewportPostDestRect.width, partialViewportPostDestRect.height, "EnginePost" );
+					}
+				}
+				bFirstFrame = false;
 			}
 
-			Vector4D v4dFullViewportPostDestRect( fullViewportPostDestRect.x, fullViewportPostDestRect.y,
-												  fullViewportPostDestRect.x + fullViewportPostDestRect.width - 1,
-												  fullViewportPostDestRect.y + fullViewportPostDestRect.height - 1 );
-
-			CEnginePostMaterialProxy::SetupEnginePostMaterial( fullViewportPostSrcRect, v4dFullViewportPostDestRect, destTexSize, bPerformSoftwareAA, bPerformBloom, bPerformColCorrect, flAAStrength, flBloomScale );
-
-			pRenderContext->DrawScreenSpaceRectangle( pPostMat,
-													  0, 0,
-													  partialViewportPostDestRect.width, partialViewportPostDestRect.height,
-													  fullViewportPostSrcRect.x, fullViewportPostSrcRect.y,
-													  fullViewportPostSrcRect.z, fullViewportPostSrcRect.w,
-
-													  dest_rt1->GetActualWidth(), dest_rt1->GetActualHeight(),
-													  GetClientWorldEntity()->GetClientRenderable(),
-													  mat_postprocess_x.GetInt(), mat_postprocess_y.GetInt() );
-
-			if ( g_bDumpRenderTargets )
+			if ( hdrType != HDR_TYPE_NONE )
 			{
-				DumpTGAofRenderTarget( 0, 0, partialViewportPostDestRect.width, partialViewportPostDestRect.height, "EnginePost" );
+				DoPostBloomTonemapping( pRenderContext, x, y, w, h, flAutoExposureMin, flAutoExposureMax );
 			}
 		}
-		bFirstFrame = false;
+		break;
+
+		case HDR_TYPE_FLOAT:
+		{
+			int dest_width,dest_height;
+			pRenderContext->GetRenderTargetDimensions( dest_width, dest_height );
+			if (mat_dynamic_tonemapping.GetInt() || mat_show_histogram.GetInt())
+			{
+				g_HDR_HistogramSystem.Update();
+				//				Warning("avg_lum=%f\n",g_HDR_HistogramSystem.GetTargetTonemapScalar());
+				if ( mat_dynamic_tonemapping.GetInt() )
+				{
+					float avg_lum = MAX( 0.0001, g_HDR_HistogramSystem.GetTargetTonemapScalar() );
+					float scalevalue = MAX( flAutoExposureMin,
+										 MIN( flAutoExposureMax, 0.18 / avg_lum ));
+					pRenderContext->SetGoalToneMappingScale( scalevalue );
+					mat_hdr_tonemapscale.SetValue( scalevalue );
+				}
+			}
+			
+			IMaterial *pBloomMaterial;
+			pBloomMaterial = materials->FindMaterial( "dev/floattoscreen_combine", "" );
+			IMaterialVar *pBloomAmountVar = pBloomMaterial->FindVar( "$bloomamount", NULL );
+			pBloomAmountVar->SetFloatValue( flBloomScale );
+			
+			PostProcessingPass* selectedHDR;
+			
+			if ( flBloomScale > 0.0 )
+			{
+				selectedHDR = HDRFinal_Float;
+			}
+			else
+			{
+				selectedHDR = HDRFinal_Float_NoBloom;
+			}
+			
+			if (mat_show_ab_hdr.GetInt())
+			{
+				ClipBox splitScreenClip;
+				
+				splitScreenClip.m_minx = splitScreenClip.m_miny = 0;
+
+				// Left half
+				splitScreenClip.m_maxx = dest_width / 2;
+				splitScreenClip.m_maxy = dest_height - 1;
+				
+				ApplyPostProcessingPasses(HDRSimulate_NonHDR, &splitScreenClip);
+				
+				// Right half
+				splitScreenClip.m_minx = splitScreenClip.m_maxx;
+				splitScreenClip.m_maxx = dest_width - 1;
+				
+				ApplyPostProcessingPasses(selectedHDR, &splitScreenClip);
+				
+			}
+			else
+			{
+				ApplyPostProcessingPasses(selectedHDR);
+			}
+
+			pRenderContext->SetRenderTarget(NULL);
+			if ( mat_show_histogram.GetInt() && (engine->GetDXSupportLevel()>=90))
+				g_HDR_HistogramSystem.DisplayHistogram();
+			if ( mat_dynamic_tonemapping.GetInt() )
+			{
+				float avg_lum = MAX( 0.0001, g_HDR_HistogramSystem.GetTargetTonemapScalar() );
+				float scalevalue = MAX( flAutoExposureMin,
+									 MIN( flAutoExposureMax, 0.023 / avg_lum ));
+				SetToneMapScale( pRenderContext, scalevalue, flAutoExposureMin, flAutoExposureMax );
+			}
+			pRenderContext->SetRenderTarget( NULL );
+			break;
+		}
 	}
 
-	GetCurrentTonemappingSystem()->DisplayHistogram();
-
-	#if defined( _X360 )
-		pRenderContext->PopVertexShaderGPRAllocation();
-	#endif
+#if defined( _X360 )
+	pRenderContext->PopVertexShaderGPRAllocation();
+#endif
 }
 
 void DoBlurFade( float flStrength, float flDesaturate, int x, int y, int w, int h )
@@ -3013,7 +2869,7 @@ IMaterial *CMotionBlurMaterialProxy::GetMaterial()
 	return m_pMaterialParam->GetOwningMaterial();
 }
 
-//EXPOSE_MATERIAL_PROXY( CMotionBlurMaterialProxy, MotionBlur );    need proxymaterials 
+EXPOSE_INTERFACE( CMotionBlurMaterialProxy, IMaterialProxy, "MotionBlur" IMATERIAL_PROXY_INTERFACE_VERSION );
 
 //=====================================================================================================================
 // Image-space Motion Blur ============================================================================================
