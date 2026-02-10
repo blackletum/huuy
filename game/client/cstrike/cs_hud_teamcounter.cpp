@@ -142,6 +142,10 @@ CHudTeamCounter::CHudTeamCounter(const char *pElementName) : CHudElement(pElemen
     m_flPlayingTeamFadeoutTime = -1;
     m_flLastSpecListUpdate = -1;
     m_bActive = true;
+    m_iRoundTime = 0;
+    m_nLastObserverMode = OBS_MODE_NONE;
+    m_nLastObserverTarget = 0;
+    m_flLastMiniScoreboardUpdate = 0.0f;
     m_Mode = VIEW_MODE_NORMAL;
     m_iTimerXPos = 0;
     m_iTimerYPos = 0;
@@ -164,6 +168,7 @@ void CHudTeamCounter::Init()
 {
     m_bTimerAlertTriggered = false;
     m_bRoundStarted = true;
+    m_iRoundTime = 0;
     m_bIsBombDefused = false;
     m_bTimerHidden = false;
     m_nTScoreLastUpdate = -1;
@@ -270,6 +275,7 @@ bool CHudTeamCounter::ShouldDraw()
 void CHudTeamCounter::OnThink()
 {
     UpdateTimer();
+    UpdateScore();
 
     if (m_bIsAtTheBottom != hud_playercount_pos.GetBool())
     {
@@ -282,6 +288,14 @@ void CHudTeamCounter::OnThink()
     {
         g_pClientMode->GetViewportAnimationController()->StartAnimationSequence("FadeOutSelectedTeam");
         m_flPlayingTeamFadeoutTime = -1;
+    }
+    
+    if (gpGlobals->curtime - m_flLastMiniScoreboardUpdate >= 0.5f)
+    {
+        m_bForceRefresh = true;
+        m_flLastMiniScoreboardUpdate = gpGlobals->curtime;
+        UpdateScore();
+        UpdateMiniScoreboard();
     }
 }
 
@@ -304,149 +318,112 @@ void CHudTeamCounter::UpdateTimer()
     if (!pRules)
         return;
 
-    bool bBeginTimerAlert = false;
-    bool bCancelTimerAlert = false;
-
-    // Timer is hidden when bomb planted
-    if (g_PlantedC4s.Count() > 0)
+    bool bBombPlanted = (g_PlantedC4s.Count() > 0);
+    if (bBombPlanted)
     {
-        if (!m_bTimerHidden)
-        {
-            m_bTimerHidden = true;
-            m_pRoundTimerLabel->SetText(L"");
-            m_pBombIcon->SetVisible(true);
-        }
-
         C_PlantedC4 *pC4 = g_PlantedC4s[0];
-        if (m_bIsBombDefused)
+
+        if (pC4->m_bBombDefused)
         {
             m_pBombIcon->SetAlpha(255);
             m_pBombIcon->SetFgColor(m_clrC4Defused);
+            m_pBombIcon->SetVisible(true);
         }
         else
         {
-            // Pulsating bomb icon
-            int alpha = (gpGlobals->curtime + 0.1f >= pC4->m_flNextGlow) ? 128 : 255;
+            int alpha = 255;
+            if (gpGlobals->curtime + 0.1f >= pC4->m_flNextGlow)
+                alpha = 128;
+
             m_pBombIcon->SetAlpha(alpha);
             m_pBombIcon->SetFgColor(m_clrC4Planted);
             m_pBombIcon->SetVisible(!pC4->m_bExplodeWarning);
         }
-        return;
+    }
+    else
+        m_pBombIcon->SetVisible(false);
+
+    if (bBombPlanted || pRules->IsTimeOutActive() || pRules->IsWarmupPeriod())
+    {
+        m_pRoundTimerLabel->SetText(L" ");
     }
     else
     {
-        m_bTimerHidden = false;
-        m_pBombIcon->SetVisible(false);
-    }
+        if (m_iRoundTime < (int)ceil(pRules->GetRoundRemainingTime()))
+            m_pRoundTimerLabel->SetFgColor(m_clrRoundTimer);
 
-    if (pRules->IsWarmupPeriod())
-    {
-        m_pRoundTimerLabel->SetText(L"");
-        return;
-    }
-    else if (pRules->IsFreezePeriod() && pRules->IsMatchWaitingForResume())
-    {
-        m_pRoundTimerLabel->SetText(L"❚❚");
-        g_pClientMode->GetViewportAnimationController()->StartAnimationSequence("RoundTimerAlert");
-        return;
-    }
+        m_iRoundTime = (int)ceil(pRules->GetRoundRemainingTime());
 
-    int nTimer = static_cast<int>(ceil(pRules->GetRoundRemainingTime()));
-    if (pRules->IsFreezePeriod())
-        nTimer = static_cast<int>(ceil(pRules->GetRoundStartTime() - gpGlobals->curtime));
-
-    if (m_bRoundStarted)
-    {
-        if (!m_bTimerAlertTriggered && nTimer < kTimeRemainingToDisplayRed)
+        if (pRules->IsFreezePeriod())
         {
-            m_bTimerAlertTriggered = true;
-            bBeginTimerAlert = true;
+            // in freeze period countdown to round start time
+            m_iRoundTime = (int)ceil(pRules->GetRoundStartTime() - gpGlobals->curtime);
         }
-        else if (m_bTimerAlertTriggered && nTimer >= kTimeRemainingToDisplayRed)
-        {
-            m_bTimerAlertTriggered = false;
-            bCancelTimerAlert = true;
-        }
+
+        if (m_iRoundTime < 0)
+            m_iRoundTime = 0;
+
+        if (m_iRoundTime <= 10)
+            m_pRoundTimerLabel->SetFgColor(m_clrRoundTimerLow);
+
+        int iMinutes = m_iRoundTime / 60;
+        int iSeconds = m_iRoundTime % 60;
+
+        wchar_t unicode[32];
+        V_snwprintf(unicode, ARRAYSIZE(unicode), L"%d : %.2d", iMinutes, iSeconds);
+        m_pRoundTimerLabel->SetText(unicode);
     }
-
-    if (nTimer < 0)
-        nTimer = 0;
-
-    int nMinutes = nTimer / 60;
-    int nSeconds = nTimer % 60;
-
-    wchar_t szTime[32];
-    if (m_bRoundStarted)
-    {
-        V_snwprintf(szTime, ARRAYSIZE(szTime), L"%d:%.2d", nMinutes, nSeconds);
-        m_pRoundTimerLabel->SetText(szTime);
-    }
-
-    if (bCancelTimerAlert)
-        g_pClientMode->GetViewportAnimationController()->StartAnimationSequence("RoundTimerNormal");
-    if (bBeginTimerAlert)
-        g_pClientMode->GetViewportAnimationController()->StartAnimationSequence("RoundTimerLow");
 }
 
 void CHudTeamCounter::UpdateScore()
 {
-    if (!g_PR || !CSGameRules() || !m_bActive)
-        return;
-
-    int nCTScore = 0;
-    int nTScore = 0;
-
-    if (m_Mode == VIEW_MODE_NORMAL || m_Mode == VIEW_MODE_GUN_GAME_BOMB)
-    {
-        C_CSTeam *CT_team = GetGlobalCSTeam(TEAM_CT);
-        if (CT_team)
-            nCTScore = CT_team->Get_Score();
-
-        C_CSTeam *T_team = GetGlobalCSTeam(TEAM_TERRORIST);
-        if (T_team)
-            nTScore = T_team->Get_Score();
-    }
+    C_CSTeam *teamCT = GetGlobalCSTeam(TEAM_CT);
+    C_CSTeam *teamT = GetGlobalCSTeam(TEAM_TERRORIST);
 
     wchar_t unicode[16];
-    if (nCTScore != m_nCTScoreLastUpdate)
+    
+    if (teamCT)
     {
-        m_nCTScoreLastUpdate = nCTScore;
-        V_snwprintf(unicode, ARRAYSIZE(unicode), L"%d", nCTScore);
+        V_snwprintf(unicode, ARRAYSIZE(unicode), L"%d", teamCT->Get_Score());
         m_pCTWinCounterLabel->SetText(unicode);
     }
-
-    if (nTScore != m_nTScoreLastUpdate)
+    
+    if (teamT)
     {
-        m_nTScoreLastUpdate = nTScore;
-        V_snwprintf(unicode, ARRAYSIZE(unicode), L"%d", nTScore);
+        V_snwprintf(unicode, ARRAYSIZE(unicode), L"%d", teamT->Get_Score());
         m_pTWinCounterLabel->SetText(unicode);
     }
 
-    int iCTCounter = 0, iTCounter = 0;
-    
-    for (int i = 0; i < m_nCTTeamCount; i++)
+    if (g_PR)
     {
-        if (m_CTTeam[i].nPlayerIdx >= 0 && !m_CTTeam[i].bDead)
-            iCTCounter++;
-    }
-    
-    for (int i = 0; i < m_nTerroristTeamCount; i++)
-    {
-        if (m_TTeam[i].nPlayerIdx >= 0 && !m_TTeam[i].bDead)
-            iTCounter++;
-    }
+        int iCTCounter = 0;
+        int iTCounter = 0;
+        
+        for (int playerIndex = 1; playerIndex <= MAX_PLAYERS; playerIndex++)
+        {
+            if (g_PR->IsConnected(playerIndex) && g_PR->IsAlive(playerIndex))
+            {
+                if (g_PR->GetTeam(playerIndex) == TEAM_CT)
+                    iCTCounter++;
 
-    V_snwprintf(unicode, ARRAYSIZE(unicode), L"%d", iCTCounter);
-    m_pCTAliveCounterLabel->SetText(unicode);
-    V_snwprintf(unicode, ARRAYSIZE(unicode), L"%d", iTCounter);
-    m_pTAliveCounterLabel->SetText(unicode);
+                if (g_PR->GetTeam(playerIndex) == TEAM_TERRORIST)
+                    iTCounter++;
+            }
+        }
 
-    m_pCTAliveCounterLabel->SetVisible(iCTCounter > 0);
-    m_pCTAliveTextLabel->SetVisible(iCTCounter > 0);
-    m_pTAliveCounterLabel->SetVisible(iTCounter > 0);
-    m_pTAliveTextLabel->SetVisible(iTCounter > 0);
-    m_pCTSkullImage->SetVisible(iCTCounter < 1);
-    m_pTSkullImage->SetVisible(iTCounter < 1);
+        V_snwprintf(unicode, ARRAYSIZE(unicode), L"%d", iCTCounter);
+        m_pCTAliveCounterLabel->SetText(unicode);
+
+        V_snwprintf(unicode, ARRAYSIZE(unicode), L"%d", iTCounter);
+        m_pTAliveCounterLabel->SetText(unicode);
+
+        m_pCTAliveCounterLabel->SetVisible(iCTCounter > 0);
+        m_pCTAliveTextLabel->SetVisible(iCTCounter > 0);
+        m_pTAliveCounterLabel->SetVisible(iTCounter > 0);
+        m_pTAliveTextLabel->SetVisible(iTCounter > 0);
+        m_pCTSkullImage->SetVisible(iCTCounter < 1);
+        m_pTSkullImage->SetVisible(iTCounter < 1);
+    }
 }
 
 static C_CSPlayer* GetPlayerByIndex(int iIndex)
@@ -916,16 +893,7 @@ void CHudTeamCounter::CalculateAvatarPosition(int slotIdx, int totalPlayers, boo
     
     int numRows = (secondRowCount > 0) ? 2 : 1;
     int totalHeight = numRows * (m_iAvatarTall + m_iAvatarBorderSize * 2) + (numRows - 1) * m_iAvatarYMargin;
-    int startY;
-    
-    if (bCompetitive || m_iAvatarTall >= 64)
-    {
-        startY = m_iTimerYPos;
-    }
-    else
-    {
-        startY = m_iTimerYPos + (m_iTimerTall - totalHeight) / 2;
-    }
+    int startY = m_iTimerYPos;
     
     y = startY + currentRow * ((m_iAvatarTall + m_iAvatarBorderSize * 2) + m_iAvatarYMargin);
 }
@@ -1349,6 +1317,8 @@ void CHudTeamCounter::FireGameEvent(IGameEvent *event)
     {
         m_bRoundStarted = true;
         m_bIsBombDefused = false;
+        m_bForceRefresh = true;  
+        UpdateMiniScoreboard();   
         g_pClientMode->GetViewportAnimationController()->StartAnimationSequence("RoundTimerNormal");
 
         if (m_Mode == VIEW_MODE_GUN_GAME_PROGRESSIVE)
@@ -1357,6 +1327,7 @@ void CHudTeamCounter::FireGameEvent(IGameEvent *event)
     else if (!V_strcmp(type, "round_announce_warmup"))
     {
         m_pRoundTimerLabel->SetText(L"");
+        UpdateMiniScoreboard();
     }
     else if (!V_strcmp(type, "round_end"))
     {
@@ -1377,11 +1348,13 @@ void CHudTeamCounter::FireGameEvent(IGameEvent *event)
         m_bTimerAlertTriggered = false;
         m_bRoundStarted = false;
         g_pClientMode->GetViewportAnimationController()->StartAnimationSequence("HideTeamPanels");
+        UpdateMiniScoreboard();
     }
     else if (!V_strcmp(type, "cs_match_end_restart"))
     {
         if (m_Mode == VIEW_MODE_GUN_GAME_PROGRESSIVE || m_Mode == VIEW_MODE_GUN_GAME_BOMB)
             ResetLeader();
+            UpdateMiniScoreboard();
     }
     else if (!V_strcmp(type, "bomb_planted"))
     {
@@ -1389,10 +1362,12 @@ void CHudTeamCounter::FireGameEvent(IGameEvent *event)
         m_pBombIcon->SetVisible(true);
         m_pBombIcon->SetAlpha(100);
         m_pBombIcon->SetFgColor(m_clrC4Planted);
+        UpdateMiniScoreboard();
     }
     else if (!V_strcmp(type, "bomb_defused"))
     {
         m_bIsBombDefused = true;
+        UpdateMiniScoreboard();
     }
     else if (!V_strcmp(type, "player_spawn"))
     {
@@ -1433,5 +1408,6 @@ void CHudTeamCounter::FireGameEvent(IGameEvent *event)
             g_pClientMode->GetViewportAnimationController()->StartAnimationSequence("ShowBotTakeover");
             m_flPlayingTeamFadeoutTime = -1;
         }
+        UpdateMiniScoreboard();
     }
 }

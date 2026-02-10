@@ -688,31 +688,26 @@ void CCSBuyMenuPlayerImage::SetWeaponSkin( C_CSPlayer *pPlayer, CSWeaponID weapo
 
 	int iPaintKit = CSLoadout()->GetWeaponSkinForPlayerWeaponid( pPlayer, weaponID );
 
-	if ( iPaintKit < 0 )
-	{
-		DevMsg( "[BuyMenu] No skin mapping for weaponID %d\n", weaponID );
-		return;
-	}
-
-	IMaterial* pSkinMaterial = g_SkinDatabase.GetSkinMaterial( iPaintKit );
-
-	if ( pSkinMaterial )
-	{
-		m_hWeaponModel->SetMaterialOverride( pSkinMaterial, 0 );
-		DevMsg( "[BuyMenu] Applied skin material for weaponID %d, skinID %d\n", weaponID, iPaintKit );
-	}
-	else
-	{
-		DevMsg( "[BuyMenu] No skin material found for weaponID %d, skinID %d, using default\n", weaponID, iPaintKit );
-	}
+			const SkinDefinition_t* pSkinDef = g_SkinDatabase.FindSkinByPaintKit( iPaintKit );
+			if ( pSkinDef )
+			{
+				FOR_EACH_VEC(pSkinDef->materials, i)
+				{
+					const SkinDefinition_t::MaterialData_t& matData = pSkinDef->materials[i];
+					IMaterial* pMat = g_SkinDatabase.GetSkinMaterial( iPaintKit, matData.iMaterialIndex );
+						
+					if ( pMat )
+					{
+						m_hWeaponModel->SetMaterialOverride( pMat, matData.iMaterialIndex );
+                    }
+				}
+			}
 }
 
 void CCSBuyMenuPlayerImage::SetGlovesModel( const char* pszModel )
 {
     C_CSPlayer* pLocalPlayer = C_CSPlayer::GetLocalCSPlayer();
     int iPaintKit = CSLoadout()->GetGlovesSkinForPlayer(pLocalPlayer, pLocalPlayer->GetTeamNumber());
-    IMaterial* pRightGloveMaterial = g_SkinDatabase.GetSkinMaterial( iPaintKit );
-    IMaterial* pLeftGloveMaterial = g_SkinDatabase.GetSkinMaterial( iPaintKit + 1 );
     
 	if ( !pszModel || !m_hPlayerModel.Get() )
 	{
@@ -754,12 +749,20 @@ void CCSBuyMenuPlayerImage::SetGlovesModel( const char* pszModel )
 		m_hPlayerModel->SetBodygroup( m_hPlayerModel->FindBodygroupByName( "gloves" ), 1 );
 	}
     
-    if (pRightGloveMaterial && !pRightGloveMaterial->IsErrorMaterial() && 
-        pLeftGloveMaterial && !pLeftGloveMaterial->IsErrorMaterial())
-    {
-        m_hGlovesModel->SetMaterialOverride( pLeftGloveMaterial, 0 );
-        m_hGlovesModel->SetMaterialOverride( pRightGloveMaterial, 1 );
-    }
+	const SkinDefinition_t* pSkinDef = g_SkinDatabase.FindSkinByPaintKit( iPaintKit );
+	if ( pSkinDef )
+	{
+		FOR_EACH_VEC(pSkinDef->materials, i)
+		{
+			const SkinDefinition_t::MaterialData_t& matData = pSkinDef->materials[i];
+			IMaterial* pMat = g_SkinDatabase.GetSkinMaterial( iPaintKit, matData.iMaterialIndex );
+						
+			if ( pMat )
+			{
+			    m_hGlovesModel->SetMaterialOverride( pMat, matData.iMaterialIndex );
+            }
+		}
+	}
 }
 
 void CCSBuyMenuPlayerImage::SetSequence( const char* pszSequence )

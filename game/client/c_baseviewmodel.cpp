@@ -420,20 +420,26 @@ int C_BaseViewModel::DrawModel( int flags )
 		
 	C_BasePlayer *pPlayer = C_BasePlayer::GetLocalPlayer();
 	C_BaseCombatWeapon *pWeapon = GetOwningWeapon();
-
-	ClearMaterialOverride();
+    
+    ClearMaterialOverride();
 
     if ( pWeapon )
     {
         int iPaintKit = pWeapon->GetPaintKit();
-        if ( iPaintKit > 0 )
-        {
-            IMaterial* pMaterial = g_SkinDatabase.GetSkinMaterial( iPaintKit );
-            if ( pMaterial )
-            {
-                SetMaterialOverride( pMaterial, 0 );
-            }
-        }
+			const SkinDefinition_t* pSkinDef = g_SkinDatabase.FindSkinByPaintKit( iPaintKit );
+			if ( pSkinDef )
+			{
+				FOR_EACH_VEC(pSkinDef->materials, i)
+				{
+					const SkinDefinition_t::MaterialData_t& matData = pSkinDef->materials[i];
+					IMaterial* pMat = g_SkinDatabase.GetSkinMaterial( iPaintKit, matData.iMaterialIndex );
+						
+					if ( pMat )
+					{
+						this->SetMaterialOverride( pMat, matData.iMaterialIndex );
+                    }
+				}
+			}
     }
     
 	int ret;
@@ -706,25 +712,23 @@ void C_BaseViewModel::UpdateAllViewmodelAddons( void )
             
         if ( pGloveModel )
         {
-            IMaterial* pRightGloveMaterial = g_SkinDatabase.GetSkinMaterial( iPaintKit );
-            IMaterial* pLeftGloveMaterial = g_SkinDatabase.GetSkinMaterial( iPaintKit + 1 );
-    
-            DevMsg("[GLOVES] Right material: %s (%p)\n", pRightGloveMaterial ? pRightGloveMaterial->GetName() : "NULL", pRightGloveMaterial);
-            DevMsg("[GLOVES] Left material: %s (%p)\n", pLeftGloveMaterial ? pLeftGloveMaterial->GetName() : "NULL", pLeftGloveMaterial);
-    
-            if (pRightGloveMaterial && !pRightGloveMaterial->IsErrorMaterial() && pLeftGloveMaterial && !pLeftGloveMaterial->IsErrorMaterial())
-            {
-                DevMsg("[GLOVES] Setting materials...\n");
-                
-                pGloveModel->SetMaterialOverride( pLeftGloveMaterial, 0 );
-                pGloveModel->SetMaterialOverride( pRightGloveMaterial, 1 );
-        
-                DevMsg("[GLOVES] Materials set!\n");
-            }
-            else
-            {
-                Warning("[GLOVES] Materials validation failed!\n");
-            }
+            if ( iPaintKit > 0 )
+			{
+				const SkinDefinition_t* pSkinDef = g_SkinDatabase.FindSkinByPaintKit( iPaintKit );
+				if ( pSkinDef )
+				{
+					FOR_EACH_VEC(pSkinDef->materials, i)
+					{
+						const SkinDefinition_t::MaterialData_t& matData = pSkinDef->materials[i];
+						IMaterial* pMat = g_SkinDatabase.GetSkinMaterial( iPaintKit, matData.iMaterialIndex );
+						
+						if ( pMat )
+						{
+							pGloveModel->SetMaterialOverride( pMat, matData.iMaterialIndex );
+					    }
+					}
+				}
+			}
         }
         
         if ( pPlayer->m_pViewmodelArmConfig->szAssociatedSleeveModelGloveOverride[0] != NULL )

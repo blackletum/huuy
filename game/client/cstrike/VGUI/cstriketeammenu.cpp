@@ -271,16 +271,19 @@ void CCSTeamMenuAgentImage::SetWeaponModel( const char* pszModel, C_CSPlayer *pP
 		return;
 	}
 
-	IMaterial* pSkinMaterial = g_SkinDatabase.GetSkinMaterial( iPaintKit );
-
-	if ( pSkinMaterial )
+	const SkinDefinition_t* pSkinDef = g_SkinDatabase.FindSkinByPaintKit( iPaintKit );
+	if ( pSkinDef )
 	{
-		m_hWeaponModel->SetMaterialOverride( pSkinMaterial, 0 );
-		DevMsg( "[TeamMenu] Applied skin material for weaponID %d, skinID %d\n", nWeaponID, iPaintKit );
-	}
-	else
-	{
-		DevMsg( "[TeamMenu] No skin material found for weaponID %d, skinID %d, using default\n", nWeaponID, iPaintKit );
+		FOR_EACH_VEC(pSkinDef->materials, i)
+		{
+			const SkinDefinition_t::MaterialData_t& matData = pSkinDef->materials[i];
+			IMaterial* pMat = g_SkinDatabase.GetSkinMaterial( iPaintKit, matData.iMaterialIndex );
+						
+			if ( pMat )
+			{
+				m_hWeaponModel->SetMaterialOverride( pMat, matData.iMaterialIndex );
+            }
+        }
 	}
 }
 
@@ -328,14 +331,20 @@ void CCSTeamMenuAgentImage::SetGlovesModel( const char* pszModel, C_CSPlayer *pP
     int iPaintKit = CSLoadout()->GetGlovesSkinForPlayer(pPlayer, team);
     if (iPaintKit > 0)
     {
-        IMaterial* pRightGloveMaterial = g_SkinDatabase.GetSkinMaterial( iPaintKit );
-        IMaterial* pLeftGloveMaterial = g_SkinDatabase.GetSkinMaterial( iPaintKit + 1 );
-    
-        if (pRightGloveMaterial && !pRightGloveMaterial->IsErrorMaterial() && pLeftGloveMaterial && !pLeftGloveMaterial->IsErrorMaterial())
-        {
-            m_hGlovesModel->SetMaterialOverride( pLeftGloveMaterial, 0 );
-            m_hGlovesModel->SetMaterialOverride( pRightGloveMaterial, 1 );
-        }
+			const SkinDefinition_t* pSkinDef = g_SkinDatabase.FindSkinByPaintKit( iPaintKit );
+			if ( pSkinDef )
+			{
+				FOR_EACH_VEC(pSkinDef->materials, i)
+				{
+					const SkinDefinition_t::MaterialData_t& matData = pSkinDef->materials[i];
+					IMaterial* pMat = g_SkinDatabase.GetSkinMaterial( iPaintKit, matData.iMaterialIndex );
+						
+					if ( pMat )
+					{
+						m_hGlovesModel->SetMaterialOverride( pMat, matData.iMaterialIndex );
+                    }
+				}
+			}
     }
 }
 

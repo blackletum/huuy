@@ -63,62 +63,28 @@ void CBaseCSGloves::Equip( CBaseAnimating* pOwner )
 #ifdef CLIENT_DLL
 	SetUseParentLightingOrigin( true );
     
-    SetClientGlovePaintKit();
-    
-  /*  CCSPlayer *pPlayer = ToCSPlayer( GetOwnerEntity() );
-    int iPaintKit = CSLoadout()->GetGlovesSkinForPlayer(pPlayer, pPlayer->GetTeamNumber());
-    
-    DevMsg( "[CBaseCSGloves] Paint kit: %d\n", iPaintKit );
-    
-    if ( iPaintKit <= 0 )
-    {
-        DevMsg( "[CBaseCSGloves] No paint kit - clearing override\n" );
-        ClearMaterialOverride();
-        return;
-    }
-    
-    IMaterial *pLeftMaterial = g_SkinDatabase.GetSkinMaterial( iPaintKit );
-    IMaterial *pRightMaterial = g_SkinDatabase.GetSkinMaterial( iPaintKit + 1 );
-
-    DevMsg( "[CBaseCSGloves] Left material: %p (%s)\n", 
-            pLeftMaterial, 
-            pLeftMaterial ? pLeftMaterial->GetName() : "NULL" );
-    DevMsg( "[CBaseCSGloves] Right material: %p (%s)\n", 
-            pRightMaterial,
-            pRightMaterial ? pRightMaterial->GetName() : "NULL" );
-
-    if ( !pLeftMaterial || pLeftMaterial->IsErrorMaterial() )
-    {
-        Warning( "[CBaseCSGloves] Failed to get left glove material for paint kit %d\n", iPaintKit );
-        return;
-    }
-
-    if ( !pRightMaterial || pRightMaterial->IsErrorMaterial() )
-    {
-        Warning( "[CBaseCSGloves] Failed to get right glove material for paint kit %d\n", iPaintKit );
-        return;
-    }
-
-    DevMsg( "[CBaseCSGloves] Applying materials...\n" );
-
-    SetMaterialOverride( pLeftMaterial, 0 );  
-    SetMaterialOverride( pRightMaterial, 1 ); 
-    
-    DevMsg( "[CBaseCSGloves] Materials applied!\n" );*/
-    
     ClearMaterialOverride();
     
     int iPaintKit = GetGlovePaintKit();
 
 
-    IMaterial *pLeftMaterial = g_SkinDatabase.GetSkinMaterial( iPaintKit );
-    IMaterial *pRightMaterial = g_SkinDatabase.GetSkinMaterial( iPaintKit + 1 );
-    
-    if ( pRightMaterial && !pRightMaterial->IsErrorMaterial() && pLeftMaterial && !pLeftMaterial->IsErrorMaterial() )
-    {
-        SetMaterialOverride( pLeftMaterial, 0 );  
-        SetMaterialOverride( pRightMaterial, 1 ); 
-    }
+    if ( iPaintKit > 0 )
+	{
+		const SkinDefinition_t* pSkinDef = g_SkinDatabase.FindSkinByPaintKit( iPaintKit );
+		if ( pSkinDef )
+		{
+			FOR_EACH_VEC(pSkinDef->materials, i)
+			{
+				const SkinDefinition_t::MaterialData_t& matData = pSkinDef->materials[i];
+				IMaterial* pMat = g_SkinDatabase.GetSkinMaterial( iPaintKit, matData.iMaterialIndex );
+						
+				if ( pMat )
+				{
+					this->SetMaterialOverride( pMat, matData.iMaterialIndex );
+			    }
+			}
+    	}
+	}
 #endif
 
 	// assuming that before equipping them, a DoesModelSupportGloves() check was made
@@ -132,14 +98,23 @@ void CBaseCSGloves::SetClientGlovePaintKit()
     int iPaintKit = GetGlovePaintKit();
 
 
-    IMaterial *pLeftMaterial = g_SkinDatabase.GetSkinMaterial( iPaintKit );
-    IMaterial *pRightMaterial = g_SkinDatabase.GetSkinMaterial( iPaintKit + 1 );
-    
-    if ( pRightMaterial && !pRightMaterial->IsErrorMaterial() && pLeftMaterial && !pLeftMaterial->IsErrorMaterial() )
-    {
-        SetMaterialOverride( pLeftMaterial, 0 );  
-        SetMaterialOverride( pRightMaterial, 1 ); 
-    }
+    if ( iPaintKit > 0 )
+	{
+		const SkinDefinition_t* pSkinDef = g_SkinDatabase.FindSkinByPaintKit( iPaintKit );
+		if ( pSkinDef )
+		{
+			FOR_EACH_VEC(pSkinDef->materials, i)
+			{
+				const SkinDefinition_t::MaterialData_t& matData = pSkinDef->materials[i];
+				IMaterial* pMat = g_SkinDatabase.GetSkinMaterial( iPaintKit, matData.iMaterialIndex );
+						
+				if ( pMat )
+				{
+					this->SetMaterialOverride( pMat, matData.iMaterialIndex );
+			    }
+			}
+    	}
+	}
 }
 #endif
 
@@ -174,7 +149,24 @@ void CBaseCSGloves::UpdateGlovesModel()
 	SetModel( pszModel );
 
 #ifdef CLIENT_DLL
+
+    extern ConVar cl_showfirstperson_legs;
    SetClientGlovePaintKit(); 
+   
+   if (pPlayerOwner->InFirstPersonView() && cl_showfirstperson_legs.GetBool())
+   {
+	   AddEffects( EF_NODRAW );
+   }
+   else if (!pPlayerOwner->InFirstPersonView() && cl_showfirstperson_legs.GetBool())
+   {
+       RemoveEffects( EF_NODRAW );
+   }
+   else
+   {
+	   RemoveEffects( EF_NODRAW );
+   }
+   
+   
 	if ( pPlayerOwner->m_pViewmodelArmConfig != NULL )
 		m_nSkin = pPlayerOwner->m_pViewmodelArmConfig->iSkintoneIndex;
 	else

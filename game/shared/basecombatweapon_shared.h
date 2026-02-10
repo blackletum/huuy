@@ -41,6 +41,10 @@ class CBaseCombatCharacter;
 class IPhysicsConstraint;
 class CUserCmd;
 
+#ifndef CLIENT_DLL
+extern ConVar cl_showfirstperson_legs;
+#endif
+
 // How many times to display altfire hud hints (per weapon)
 #define WEAPON_ALTFIRE_HUD_HINT_COUNT	1
 #define WEAPON_RELOAD_HUD_HINT_COUNT	1

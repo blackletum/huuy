@@ -51,14 +51,18 @@ struct VertexLitGeneric_DX9_Vars_t
 	int m_nEnvmapSaturation;
 	int m_nEnvmapOptional;
 	int m_nAlphaTestReference;
+	int m_nAllowFenceRenderStateHack;
 	int m_nVertexAlphaTest;
 	int m_nFlashlightNoLambert;
+	int m_nLowQualityFlashlightShadows;
 	int m_nFlashlightTexture;
 	int m_nFlashlightTextureFrame;
 
 	int m_nSelfIllumTint;
 	int m_nSelfIllumFresnel;
 	int m_nSelfIllumFresnelMinMaxExp;
+	int m_nSelfIllumMaskScale;
+	int m_nSelfIllumFresnelEnabledThisFrame;
 
 	int m_nPhongExponent;
     int m_nPhongAlbedoBoost;
@@ -73,7 +77,9 @@ struct VertexLitGeneric_DX9_Vars_t
 	int m_nAmbientOnly;
 	int m_nHDRColorScale;
 	int m_nPhong;
+	int m_nForcePhong;
 	int m_nBaseMapAlphaPhongMask;
+	int m_nBaseMapLuminancePhongMask;
 	int m_nEnvmapFresnel;
 
 	int m_nDetailTextureCombineMode;
@@ -129,15 +135,41 @@ struct VertexLitGeneric_DX9_Vars_t
 	int m_nSelfIllumMask;
 	int m_nReceiveFlashlight;
 
+	int m_nAmbientOcclusion;
+
 	int m_nBlendTintByBaseAlpha;
     int m_nNoTint;
 
 	int m_nTintReplacesBaseColor;
 
+	int m_nDesaturateWithBaseAlpha;
+
+	int m_nAllowDiffuseModulation;
+
+	int m_nEnvMapFresnelMinMaxExp;
+
+	int m_nBaseAlphaEnvMapMaskMinMaxExp;
+	
+	int m_nDisplacementMap;
+
+	int m_nDisplacementWrinkleMap;
+
+	int m_nPhongDisableHalfLambert;
+
+	int m_nDecalTexture;
+	int m_nDecalTextureCombineMode;
+
 	int m_nEnvMapLightScale;
 	int m_nEnvMapLightScaleMinMax;
-    
-    int m_nPhongDisableHalfLambert;
+
+	int m_nBlendWithSmokeGrenade;
+	int m_nBlendWithSmokeGrenadePosEntity;
+	int m_nBlendWithSmokeGrenadePosSmoke;
+
+	int m_nModelDecalIgnoreZ;
+
+	int m_nTintMaskTexture;
+	int m_nEnvMapMaskInTintMaskTexture;
 };
 
 void InitParamsVertexLitGeneric_DX9( CBaseVSShader *pShader, IMaterialVar** params, const char *pMaterialName, bool bVertexLitGeneric, VertexLitGeneric_DX9_Vars_t &info );

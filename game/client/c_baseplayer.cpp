@@ -123,6 +123,8 @@ ConVar	spec_freeze_distance_max( "spec_freeze_distance_max", "200", FCVAR_CHEAT,
 
 static ConVar	cl_first_person_uses_world_model ( "cl_first_person_uses_world_model", "0", FCVAR_NONE, "Causes the third person model to be drawn instead of the view model" );
 
+ConVar	cl_showfirstperson_legs ( "cl_showfirstperson_legs", "1", FCVAR_CLIENTDLL | FCVAR_ARCHIVE, "shows legs in firstperson like cs2, IN DEVELOPMENT!!!" );
+
 ConVar demo_fov_override( "demo_fov_override", "0", FCVAR_CLIENTDLL | FCVAR_DONTRECORD, "If nonzero, this value will be used to override FOV during demo playback." );
 
 // This only needs to be approximate - it just controls the distance to the pivot-point of the head ("the neck") of the in-game character, not the player's real-world neck length.
@@ -2165,6 +2167,10 @@ bool C_BasePlayer::ShouldDrawThisPlayer()
 			return true;
 		}
 	}
+    else if ( InFirstPersonView() && cl_showfirstperson_legs.GetBool())
+    {
+        return true;
+    }
 	return false;
 }
 
@@ -2757,6 +2763,105 @@ void C_BasePlayer::OnObserverModeChange( bool bIsObserverTarget )
 		observerTarget->UpdateVisibility();
 		UpdateViewmodelVisibility( observerTarget );
 	}
+}
+
+static const char* g_pszBonesToScaleToZero[] =
+{
+    "neck_0", "head_0", "spine_3",
+    "clavicle_L", "arm_upper_L", "arm_lower_L", "hand_L",
+    "finger_middle_meta_L", "finger_middle_0_L", "finger_middle_1_L", "finger_middle_2_L",
+    "finger_pinky_meta_L", "finger_pinky_0_L", "finger_pinky_1_L", "finger_pinky_2_L",
+    "finger_index_meta_L", "finger_index_0_L", "finger_index_1_L", "finger_index_2_L",
+    "finger_thumb_0_L", "finger_thumb_1_L", "finger_thumb_2_L",
+    "finger_ring_meta_L", "finger_ring_0_L", "finger_ring_1_L", "finger_ring_2_L",
+    "weapon_hand_L", "arm_lower_L_TWIST", "arm_lower_L_TWIST1",
+    "arm_upper_L_TWIST", "arm_upper_L_TWIST1",
+    "clavicle_R", "arm_upper_R", "arm_lower_R", "hand_R",
+    "finger_middle_meta_R", "finger_middle_0_R", "finger_middle_1_R", "finger_middle_2_R",
+    "finger_pinky_meta_R", "finger_pinky_0_R", "finger_pinky_1_R", "finger_pinky_2_R",
+    "finger_index_meta_R", "finger_index_0_R", "finger_index_1_R", "finger_index_2_R",
+    "finger_thumb_0_R", "finger_thumb_1_R", "finger_thumb_2_R",
+    "finger_ring_meta_R", "finger_ring_0_R", "finger_ring_1_R", "finger_ring_2_R",
+    "weapon_hand_R", "arm_lower_R_TWIST", "arm_lower_R_TWIST1",
+    "arm_upper_R_TWIST", "jiggle_hood", "jiggle_back_micropouches", "jiggle_radio", "jiggle_front_pouch_02", "jiggle_front_pouch_01", "jiggle_front_micropouches", "jiggle_climbinggear_01", "jiggle_climbinggear_02", "jiggle_holster", "jiggle_primary", "arm_upper_R_TWIST1"
+};
+
+const char* pelvisBones[] = { "spine_1", "spine_2",
+    "pelvis", "leg_upper_L", "leg_upper_R"
+};
+
+const char* lowerLegBones[] = {
+    "leg_upper_L_TWIST", "leg_upper_L_TWIST1", "leg_lower_L", "ankle_L", "ball_L", 
+    "leg_upper_R_TWIST", "leg_upper_R_TWIST1", "leg_lower_R", "ankle_R", "ball_R"
+};
+
+bool C_BasePlayer::SetupBones(matrix3x4_t *pBoneToWorld, int nMaxBones, int boneMask, float currentTime)
+{
+    bool bResult = BaseClass::SetupBones(pBoneToWorld, nMaxBones, boneMask, currentTime);
+
+if (!bResult || !pBoneToWorld)
+    return bResult;
+    
+    if (!DrawingMainView())
+    {
+        return bResult;
+    }
+
+C_BasePlayer* pLocalPlayer = C_BasePlayer::GetLocalPlayer();
+if (!(this == pLocalPlayer && this->ShouldDraw() && !input->CAM_IsThirdPerson()))
+    return bResult;
+
+CStudioHdr* pStudioHdr = GetModelPtr();
+if (!pStudioHdr || !pStudioHdr->IsValid())
+    return bResult;
+
+QAngle ang = GetRenderAngles();
+Vector forward, right, up;
+AngleVectors(ang, &forward, &right, &up);
+
+Vector vanishOffset = -forward * 50.0f; 
+
+for (int i = 0; i < ARRAYSIZE(g_pszBonesToScaleToZero); ++i)
+{
+    int boneIndex = LookupBone(g_pszBonesToScaleToZero[i]);
+    if (boneIndex != -1 && boneIndex < nMaxBones)
+    {
+        Vector origin;
+        MatrixPosition(pBoneToWorld[boneIndex], origin);
+        origin += vanishOffset;
+        MatrixSetColumn(origin, 3, pBoneToWorld[boneIndex]);
+
+        MatrixScaleByZero(pBoneToWorld[boneIndex]);
+    }
+}
+
+Vector pelvisOffset = (-forward * 14.0f) + (up * 3.0f); 
+
+Vector lowerLegOffset = (-forward * 12.0f); 
+
+for (int i = 0; i < ARRAYSIZE(pelvisBones); ++i)
+{
+    int boneIndex = LookupBone(pelvisBones[i]);
+    if (boneIndex < 0 || boneIndex >= nMaxBones)
+        continue;
+
+    Vector origin;
+    MatrixPosition(pBoneToWorld[boneIndex], origin);
+
+    origin += pelvisOffset;
+    MatrixSetColumn(origin, 3, pBoneToWorld[boneIndex]);
+}
+for (int i = 0; i < ARRAYSIZE(lowerLegBones); ++i)
+{
+    int boneIndex = LookupBone(lowerLegBones[i]);
+    if (boneIndex < 0 || boneIndex >= nMaxBones)
+        continue;
+    Vector origin;
+    MatrixPosition(pBoneToWorld[boneIndex], origin);
+    origin += lowerLegOffset;
+    MatrixSetColumn(origin, 3, pBoneToWorld[boneIndex]);
+}
+    return bResult;
 }
 
 //-----------------------------------------------------------------------------

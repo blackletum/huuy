@@ -183,7 +183,6 @@ public:
 	virtual void	TeamChange( int iNewTeam );
 
 	// Flashlight
-	// Flashlight
 	void	Flashlight( void );
 	void	UpdateFlashlight( void );
     void	TurnOffFlashlight( void );	// TERROR
@@ -200,6 +199,9 @@ public:
     
     // Player flashlight dynamic light pointers
 	bool			m_bFlashlightEnabled;
+    
+    //Bone setup for legs????
+    bool SetupBones(matrix3x4_t *pBoneToWorld, int nMaxBones, int boneMask, float currentTime);
 
 	// Weapon selection code
 	virtual bool				IsAllowedToSwitchWeapons( void ) { return !IsObserver(); }

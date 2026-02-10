@@ -17,6 +17,7 @@
 #include <vgui_controls/Label.h>
 #include <vgui_controls/ImagePanel.h>
 #include <vgui_controls/VectorImagePanel.h>
+#include <vgui_controls/AnimationController.h>
 #include <vgui/ILocalize.h>
 #include <vgui/ISurface.h>
 #include "utlvector.h"
@@ -210,6 +211,10 @@ private:
     float m_flPlayingTeamFadeoutTime;
     float m_flLastSpecListUpdate;
     bool m_bActive;
+    int m_iRoundTime;
+    float m_flLastMiniScoreboardUpdate;
+    int m_nLastObserverMode;
+    int m_nLastObserverTarget;
     
     // Avatar layout parameters from .res
     int m_iAvatarXMargin;
@@ -220,12 +225,15 @@ private:
     int m_iAvatarYMax;
     int m_iAvatarBorderSize;
 
-    Color m_clrC4Planted;
-    Color m_clrC4Defused;
-
 private:
     int m_nLastAvatarPlayerIdx_CT[MAX_TEAM_SIZE];
     int m_nLastAvatarPlayerIdx_T[MAX_TEAM_SIZE];
+    
+    CPanelAnimationVar( Color, m_clrRoundTimer, "RoundTimerColor", "White" );
+	CPanelAnimationVar( Color, m_clrRoundTimerLow, "RoundTimerLowColor", "White" );
+	CPanelAnimationVar( Color, m_clrC4Planted, "C4PlantedColor", "White" );
+	CPanelAnimationVar( Color, m_clrC4Defused, "C4DefusedColor", "White" );
+    
     
 };
 

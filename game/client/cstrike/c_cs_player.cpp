@@ -832,14 +832,23 @@ void C_CSRagdoll::CreateGlovesModel()
 			m_pGloves->SetGloveID( nGlovesID );
 			m_pGloves->Equip( this );
             
-            IMaterial* pRightGloveMaterial = g_SkinDatabase.GetSkinMaterial( nGlovesPaintKitID );
-            IMaterial* pLeftGloveMaterial = g_SkinDatabase.GetSkinMaterial( nGlovesPaintKitID + 1 );
-    
-            if (pRightGloveMaterial && !pRightGloveMaterial->IsErrorMaterial() && pLeftGloveMaterial && !pLeftGloveMaterial->IsErrorMaterial())
-            {
-                m_pGloves->SetMaterialOverride( pLeftGloveMaterial, 0 );
-                m_pGloves->SetMaterialOverride( pRightGloveMaterial, 1 );
-            }
+            if ( nGlovesPaintKitID > 0 )
+			{
+				const SkinDefinition_t* pSkinDef = g_SkinDatabase.FindSkinByPaintKit( nGlovesPaintKitID );
+				if ( pSkinDef )
+				{
+					FOR_EACH_VEC(pSkinDef->materials, i)
+					{
+						const SkinDefinition_t::MaterialData_t& matData = pSkinDef->materials[i];
+						IMaterial* pMat = g_SkinDatabase.GetSkinMaterial( nGlovesPaintKitID, matData.iMaterialIndex );
+						
+						if ( pMat )
+						{
+							m_pGloves->SetMaterialOverride( pMat, matData.iMaterialIndex );
+					    }
+					}
+				}
+			}
             
 			int nSkin = 0;
 			if ( pPlayer->m_pViewmodelArmConfig )
@@ -2130,8 +2139,23 @@ void C_CSPlayer::CreateAddonModel( int i )
 	pAddon->m_iAttachmentPoint = iAttachment;
 	pEnt->SetParent( this, pAddon->m_iAttachmentPoint ); 
     int iPaintKit = GetAddonPaintKit( i );
-    IMaterial* pMaterial = g_SkinDatabase.GetSkinMaterial( iPaintKit );
-    pEnt->SetMaterialOverride( pMaterial, 0 );
+    if ( iPaintKit > 0 )
+	{
+		const SkinDefinition_t* pSkinDef = g_SkinDatabase.FindSkinByPaintKit( iPaintKit );
+		if ( pSkinDef )
+		{
+			FOR_EACH_VEC(pSkinDef->materials, i)
+			{
+				const SkinDefinition_t::MaterialData_t& matData = pSkinDef->materials[i];
+				IMaterial* pMat = g_SkinDatabase.GetSkinMaterial( iPaintKit, matData.iMaterialIndex );
+						
+				if ( pMat )
+                {
+					pEnt->SetMaterialOverride( pMat, matData.iMaterialIndex );
+			    }
+			}
+        }
+	}
 
 	int iHolsterAttachment = pEnt->LookupAttachment( "weapon_holster_center" );
 	if ( iHolsterAttachment > 0 )

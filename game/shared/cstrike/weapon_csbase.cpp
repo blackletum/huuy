@@ -329,7 +329,6 @@ CWeaponCSBase::CWeaponCSBase()
 	m_iCrosshairTextureID = 0;
 	m_flGunAccuracyPosition = 0;
 	m_flLastClientFireBulletTime = 0;
-    UpdateCustomMaterial();
 #else
 	m_iDefaultExtraAmmo = 0;
 	m_numRemoveUnownedWeaponThink = 0;
@@ -1287,8 +1286,6 @@ void CWeaponCSBase::Drop(const Vector &vecVelocity)
 	{
 		pHudSelection->OnWeaponDrop( this );
 	}
-    
-    UpdateCustomMaterial();
 
 	return;
 #else
@@ -3260,8 +3257,22 @@ void CWeaponCSBase::SetSilencer( bool state )
 void CWeaponCSBase::UpdateCustomMaterial()
 {
     int iPaintKit = this->GetPaintKit();
-    IMaterial* pMaterial = g_SkinDatabase.GetSkinMaterial( iPaintKit );
-
-    SetMaterialOverride( pMaterial, 0 );
+    if ( iPaintKit > 0 )
+	{
+		const SkinDefinition_t* pSkinDef = g_SkinDatabase.FindSkinByPaintKit( iPaintKit );
+		if ( pSkinDef )
+		{
+			FOR_EACH_VEC(pSkinDef->materials, i)
+			{
+				const SkinDefinition_t::MaterialData_t& matData = pSkinDef->materials[i];
+				IMaterial* pMat = g_SkinDatabase.GetSkinMaterial( iPaintKit, matData.iMaterialIndex );
+						
+				if ( pMat )
+				{
+					this->SetMaterialOverride( pMat, matData.iMaterialIndex );
+			    }
+			}
+    	}
+	}
 }
 #endif

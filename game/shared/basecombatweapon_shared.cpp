@@ -24,6 +24,7 @@
 	#include "eventlist.h"
     #include "SkinProcessor.h"
     #include "cs_skin_database.h"
+    #include "c_baseplayer.h"
 #endif
 
 //extra includes
@@ -156,8 +157,23 @@ void CBaseWeaponWorldModel::ApplyCustomMaterialsAndStickers()
 	// inherit custom materials
 	if ( pWeaponParent )
 	{
-        IMaterial* pMat = g_SkinDatabase.GetSkinMaterial( iPaintKit );
-	    SetMaterialOverride( pMat, 0 );
+        if ( iPaintKit > 0 )
+	    {
+		    const SkinDefinition_t* pSkinDef = g_SkinDatabase.FindSkinByPaintKit( iPaintKit );
+		    if ( pSkinDef )
+		    {
+			    FOR_EACH_VEC(pSkinDef->materials, i)
+			    {
+				    const SkinDefinition_t::MaterialData_t& matData = pSkinDef->materials[i];
+				    IMaterial* pMat = g_SkinDatabase.GetSkinMaterial( iPaintKit, matData.iMaterialIndex );
+						    
+				    if ( pMat )
+				    {
+					    SetMaterialOverride( pMat, matData.iMaterialIndex );
+                    }
+                }
+            }
+	    }
 	}
 }
 
@@ -369,7 +385,7 @@ bool CBaseWeaponWorldModel::HoldsPlayerAnimations( void )
 }
 
 #ifdef CLIENT_DLL
-
+extern ConVar cl_showfirstperson_legs;
 void CBaseWeaponWorldModel::FireEvent( const Vector& origin, const QAngle& angles, int event, const char *options )
 {
 	if ( event == AE_CL_EJECT_MAG )
@@ -408,7 +424,7 @@ bool CBaseWeaponWorldModel::ShouldDraw( void )
 	C_BasePlayer * player = C_BasePlayer::GetLocalPlayer();
 	if ( player && 
 		 player->IsObserver() &&
-		 player->GetObserverMode() == OBS_MODE_IN_EYE &&
+		 player->GetObserverMode() == OBS_MODE_IN_EYE && player->InFirstPersonView() && cl_showfirstperson_legs.GetBool() &&
 		 player->GetObserverTarget() == pWeaponParentOwner &&
 		 !input->CAM_IsThirdPerson() &&
 		 player->GetObserverInterpState() != 1 )
