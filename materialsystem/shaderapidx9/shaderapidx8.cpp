@@ -643,7 +643,6 @@ public:
 	}
 
 	virtual void MarkUnusedVertexFields( unsigned int nFlags, int nTexCoordCount, bool *pUnusedTexCoords );
-	virtual void SetScreenSizeForVPOS( int pshReg = 32 );
 
 public:
 	// Methods of CShaderAPIBase
@@ -1354,8 +1353,6 @@ private:
 
 	void SetPixelShaderFogParams( int reg );
 	void SetPixelShaderFogParams( int reg, ShaderFogMode_t fogMode );
-	void SetPixelShaderFogParams_CSGO( int reg );
-	void SetPixelShaderFogParams_CSGO( int reg, ShaderFogMode_t fogMode );
 
 	void SetVertexShaderCameraPos()
 	{
@@ -1599,8 +1596,6 @@ private:
 	void PrintfVA( char *fmt, va_list vargs );
 	void Printf( const char *fmt, ... );	
 	float Knob( char *knobname, float *setvalue = NULL );
-
-	void AddShaderComboInformation( const ShaderComboSemantics_t *pSemantics );
 
 	// "normal" back buffer and depth buffer.  Need to keep this around so that we
 	// know what to set the render target to when we are done rendering to a texture.
@@ -2777,26 +2772,6 @@ inline void CShaderAPIDx8::SetRenderState( D3DRENDERSTATETYPE state, DWORD val, 
 #else
 	#define SetRenderStateConstMacro(t, state, val ) t->SetRenderState( state, val );
 #endif
-
-inline void CShaderAPIDx8::SetScreenSizeForVPOS( int pshReg /* = 32 */)
-{
-	int nWidth, nHeight;
-	ITexture *pTexture = ShaderAPI()->GetRenderTargetEx( 0 );
-	if ( pTexture == NULL )
-	{
-		ShaderAPI()->GetBackBufferDimensions( nWidth, nHeight );
-	}
-	else
-	{
-		nWidth  = pTexture->GetActualWidth();
-		nHeight = pTexture->GetActualHeight();
-	}
-
-	// Set constant to enable translation of VPOS to render target coordinates in ps_3_0
-	float vScreenSize[4] = { 1.0f/(float)nWidth, 1.0f/(float)nHeight, 0.5f/(float)nWidth, 0.5f/(float)nHeight };
-
-	SetPixelShaderConstantInternal( pshReg, vScreenSize, 1, true );
-}
 
 //-----------------------------------------------------------------------------
 // Commits viewports
@@ -6551,13 +6526,6 @@ void CShaderAPIDx8::ExecuteCommandBuffer( uint8 *pCmdBuf )
 				int nReg = GetData<int>( pCmdBuf + sizeof( int ) );
 				pCmdBuf += 2 * sizeof( int );
 				SetPixelShaderFogParams( nReg );			// !! speed fixme
-				break;
-			}
-			case CBCMD_SETPIXELSHADERFOGPARAMS_CSGO:
-			{
-				int nReg = GetData<int>( pCmdBuf + sizeof( int ) );
-				pCmdBuf += 2 * sizeof( int );
-				SetPixelShaderFogParams_CSGO( nReg );			// !! speed fixme
 				break;
 			}
 			case CBCMD_STORE_EYE_POS_IN_PSCONST:
@@ -13055,64 +13023,6 @@ void CShaderAPIDx8::SetPixelShaderFogParams( int reg )
 	SetPixelShaderFogParams( reg, m_TransitionTable.CurrentShadowState()->m_FogMode );
 }
 
-void CShaderAPIDx8::SetPixelShaderFogParams_CSGO( int reg, ShaderFogMode_t fogMode )
-{
-	m_DelayedShaderConstants.iPixelShaderFogParams = reg; //save it off in case the ShaderFogMode_t disables fog. We only find out later.
-	float fogParams[4];
-
-	MaterialFogMode_t pixelFogMode = GetSceneFogMode();
-
-	if( (pixelFogMode != MATERIAL_FOG_NONE) && ( fogMode != SHADER_FOGMODE_DISABLED ) )
-	{
-		float ooFogRange = 1.0f;
-
-		float fStart = m_VertexShaderFogParams[0];
-		float fEnd = m_VertexShaderFogParams[1];
-
-		// Check for divide by zero
-		if ( fEnd != fStart )
-		{
-			ooFogRange = 1.0f / ( fEnd - fStart );
-		}
-
-		// Fixed-function-blended per-vertex fog requires some inverted params since a fog factor of 0 means fully fogged and 1 means no fog.
-		// We could implement shader fog the same way, but would require an extra subtract in the vertex and/or pixel shader, which we want to avoid.
-		fogParams[0] = 1.0f - ooFogRange * fEnd; // -start / ( fogEnd - fogStart )
-		fogParams[1] = m_DynamicState.m_FogZ; // water height
-		fogParams[2] = clamp( m_flFogMaxDensity, 0.0f, 1.0f ); // Max fog density
-		fogParams[3] = ooFogRange; // 1 / ( fogEnd - fogStart );
-	}
-	else
-	{
-		// Fixed-function-blended per-vertex fog requires some inverted params since a fog factor of 0 means fully fogged and 1 means no fog.
-		// We could implement shader fog the same way, but would require an extra subtract in the vertex and/or pixel shader, which we want to avoid.
-		//emulating MATERIAL_FOG_NONE by setting the parameters so that CalcRangeFog() always returns 0. Gets rid of a dynamic combo across the ps2x set.
-		fogParams[0] = 0.0f;
-		fogParams[1] = -FLT_MAX;
-		fogParams[2] = 0.0f;
-		fogParams[3] = 0.0f;
-	}
-
-	// cFogEndOverFogRange, cFogOne, unused, cOOFogRange
-	SetPixelShaderConstant( reg, fogParams, 1 );
-}
-
-void CShaderAPIDx8::SetPixelShaderFogParams_CSGO( int reg )
-{
-	ShadowState_t const *pState = m_TransitionTable.CurrentShadowState();
-	if ( pState )
-	{
-		SetPixelShaderFogParams_CSGO( reg, pState->m_FogMode );
-	}
-	else
-	{
-		// Have to do this so that m_DelayedShaderConstants.iPixelShaderFogParams gets updated so that we 
-		// get this set properly when the currnent shadow state is set.  If we don't do this, the 
-		// first draw call of every frame will not get a fog constant set.
-		SetPixelShaderFogParams_CSGO( reg, SHADER_FOGMODE_DISABLED );
-	}
-}
-
 void CShaderAPIDx8::SetFlashlightState( const FlashlightState_t &state, const VMatrix &worldToTexture )
 {
 	LOCK_SHADERAPI();
@@ -14319,11 +14229,6 @@ bool CShaderAPIDx8::SetRenderTargetInternalXbox( ShaderAPITextureHandle_t hRende
 #endif
 
 	return true;
-}
-
-void CShaderAPIDx8::AddShaderComboInformation( const ShaderComboSemantics_t *pSemantics )
-{
-	ShaderManager()->AddShaderComboInformation( pSemantics );
 }
 
 

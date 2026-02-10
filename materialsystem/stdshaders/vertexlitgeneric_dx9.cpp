@@ -40,13 +40,8 @@ BEGIN_VS_SHADER( VertexLitGeneric, "Help for VertexLitGeneric" )
 		SHADER_PARAM( SELFILLUM_ENVMAPMASK_ALPHA, SHADER_PARAM_TYPE_FLOAT,"0.0","defines that self illum value comes from env map mask alpha" )
 		SHADER_PARAM( SELFILLUMFRESNEL, SHADER_PARAM_TYPE_BOOL, "0", "Self illum fresnel" )
 		SHADER_PARAM( SELFILLUMFRESNELMINMAXEXP, SHADER_PARAM_TYPE_VEC4, "0", "Self illum fresnel min, max, exp" )
-<<<<<<< HEAD:materialsystem/stdshaders/vertexlitgeneric_dx9.cpp
 		SHADER_PARAM( SELFILLUMMASKSCALE, SHADER_PARAM_TYPE_FLOAT, "0", "Scale self illum effect strength" )
 		SHADER_PARAM( SELFILLUMFRESNELENABLEDTHISFRAME, SHADER_PARAM_TYPE_BOOL, "0", "Self illum fresnel enabled this frame" )
-=======
-		SHADER_PARAM( SELFILLUMFRESNELENABLEDTHISFRAME, SHADER_PARAM_TYPE_BOOL, "0", "Self illum fresnel" )
-
->>>>>>> 89bd594e4 (latest CS:GO phong shader):src/materialsystem/stdshaders/vertexlitgeneric_dx9.cpp
 		SHADER_PARAM( ALPHATESTREFERENCE, SHADER_PARAM_TYPE_FLOAT, "0.0", "" )	
 		SHADER_PARAM( ALLOWFENCERENDERSTATEHACK, SHADER_PARAM_TYPE_BOOL, "0", "" )
 		SHADER_PARAM( VERTEXALPHATEST, SHADER_PARAM_TYPE_INTEGER, "0", "" )
@@ -72,7 +67,6 @@ BEGIN_VS_SHADER( VertexLitGeneric, "Help for VertexLitGeneric" )
 		SHADER_PARAM( INVERTPHONGMASK, SHADER_PARAM_TYPE_INTEGER, "0", "invert the phong mask (0=full phong, 1=no phong)" )
 		SHADER_PARAM( ENVMAPFRESNEL, SHADER_PARAM_TYPE_FLOAT, "0", "Degree to which Fresnel should be applied to env map" )
 		SHADER_PARAM( SELFILLUMMASK, SHADER_PARAM_TYPE_TEXTURE, "shadertest/BaseTexture", "If we bind a texture here, it overrides base alpha (if any) for self illum" )
-		SHADER_PARAM( BASEMAPLUMINANCEPHONGMASK, SHADER_PARAM_TYPE_INTEGER, "0", "indicates that the base luminance should be used to mask phong" )
 
 	    // detail (multi-) texturing
 	    SHADER_PARAM( DETAILBLENDMODE, SHADER_PARAM_TYPE_INTEGER, "0", "mode for combining detail texture with base. 0=normal, 1= additive, 2=alpha blend detail over base, 3=crossfade" )
@@ -189,26 +183,17 @@ BEGIN_VS_SHADER( VertexLitGeneric, "Help for VertexLitGeneric" )
 		SHADER_PARAM( ENVMAPFRESNELMINMAXEXP, SHADER_PARAM_TYPE_VEC3, "[0.0 1.0 2.0]", "Min/max fresnel range and exponent for vertexlitgeneric" )
 		SHADER_PARAM( BASEALPHAENVMAPMASKMINMAXEXP, SHADER_PARAM_TYPE_VEC3, "[1.0 0.0 1.0]", "" )
 
-<<<<<<< HEAD:materialsystem/stdshaders/vertexlitgeneric_dx9.cpp
 		SHADER_PARAM( DISPLACEMENTMAP, SHADER_PARAM_TYPE_TEXTURE, "shadertest/BaseTexture", "Displacement map" )
 		SHADER_PARAM( DISPLACEMENTWRINKLE, SHADER_PARAM_TYPE_BOOL, "0", "Displacement map contains wrinkle displacements")
 
 		SHADER_PARAM( PHONGDISABLEHALFLAMBERT, SHADER_PARAM_TYPE_BOOL, "0", "Disable half lambert for phong")
 
 		SHADER_PARAM( DECALTEXTURE, SHADER_PARAM_TYPE_TEXTURE, "", "Decal texture" )
-=======
-		// This is to allow phong materials to disable half lambert. Half lambert has always been forced on in phong,
-		// so the only safe way to allow artists to disable half lambert is to create this param that disables the
-		// default behavior of forcing half lambert on.
-		SHADER_PARAM( PHONGDISABLEHALFLAMBERT, SHADER_PARAM_TYPE_BOOL, "0", "Disable half lambert for phong" )
-			
->>>>>>> 89bd594e4 (latest CS:GO phong shader):src/materialsystem/stdshaders/vertexlitgeneric_dx9.cpp
 		SHADER_PARAM( DECALBLENDMODE, SHADER_PARAM_TYPE_INTEGER, "0", "mode for combining decal texture with base. 0=normal(decal*srca + base*(1-srca), 1= mod, 2=mod2x, 3=additive" )
 
 		SHADER_PARAM( ENVMAPLIGHTSCALE, SHADER_PARAM_TYPE_FLOAT, "0.0", "How much the lightmap effects environment map reflection, 0.0 is off, 1.0 will allow complete blackness of the environment map if the lightmap is black" )
 		SHADER_PARAM( ENVMAPLIGHTSCALEMINMAX, SHADER_PARAM_TYPE_VEC2, "[0.0 1.0]", "Thresholds for the lightmap envmap effect.  Setting the min higher increases the minimum light amount at which the envmap gets nerfed to nothing." )
 
-<<<<<<< HEAD:materialsystem/stdshaders/vertexlitgeneric_dx9.cpp
 		SHADER_PARAM( BLENDWITHSMOKEGRENADE, SHADER_PARAM_TYPE_BOOL, "0", "" );
 		SHADER_PARAM( BLENDWITHSMOKEGRENADEPOSENTITY, SHADER_PARAM_TYPE_VEC3, "[0 0 0]", "" );
 		SHADER_PARAM( BLENDWITHSMOKEGRENADEPOSSMOKE, SHADER_PARAM_TYPE_VEC3, "[0 0 0]", "" );
@@ -218,9 +203,6 @@ BEGIN_VS_SHADER( VertexLitGeneric, "Help for VertexLitGeneric" )
 		SHADER_PARAM( TINTMASKTEXTURE, SHADER_PARAM_TYPE_TEXTURE, "", "Separate tint mask texture (as opposed to using basetexture alpha)" )
 		SHADER_PARAM( ENVMAPMASKINTINTMASKTEXTURE, SHADER_PARAM_TYPE_BOOL, "0", "Envmap mask is stored in tint mask texture (instead of normal map alpha)" )
 
-=======
-		SHADER_PARAM( PEARLESCENT, SHADER_PARAM_TYPE_FLOAT, "0.0", "Pearlescent effect" )
->>>>>>> 89bd594e4 (latest CS:GO phong shader):src/materialsystem/stdshaders/vertexlitgeneric_dx9.cpp
 	END_SHADER_PARAMS
 
 	void SetupVars( VertexLitGeneric_DX9_Vars_t& info )
@@ -260,10 +242,7 @@ BEGIN_VS_SHADER( VertexLitGeneric, "Help for VertexLitGeneric" )
 		info.m_nSelfIllumEnvMapMask_Alpha = SELFILLUM_ENVMAPMASK_ALPHA;
 		info.m_nSelfIllumFresnel = SELFILLUMFRESNEL;
 		info.m_nSelfIllumFresnelMinMaxExp = SELFILLUMFRESNELMINMAXEXP;
-<<<<<<< HEAD:materialsystem/stdshaders/vertexlitgeneric_dx9.cpp
 		info.m_nSelfIllumMaskScale = SELFILLUMMASKSCALE;
-=======
->>>>>>> 89bd594e4 (latest CS:GO phong shader):src/materialsystem/stdshaders/vertexlitgeneric_dx9.cpp
 		info.m_nSelfIllumFresnelEnabledThisFrame = SELFILLUMFRESNELENABLEDTHISFRAME;
 
 		info.m_nAmbientOnly = AMBIENTONLY;
@@ -284,8 +263,6 @@ BEGIN_VS_SHADER( VertexLitGeneric, "Help for VertexLitGeneric" )
 		info.m_nDetailTextureCombineMode = DETAILBLENDMODE;
 		info.m_nDetailTextureBlendFactor = DETAILBLENDFACTOR;
 		info.m_nDetailTextureTransform = DETAILTEXTURETRANSFORM;
-
-		info.m_nBaseMapLuminancePhongMask = BASEMAPLUMINANCEPHONGMASK;
 
 		// Rim lighting parameters
 		info.m_nRimLight = RIMLIGHT;
@@ -359,7 +336,6 @@ BEGIN_VS_SHADER( VertexLitGeneric, "Help for VertexLitGeneric" )
 
 		info.m_nPhongDisableHalfLambert = PHONGDISABLEHALFLAMBERT;
 
-<<<<<<< HEAD:materialsystem/stdshaders/vertexlitgeneric_dx9.cpp
 		info.m_nDecalTexture = DECALTEXTURE;
 		info.m_nDecalTextureCombineMode = DECALBLENDMODE;
 		
@@ -374,14 +350,6 @@ BEGIN_VS_SHADER( VertexLitGeneric, "Help for VertexLitGeneric" )
 
 		info.m_nTintMaskTexture = TINTMASKTEXTURE;
 		info.m_nEnvMapMaskInTintMaskTexture = ENVMAPMASKINTINTMASKTEXTURE;
-=======
-		info.m_nDecalTextureCombineMode = DECALBLENDMODE;
-
-		info.m_nEnvMapLightScale = ENVMAPLIGHTSCALE;
-		info.m_nEnvMapLightScaleMinMax = ENVMAPLIGHTSCALEMINMAX;
-
-		info.m_nPearlescent = PEARLESCENT;
->>>>>>> 89bd594e4 (latest CS:GO phong shader):src/materialsystem/stdshaders/vertexlitgeneric_dx9.cpp
 	}
 
 	// Cloak Pass

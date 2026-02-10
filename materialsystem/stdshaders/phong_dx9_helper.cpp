@@ -9,7 +9,6 @@
 #include "phong_dx9_helper.h"
 #include "convar.h"
 #include "cpp_shader_constant_register_map.h"
-<<<<<<< HEAD:materialsystem/stdshaders/phong_dx9_helper.cpp
 #include "commandbuilder.h"
 #include "tier0/vprof.h"
 
@@ -17,29 +16,12 @@
 #include "phong_ps20b.inc"
 #include "phong_vs30.inc"
 #include "phong_ps30.inc"
-=======
-#include "phong_vs20.inc"
-#include "phong_ps20b.inc"
-#include "commandbuilder.h"
-#include "tier0/vprof.h"
-
-#if !defined( _X360 ) && !defined( _PS3 )
-#include "phong_vs30.inc"
-#include "phong_ps30.inc"
-#endif
->>>>>>> 89bd594e4 (latest CS:GO phong shader):src/materialsystem/stdshaders/phong_dx9_helper.cpp
 
 // memdbgon must be the last include file in a .cpp file!!!
 #include "tier0/memdbgon.h"
 
-<<<<<<< HEAD:materialsystem/stdshaders/phong_dx9_helper.cpp
 static ConVar r_lightwarpidentity( "r_lightwarpidentity", "0", FCVAR_CHEAT );
 static ConVar r_rimlight( "r_rimlight", "1", FCVAR_NONE );
-=======
-static ConVar mat_displacementmap( "mat_displacementmap", "1", FCVAR_CHEAT );
-static ConVar r_lightwarpidentity( "r_lightwarpidentity", "0", FCVAR_CHEAT );
-static ConVar r_rimlight( "r_rimlight", "1", FCVAR_CHEAT );
->>>>>>> 89bd594e4 (latest CS:GO phong shader):src/materialsystem/stdshaders/phong_dx9_helper.cpp
 
 static ConVar cl_teamid_min( "cl_teamid_min", "200" );
 static ConVar cl_teamid_max( "cl_teamid_max", "1000" );
@@ -295,35 +277,18 @@ void DrawPhong_DX9( CBaseVSShader *pShader, IMaterialVar** params, IShaderDynami
 {
 	CPhong_DX9_Context *pContextData = reinterpret_cast< CPhong_DX9_Context *> ( *pContextDataPtr );
 
-<<<<<<< HEAD:materialsystem/stdshaders/phong_dx9_helper.cpp
 	bool bSupportsSM3 = g_pHardwareConfig->SupportsShaderModel_3_0() && !g_pHardwareConfig->PreferReducedFillrate();
-=======
-	bool bSupportsSM3 = g_pHardwareConfig->SupportsShaderModel_3_0();
->>>>>>> 89bd594e4 (latest CS:GO phong shader):src/materialsystem/stdshaders/phong_dx9_helper.cpp
 	bool bUseStaticControlFlow = g_pHardwareConfig->SupportsStaticControlFlow();
 
 	bool bHasFlashlight = pShader->UsingFlashlight( params );
 	bool bHasFlashlightOnly = bHasFlashlight && !IsGameConsole();
-<<<<<<< HEAD:materialsystem/stdshaders/phong_dx9_helper.cpp
 	bool bIsDecal = IS_FLAG_SET( MATERIAL_VAR_DECAL );
-=======
-#if !defined( _X360 ) && !defined( _PS3 )
-	bool bIsDecal = IS_FLAG_SET( MATERIAL_VAR_DECAL );
-#endif
->>>>>>> 89bd594e4 (latest CS:GO phong shader):src/materialsystem/stdshaders/phong_dx9_helper.cpp
 	bool bIsAlphaTested = IS_FLAG_SET( MATERIAL_VAR_ALPHATEST ) != 0;
 	BlendType_t nBlendType = pShader->EvaluateBlendRequirements( info.m_nBaseTexture, true );
 	bool bFullyOpaque = (nBlendType != BT_BLENDADD) && (nBlendType != BT_BLEND) && !bIsAlphaTested && !bHasFlashlightOnly; //dest alpha is free for special use
 
 	bool bHDR = g_pHardwareConfig->GetHDRType() != HDR_TYPE_NONE;
 
-<<<<<<< HEAD:materialsystem/stdshaders/phong_dx9_helper.cpp
-=======
-#if !defined( _X360 ) && !defined( _PS3 )
-	bool bMorphing = false;
-#endif
-
->>>>>>> 89bd594e4 (latest CS:GO phong shader):src/materialsystem/stdshaders/phong_dx9_helper.cpp
 	if( pShader->IsSnapshotting() )
 	{
 		PhongShaderInfo_t phongInfo;
@@ -459,34 +424,16 @@ void DrawPhong_DX9( CBaseVSShader *pShader, IMaterialVar** params, IShaderDynami
 		int pTexCoordDim[3] = { 2, 0, 3 };
 		int nTexCoordCount = 1;
 
-<<<<<<< HEAD:materialsystem/stdshaders/phong_dx9_helper.cpp
-=======
-#if !defined( _X360 ) && !defined( _PS3 )
-		// Special morphed decal information 
-		if ( bIsDecal && bMorphing )
-		{
-			nTexCoordCount = 3;
-		}
-#endif
-
->>>>>>> 89bd594e4 (latest CS:GO phong shader):src/materialsystem/stdshaders/phong_dx9_helper.cpp
 		// This shader supports compressed vertices, so OR in that flag:
 		flags |= VERTEX_FORMAT_COMPRESSED;
 
 		pShaderShadow->VertexShaderVertexFormat( flags, nTexCoordCount, pTexCoordDim, userDataSize );
 
-<<<<<<< HEAD:materialsystem/stdshaders/phong_dx9_helper.cpp
 		bool bWorldNormal = false;
-=======
-#if !defined( _X360 ) && !defined( _PS3 )
-		bool bWorldNormal = false;
-#endif
->>>>>>> 89bd594e4 (latest CS:GO phong shader):src/materialsystem/stdshaders/phong_dx9_helper.cpp
 
 		// This is to allow phong materials to disable half lambert. Half lambert has always been forced on in phong,
 		// so the only safe way to allow artists to disable half lambert is to create this param that disables the
 		// default behavior of forcing half lambert on.
-<<<<<<< HEAD:materialsystem/stdshaders/phong_dx9_helper.cpp
 		//bool bPhongHalfLambert = false; IS_PARAM_DEFINED( info.m_nPhongDisableHalfLambert ) ? (params[info.m_nPhongDisableHalfLambert]->GetIntValue() == 0) : true;
 
 		// Disabling half-lambert for CSGO (not 'compatible' with CSM's - fixes bad shadow aliasing on viewmodels in particular).
@@ -559,81 +506,6 @@ void DrawPhong_DX9( CBaseVSShader *pShader, IMaterialVar** params, IShaderDynami
 			SET_STATIC_PIXEL_SHADER_COMBO_CSGO( CSM_MODE, 0 );
 			SET_STATIC_PIXEL_SHADER_CSGO( phong_ps30 );
 		}
-=======
-		bool bPhongHalfLambert = IS_PARAM_DEFINED( info.m_nPhongDisableHalfLambert ) ? (params[info.m_nPhongDisableHalfLambert]->GetIntValue() == 0) : true;
-
-		#if !defined( _X360 ) && !defined( _PS3 )
-		if ( !bSupportsSM3 )
-		#endif
-		{
-			DECLARE_STATIC_VERTEX_SHADER_CSGO( phong_vs20 );
-			SET_STATIC_VERTEX_SHADER_COMBO( SFM, false );
-			SET_STATIC_VERTEX_SHADER_COMBO( WORLD_NORMAL, 0 );
-			SET_STATIC_VERTEX_SHADER_COMBO( FLATTEN_STATIC_CONTROL_FLOW, !bUseStaticControlFlow );
-			SET_STATIC_VERTEX_SHADER_COMBO( CASCADED_SHADOW_MAPPING, false );
-			SET_STATIC_VERTEX_SHADER(phong_vs20);
-
-			// Assume we're only going to get in here if we support 2b
-			DECLARE_STATIC_PIXEL_SHADER_CSGO( phong_ps20b );
-			SET_STATIC_PIXEL_SHADER_COMBO( SFM, false );
-			SET_STATIC_PIXEL_SHADER_COMBO( FLASHLIGHT, bHasFlashlight );
-			SET_STATIC_PIXEL_SHADER_COMBO( SELFILLUM,  phongInfo.m_bHasSelfIllum && !bHasFlashlightOnly );
-			SET_STATIC_PIXEL_SHADER_COMBO( SELFILLUMFRESNEL,  phongInfo.m_bHasSelfIllumFresnel && !bHasFlashlightOnly );
-			SET_STATIC_PIXEL_SHADER_COMBO( LIGHTWARPTEXTURE, phongInfo.m_bHasDiffuseWarp && phongInfo.m_bHasPhong );
-			SET_STATIC_PIXEL_SHADER_COMBO( PHONGWARPTEXTURE, phongInfo.m_bHasPhongWarp && phongInfo.m_bHasPhong );
-			SET_STATIC_PIXEL_SHADER_COMBO( WRINKLEMAP, phongInfo.m_bHasBaseTextureWrinkle );
-			SET_STATIC_PIXEL_SHADER_COMBO( DETAILTEXTURE, phongInfo.m_bHasDetailTexture );
-			ClampDetailBlendModeAndWarn( nDetailBlendMode, 0, 7 );
-			SET_STATIC_PIXEL_SHADER_COMBO( DETAIL_BLEND_MODE, nDetailBlendMode );
-			ClampDecalBlendModeAndWarn( nDecalBlendMode, 0, 1 );
-			SET_STATIC_PIXEL_SHADER_COMBO( DECAL_BLEND_MODE, phongInfo.m_bHasDecalTexture ? nDecalBlendMode : 2 );
-			SET_STATIC_PIXEL_SHADER_COMBO( TINTMASKTEXTURE, 0 );
-			SET_STATIC_PIXEL_SHADER_COMBO( RIMLIGHT, phongInfo.m_bHasRimLight );
-			SET_STATIC_PIXEL_SHADER_COMBO( CUBEMAP, bHasEnvmap );
-			SET_STATIC_PIXEL_SHADER_COMBO( FLASHLIGHTDEPTHFILTERMODE, nShadowFilterMode );
-			SET_STATIC_PIXEL_SHADER_COMBO( SHADER_SRGB_READ, false );
-			SET_STATIC_PIXEL_SHADER_COMBO( WORLD_NORMAL, 0 );
-			SET_STATIC_PIXEL_SHADER_COMBO( PHONG_HALFLAMBERT, bPhongHalfLambert );
-			SET_STATIC_PIXEL_SHADER_COMBO( CASCADED_SHADOW_MAPPING, false );
-			SET_STATIC_PIXEL_SHADER_COMBO( CSM_MODE, 0 );
-			SET_STATIC_PIXEL_SHADER( phong_ps20b );
-		}
-		#if !defined( _X360 ) && !defined( _PS3 )
-		else
-		{
-			DECLARE_STATIC_VERTEX_SHADER_CSGO( phong_vs30 );
-			SET_STATIC_VERTEX_SHADER_COMBO( SFM, false );
-			SET_STATIC_VERTEX_SHADER_COMBO( WORLD_NORMAL, bWorldNormal );
-			SET_STATIC_VERTEX_SHADER_COMBO( DECAL, bIsDecal );
-			SET_STATIC_VERTEX_SHADER_COMBO( CASCADED_SHADOW_MAPPING, false );
-			SET_STATIC_VERTEX_SHADER( phong_vs30 );
-
-			DECLARE_STATIC_PIXEL_SHADER_CSGO( phong_ps30 );
-			SET_STATIC_PIXEL_SHADER_COMBO( SFM, false );
-			SET_STATIC_PIXEL_SHADER_COMBO( FLASHLIGHT, bHasFlashlight );
-			SET_STATIC_PIXEL_SHADER_COMBO( SELFILLUM,  phongInfo.m_bHasSelfIllum && !bHasFlashlightOnly );
-			SET_STATIC_PIXEL_SHADER_COMBO( SELFILLUMFRESNEL,  phongInfo.m_bHasSelfIllumFresnel && !bHasFlashlightOnly );
-			SET_STATIC_PIXEL_SHADER_COMBO( LIGHTWARPTEXTURE, phongInfo.m_bHasDiffuseWarp && phongInfo.m_bHasPhong );
-			SET_STATIC_PIXEL_SHADER_COMBO( PHONGWARPTEXTURE, phongInfo.m_bHasPhongWarp && phongInfo.m_bHasPhong );
-			SET_STATIC_PIXEL_SHADER_COMBO( WRINKLEMAP, phongInfo.m_bHasBaseTextureWrinkle );
-			SET_STATIC_PIXEL_SHADER_COMBO( DETAILTEXTURE, phongInfo.m_bHasDetailTexture );
-			ClampDetailBlendModeAndWarn( nDetailBlendMode, 0, 7 );
-			SET_STATIC_PIXEL_SHADER_COMBO( DETAIL_BLEND_MODE, nDetailBlendMode );
-			ClampDecalBlendModeAndWarn( nDecalBlendMode, 0, 1 );
-			SET_STATIC_PIXEL_SHADER_COMBO( DECAL_BLEND_MODE, phongInfo.m_bHasDecalTexture ? nDecalBlendMode : 2 );
-			SET_STATIC_PIXEL_SHADER_COMBO( TINTMASKTEXTURE, phongInfo.m_bHasTintMaskTexture );
-			SET_STATIC_PIXEL_SHADER_COMBO( RIMLIGHT, phongInfo.m_bHasRimLight );
-			SET_STATIC_PIXEL_SHADER_COMBO( CUBEMAP, bHasEnvmap );
-			SET_STATIC_PIXEL_SHADER_COMBO( FLASHLIGHTDEPTHFILTERMODE, nShadowFilterMode );
-			SET_STATIC_PIXEL_SHADER_COMBO( SHADER_SRGB_READ, false );
-			SET_STATIC_PIXEL_SHADER_COMBO( WORLD_NORMAL, bWorldNormal );
-			SET_STATIC_PIXEL_SHADER_COMBO( PHONG_HALFLAMBERT, bPhongHalfLambert );
-			SET_STATIC_PIXEL_SHADER_COMBO( CASCADED_SHADOW_MAPPING, false );
-			SET_STATIC_PIXEL_SHADER_COMBO( CSM_MODE, 0 );
-			SET_STATIC_PIXEL_SHADER( phong_ps30 );
-		}
-		#endif
->>>>>>> 89bd594e4 (latest CS:GO phong shader):src/materialsystem/stdshaders/phong_dx9_helper.cpp
 
 		if( bHasFlashlightOnly )
 		{
@@ -659,12 +531,6 @@ void DrawPhong_DX9( CBaseVSShader *pShader, IMaterialVar** params, IShaderDynami
 			}
 
 			pContextData->m_SemiStaticCmdsOut.Reset();
-<<<<<<< HEAD:materialsystem/stdshaders/phong_dx9_helper.cpp
-=======
-#ifdef _PS3
-			pContextData->m_flashlightECB.Reset();
-#endif
->>>>>>> 89bd594e4 (latest CS:GO phong shader):src/materialsystem/stdshaders/phong_dx9_helper.cpp
 			pContextData->m_bMaterialVarsChanged = false;
 
 			PhongShaderInfo_t phongInfo;
@@ -899,10 +765,6 @@ void DrawPhong_DX9( CBaseVSShader *pShader, IMaterialVar** params, IShaderDynami
 				vRimBoost[3] = params[info.m_nRimLightBoost]->GetFloatValue();
 			}
 
-<<<<<<< HEAD:materialsystem/stdshaders/phong_dx9_helper.cpp
-=======
-			// Single pass flashlight has to use a separate constant for this stuff since a flashlight constant is repurposed for rimlighting when doing multi-pass flashlight.
->>>>>>> 89bd594e4 (latest CS:GO phong shader):src/materialsystem/stdshaders/phong_dx9_helper.cpp
 			if ( phongInfo.m_bHasRimLight )
 			{
 				if ( !bHasFlashlight )
@@ -1020,18 +882,9 @@ void DrawPhong_DX9( CBaseVSShader *pShader, IMaterialVar** params, IShaderDynami
 			pContextData->m_SemiStaticCmdsOut.SetPixelShaderConstant( PSREG_SPEC_RIM_PARAMS, vSpecularTint, 1 );
 			pContextData->m_SemiStaticCmdsOut.SetPixelShaderConstant( PSREG_CONSTANT_10, vShaderControls2, 1 );
 
-<<<<<<< HEAD:materialsystem/stdshaders/phong_dx9_helper.cpp
 			pContextData->m_SemiStaticCmdsOut.SetPixelShaderFogParams_CSGO( PSREG_FOG_PARAMS );
 
 			if ( bHasFlashlight )
-=======
-#ifndef _PS3
-			pContextData->m_SemiStaticCmdsOut.SetPixelShaderFogParams_CSGO( PSREG_FOG_PARAMS );
-#endif
-
-			// TODO
-			/*if ( bHasFlashlight )
->>>>>>> 89bd594e4 (latest CS:GO phong shader):src/materialsystem/stdshaders/phong_dx9_helper.cpp
 			{
 				CBCmdSetPixelShaderFlashlightState_t state;
 				state.m_LightSampler = SHADER_SAMPLER6;
@@ -1044,7 +897,6 @@ void DrawPhong_DX9( CBaseVSShader *pShader, IMaterialVar** params, IShaderDynami
 				state.m_nScreenScaleConstant = PSREG_FLASHLIGHT_SCREEN_SCALE;
 				state.m_nWorldToTextureConstant = PSREG_FLASHLIGHT_TO_WORLD_TEXTURE;
 				state.m_bFlashlightNoLambert = false;
-<<<<<<< HEAD:materialsystem/stdshaders/phong_dx9_helper.cpp
 				state.m_bSinglePassFlashlight = false;
 				pContextData->m_SemiStaticCmdsOut.SetPixelShaderFlashlightState( state );
 			}
@@ -1067,17 +919,6 @@ void DrawPhong_DX9( CBaseVSShader *pShader, IMaterialVar** params, IShaderDynami
 				pShader->SetModulationPixelShaderDynamicState( 1 );
 			}
 		}
-=======
-				pContextData->m_SemiStaticCmdsOut.SetPixelShaderFlashlightState( state );
-			}*/
-			pContextData->m_SemiStaticCmdsOut.End();
-		}
-
-		pShaderAPI->SetPixelShaderStateAmbientLightCube( PSREG_AMBIENT_CUBE );
-		pShaderAPI->CommitPixelShaderLighting( PSREG_LIGHT_INFO_ARRAY );
-		pShaderAPI->SetVertexShaderStateAmbientLightCube();
-		pShader->SetModulationPixelShaderDynamicState_LinearColorSpace( 1 );
->>>>>>> 89bd594e4 (latest CS:GO phong shader):src/materialsystem/stdshaders/phong_dx9_helper.cpp
 
 		CCommandBufferBuilder< CFixedCommandStorageBuffer< 1000 > > DynamicCmdsOut;
 		DynamicCmdsOut.Call( pContextData->m_SemiStaticCmdsOut.Base() );
@@ -1125,7 +966,6 @@ void DrawPhong_DX9( CBaseVSShader *pShader, IMaterialVar** params, IShaderDynami
 		}
 		pShaderAPI->SetVertexShaderConstant( VERTEX_SHADER_SHADER_SPECIFIC_CONST_10, vTeamIdMinMax );
 
-<<<<<<< HEAD:materialsystem/stdshaders/phong_dx9_helper.cpp
 		if ( !bSupportsSM3 )
 		{
 			DECLARE_DYNAMIC_VERTEX_SHADER_CSGO( phong_vs20 );
@@ -1170,70 +1010,11 @@ void DrawPhong_DX9( CBaseVSShader *pShader, IMaterialVar** params, IShaderDynami
 			SET_DYNAMIC_PIXEL_SHADER_CSGO( phong_ps30 );
 
 			bool bUnusedTexCoords[3] = { false, false, true };
-=======
-		#if !defined( _X360 ) && !defined( _PS3 )
-		if ( !bSupportsSM3 )
-		#endif
-		{
-			DECLARE_DYNAMIC_VERTEX_SHADER_CSGO( phong_vs20 );
-			SET_DYNAMIC_VERTEX_SHADER_COMBO( SKINNING, numBones > 0 );
-			SET_DYNAMIC_VERTEX_SHADER_COMBO( COMPRESSED_VERTS, (int)vertexCompression );
-			SET_DYNAMIC_VERTEX_SHADER_COMBO( TESSELLATION, 0 );
-			SET_DYNAMIC_VERTEX_SHADER_COMBO( NUM_LIGHTS, bUseStaticControlFlow ? 0 : ( IsPS3() ) ? MIN(2, lightState.m_nNumLights) : lightState.m_nNumLights );
-			SET_DYNAMIC_VERTEX_SHADER_COMBO( CSM_VIEWMODELQUALITY, 0 );
-			SET_DYNAMIC_VERTEX_SHADER_COMBO( STATICLIGHT3, false );
-			SET_DYNAMIC_VERTEX_SHADER( phong_vs20 );
-
-			DECLARE_DYNAMIC_PIXEL_SHADER_CSGO( phong_ps20b );
-			SET_DYNAMIC_PIXEL_SHADER_COMBO( NUM_LIGHTS, ( IsPS3() ) ? MIN(2, lightState.m_nNumLights) : lightState.m_nNumLights );
-			SET_DYNAMIC_PIXEL_SHADER_COMBO( WRITEWATERFOGTODESTALPHA, bWriteWaterFogToAlpha );
-			SET_DYNAMIC_PIXEL_SHADER_COMBO( WRITE_DEPTH_TO_DESTALPHA, bWriteDepthToAlpha );
-			SET_DYNAMIC_PIXEL_SHADER_COMBO( FLASHLIGHTSHADOWS, bFlashlightShadows );
-			SET_DYNAMIC_PIXEL_SHADER_COMBO( CASCADE_SIZE, 0 );
-			SET_DYNAMIC_PIXEL_SHADER_COMBO( CSM_VIEWMODELQUALITY, 0 );
-			SET_DYNAMIC_PIXEL_SHADER_COMBO( STATICLIGHT3, false );
-
-			SET_DYNAMIC_PIXEL_SHADER( phong_ps20b );
-		}
-		#if !defined( _X360 ) && !defined( _PS3 )
-		else
-		{
-			if ( bMorphing )
-			{
-				pShader->SetHWMorphVertexShaderState( VERTEX_SHADER_SHADER_SPECIFIC_CONST_6, VERTEX_SHADER_SHADER_SPECIFIC_CONST_7, SHADER_VERTEXTEXTURE_SAMPLER0 );
-			}
-
-			DECLARE_DYNAMIC_VERTEX_SHADER_CSGO( phong_vs30 );
-			SET_DYNAMIC_VERTEX_SHADER_COMBO( SKINNING, numBones > 0 );
-			SET_DYNAMIC_VERTEX_SHADER_COMBO( COMPRESSED_VERTS, (int)vertexCompression );
-			SET_DYNAMIC_VERTEX_SHADER_COMBO( TESSELLATION, 0 );
-			//SET_DYNAMIC_VERTEX_SHADER_COMBO( MORPHING, bMorphing );
-			SET_DYNAMIC_VERTEX_SHADER_COMBO( CSM_VIEWMODELQUALITY, 0 );  // TODO: not used in sm3.0, combo should be removed
-			SET_DYNAMIC_VERTEX_SHADER_COMBO( STATICLIGHT3, false );
-			SET_DYNAMIC_VERTEX_SHADER( phong_vs30 );
-
-			DECLARE_DYNAMIC_PIXEL_SHADER_CSGO( phong_ps30 );
-			SET_DYNAMIC_PIXEL_SHADER_COMBO( NUM_LIGHTS, lightState.m_nNumLights );
-			SET_DYNAMIC_PIXEL_SHADER_COMBO( WRITEWATERFOGTODESTALPHA, bWriteWaterFogToAlpha );
-			SET_DYNAMIC_PIXEL_SHADER_COMBO( WRITE_DEPTH_TO_DESTALPHA, bWriteDepthToAlpha );
-			SET_DYNAMIC_PIXEL_SHADER_COMBO( FLASHLIGHTSHADOWS, bFlashlightShadows );
-			SET_DYNAMIC_PIXEL_SHADER_COMBO( UBERLIGHT, false );
-			SET_DYNAMIC_PIXEL_SHADER_COMBO( CASCADE_SIZE, 0 );
-			SET_DYNAMIC_PIXEL_SHADER_COMBO( CSM_VIEWMODELQUALITY, 0 );  // TODO: not used in sm3.0, combo should be removed
-			SET_DYNAMIC_PIXEL_SHADER_COMBO( STATICLIGHT3, false );
-			SET_DYNAMIC_PIXEL_SHADER( phong_ps30 );
-
-			bool bUnusedTexCoords[3] = { false, false, !bMorphing || !bIsDecal };
->>>>>>> 89bd594e4 (latest CS:GO phong shader):src/materialsystem/stdshaders/phong_dx9_helper.cpp
 			pShaderAPI->MarkUnusedVertexFields( 0, 3, bUnusedTexCoords );
 
 			// Set constant to enable translation of VPOS to render target coordinates in ps_3_0
 			pShaderAPI->SetScreenSizeForVPOS();
 		}
-<<<<<<< HEAD:materialsystem/stdshaders/phong_dx9_helper.cpp
-=======
-		#endif
->>>>>>> 89bd594e4 (latest CS:GO phong shader):src/materialsystem/stdshaders/phong_dx9_helper.cpp
 
 		DynamicCmdsOut.End();
 		pShaderAPI->ExecuteCommandBuffer( DynamicCmdsOut.Base() );

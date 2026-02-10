@@ -19,7 +19,6 @@
 #include <shaderapi/shareddefs.h>
 #include <shaderapi/ishadershadow.h>
 #include <shaderapi/ishaderdynamic.h>
-#include "shaderlib/shadercombosemantics.h"
 
 
 //-----------------------------------------------------------------------------
