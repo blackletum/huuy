@@ -155,8 +155,12 @@ struct VertexLitGeneric_DX9_Vars_t
 
 	int m_nPhongDisableHalfLambert;
 
+	int m_nDecalTextureCombineMode;
+
 	int m_nEnvMapLightScale;
 	int m_nEnvMapLightScaleMinMax;
+
+	int m_nPearlescent;
 };
 
 void InitParamsVertexLitGeneric_DX9( CBaseVSShader *pShader, IMaterialVar** params, const char *pMaterialName, bool bVertexLitGeneric, VertexLitGeneric_DX9_Vars_t &info );

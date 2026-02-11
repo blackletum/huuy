@@ -438,7 +438,6 @@ float4 main( PS_INPUT i ) : COLOR
 		specularLighting = ENV_MAP_SCALE * texCUBE( EnvmapSampler, reflectVect );
 		specularLighting *= specularFactor;
 		specularLighting *= g_EnvmapTint_TintReplaceFactor.rgb;
-
 		float3 cubemapLight = ( diffuseLighting - g_fvDiffuseCubemapMin ) * g_fvDiffuseCubemapMax;
 		specularLighting = lerp( specularLighting, specularLighting * cubemapLight, g_DiffuseCubemapScale ); //reduce the cubemap contribution when the pixel is in shadow
 

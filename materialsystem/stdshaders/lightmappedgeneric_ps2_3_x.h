@@ -111,7 +111,6 @@ const float4 g_ShadowTweaks					: register( c19 );
 	#define g_fvDiffuseCubemapMax float3( g_envMapParams.w, g_envMapParams.w, g_envMapParams.w )
 #endif
 
-
 sampler BaseTextureSampler		: register( s0 );
 sampler LightmapSampler			: register( s1 );
 sampler EnvmapSampler			: register( s2 );
@@ -542,12 +541,10 @@ HALF4 main( PS_INPUT i ) : COLOR
 		fresnel = fresnel * g_OneMinusFresnelReflection + g_FresnelReflection;
 		
 		specularLighting = ENV_MAP_SCALE * texCUBE( EnvmapSampler, reflectVect );
-
 		#if (CUBEMAP == 2) //cubemap darkened by lightmap mode
 			float3 cubemapLight = saturate( ( diffuseLighting - g_fvDiffuseCubemapMin ) * g_fvDiffuseCubemapMax );
 			specularLighting = lerp( specularLighting, specularLighting * cubemapLight, (HALF)g_DiffuseCubemapScale ); //reduce the cubemap contribution when the pixel is in shadow
 		#endif
-
 		specularLighting *= specularFactor;
 								   
 		specularLighting *= g_EnvmapTint;
