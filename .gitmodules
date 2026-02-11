@@ -7,6 +7,3 @@
 [submodule "ivp"]
 	path = ivp
 	url = https://gitflic.ru/project/ndke01/source-physics.git
-[submodule "source-thirdparty"]
-	path = source-thirdparty
-	url = https://gitflic.ru/project/ndke01/source-thirdparty.git
