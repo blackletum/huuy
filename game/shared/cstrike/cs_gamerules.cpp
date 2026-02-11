@@ -4677,7 +4677,7 @@ ConVar cl_autohelp(
 			else if ( mp_timelimit.GetFloat() > 0.0f )
 			{
 				// if maxrounds is 0 then the server is relying on mp_timelimit rather than mp_maxrounds.
-				if ( (GetMapRemainingTime() <= ((mp_timelimit.GetInt() * 60) / 2)) && m_iRoundWinStatus != WINNER_NONE )
+				if ( (GetMapRemainingTime() <= ((mp_timelimit.GetInt() * 60) / 2)) && IsRoundOver() )
 				{
 					bhalftime = true;
 				}
@@ -4713,7 +4713,7 @@ ConVar cl_autohelp(
 					bEndMatch = true;
 				}
 			}
-			else if ( GetMapRemainingTime() == 0 && m_iRoundWinStatus != WINNER_NONE )
+			else if ( GetMapRemainingTime() == 0 && IsRoundOver() )
 			{
 				bEndMatch = true;
 			}
@@ -4785,7 +4785,7 @@ ConVar cl_autohelp(
 					GoToIntermission();
 				}
 			}
-			else if ( GetMapRemainingTime() == 0 && m_iRoundWinStatus != WINNER_NONE )
+			else if ( GetMapRemainingTime() == 0 && IsRoundOver() )
 			{
 				m_phaseChangeAnnouncementTime = gpGlobals->curtime + mp_win_panel_display_time.GetInt();
 				GoToIntermission();
@@ -8120,6 +8120,11 @@ CAmmoDef* GetAmmoDef()
 	return &ammoDef;
 }
 
+bool CCSGameRules::IsRoundOver() const
+{
+    return m_iRoundWinStatus != WINNER_NONE;
+}
+
 bool CCSGameRules::IsPlayingGunGameProgressive( void ) const
 {
     return ( IsPlayingGunGame() &&
@@ -8385,9 +8390,10 @@ void CCSGameRules::ClientSettingsChanged( CBasePlayer *pPlayer )
 
 		int m_iNewGlovesCT = atoi( engine->GetClientConVarValue( engine->IndexOfEdict( pCSPlayer->edict() ), "loadout_slot_gloves_ct" ) );
 		int m_iNewGlovesT = atoi( engine->GetClientConVarValue( engine->IndexOfEdict( pCSPlayer->edict() ), "loadout_slot_gloves_t" ) );
-        int m_iNewGlovesSkin = CSLoadout()->GetGlovesSkinForPlayer( pCSPlayer, pCSPlayer->GetTeamNumber() );
+        int m_iNewGlovesSkinCT = CSLoadout()->GetGlovesSkinForPlayer( pCSPlayer, TEAM_CT );
+        int m_iNewGlovesSkinT = CSLoadout()->GetGlovesSkinForPlayer( pCSPlayer, TEAM_TERRORIST );
 		// change the gloves in the next round if needed
-		if ( ( m_iNewGlovesCT != pCSPlayer->m_iLoadoutSlotGlovesCT ) || ( m_iNewGlovesT != pCSPlayer->m_iLoadoutSlotGlovesT ) || m_iNewGlovesSkin != pCSPlayer->m_iGlovePaintKitID )
+		if ( ( m_iNewGlovesCT != pCSPlayer->m_iLoadoutSlotGlovesCT ) || ( m_iNewGlovesT != pCSPlayer->m_iLoadoutSlotGlovesT ) || m_iNewGlovesSkinCT != pCSPlayer->m_iGlovePaintKitID || m_iNewGlovesSkinT != pCSPlayer->m_iGlovePaintKitID )
 		{
 			pCSPlayer->m_bNeedToChangeGloves = true;
 		}
