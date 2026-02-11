@@ -1,10 +1,12 @@
 [submodule "thirdparty"]
 	path = thirdparty
-	url = https://github.com/nillerusr/source-thirdparty
-[submodule "ivp"]
-	path = ivp
-	url = https://github.com/nillerusr/source-physics
+	url = https://gitflic.ru/project/ndke01/source-thirdparty.git
 [submodule "lib"]
 	path = lib
-	url = https://github.com/denz8028/source-engine-libs.git
-	branch = dllibs
+	url = https://gitflic.ru/project/ndke01/source-engine-libs.git
+[submodule "ivp"]
+	path = ivp
+	url = https://gitflic.ru/project/ndke01/source-physics.git
+[submodule "source-thirdparty"]
+	path = source-thirdparty
+	url = https://gitflic.ru/project/ndke01/source-thirdparty.git
