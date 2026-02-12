@@ -704,6 +704,8 @@ public:
 
 	float GetLaggedMovementValue( void ){ return m_flLaggedMovementValue;	}
 	bool  ShouldGoSouth( Vector vNPCForward, Vector vNPCRight ); //Such a bad name.
+    
+    virtual	C_BaseCombatCharacter *ActivePlayerCombatCharacter( void ) { return this; }
 
 	void SetOldPlayerZ( float flOld ) { m_flOldPlayerZ = flOld;	}
 
