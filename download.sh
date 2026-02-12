@@ -65,7 +65,7 @@ elif [[ "$PLATFORM" == "all" ]]; then
 
     echo -e "\n${GREEN}Скачивание clang 11...${NC}"
     wget https://github.com/llvm/llvm-project/releases/download/llvmorg-11.1.0/clang+llvm-11.1.0-x86_64-linux-gnu-ubuntu-16.04.tar.xz -O clang11.tar.xz
-    tar -xvzf clang11.tar.xz
+    tar -xf clang11.tar.xz
     mv clang+llvm-11.1.0-x86_64-linux-gnu-ubuntu-16.04 ../
     rm clang11.tar.xz
 
