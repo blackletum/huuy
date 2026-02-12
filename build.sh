@@ -110,10 +110,15 @@ fi
 
 echo -e "\n${GREEN}Запуск компиляции...${NC}"
 python3 ./waf install -p $FINAL_FLAGS
-
-echo -e "\n${GREEN}Компиляция завершена${NC}"
+if [ $? -eq 0 ]; then
+    echo -e "\n${GREEN}Компиляция успешно завершена${NC}"
+else
+    echo -e "\n\033[0;31mОшибка: Компиляция завершилась ошибкой\033[0m"
+    exit 1
+fi
 
 if [[ "$PLATFORM" == "android" || "$PLATFORM" == "continue" ]]; then
+    echo -e "\n${GREEN}Сборка апк${NC}"
     cd ../apk-sources/app/src/main
     cp -a lib/. jniLibs/
     rm -rf lib
