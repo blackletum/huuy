@@ -192,15 +192,15 @@ void CHudProgressBar::OnThink()
     float flR, flG, flB;
     if ( flPercentage > 0.5f )
     {
-        flR = ( ( m_clrMiddle.r() - m_clrStart.r() ) * ( 1.0f - ( ( flPercentage - 0.5f ) * 2.0f ) ) ) + m_clrStart.r();
-        flG = ( ( m_clrMiddle.g() - m_clrStart.g() ) * ( 1.0f - ( ( flPercentage - 0.5f ) * 2.0f ) ) ) + m_clrStart.g();
-        flB = ( ( m_clrMiddle.b() - m_clrStart.b() ) * ( 1.0f - ( ( flPercentage - 0.5f ) * 2.0f ) ) ) + m_clrStart.b();
+        flR = ( ( m_clrMiddle.r() - m_clrEnd.r() ) * ( 1.0f - ( ( flPercentage - 0.5f ) * 2.0f ) ) ) + m_clrEnd.r();
+        flG = ( ( m_clrMiddle.g() - m_clrEnd.g() ) * ( 1.0f - ( ( flPercentage - 0.5f ) * 2.0f ) ) ) + m_clrEnd.g();
+        flB = ( ( m_clrMiddle.b() - m_clrEnd.b() ) * ( 1.0f - ( ( flPercentage - 0.5f ) * 2.0f ) ) ) + m_clrEnd.b();
     }
     else
     {
-        flR = ( ( m_clrEnd.r() - m_clrMiddle.r() ) * ( 1.0f - ( flPercentage / 0.5f ) ) ) + m_clrMiddle.r();
-        flG = ( ( m_clrEnd.g() - m_clrMiddle.g() ) * ( 1.0f - ( flPercentage / 0.5f ) ) ) + m_clrMiddle.g();
-        flB = ( ( m_clrEnd.b() - m_clrMiddle.b() ) * ( 1.0f - ( flPercentage / 0.5f ) ) ) + m_clrMiddle.b();
+        flR = ( ( m_clrStart.r() - m_clrMiddle.r() ) * ( 1.0f - ( flPercentage / 0.5f ) ) ) + m_clrMiddle.r();
+        flG = ( ( m_clrStart.g() - m_clrMiddle.g() ) * ( 1.0f - ( flPercentage / 0.5f ) ) ) + m_clrMiddle.g();
+        flB = ( ( m_clrStart.b() - m_clrMiddle.b() ) * ( 1.0f - ( flPercentage / 0.5f ) ) ) + m_clrMiddle.b();
     }
 
     m_pActionProgress->SetFgColor( Color( flR, flG, flB, 255 ) );
@@ -310,9 +310,9 @@ void CircularProgressBar::Paint()
     {
         float halfArc = 180.0f * m_flProgress;
         
-        DrawFilledRing( centerX, centerY, outerRadius, innerRadius, 270.0f - halfArc, 270.0f, m_FgColor );
+        DrawFilledRing( centerX, centerY, outerRadius, innerRadius, 90.0f - halfArc, 90.0f, m_FgColor );
         
-        DrawFilledRing( centerX, centerY, outerRadius, innerRadius, 270.0f, 270.0f + halfArc, m_FgColor );
+        DrawFilledRing( centerX, centerY, outerRadius, innerRadius, 90.0f, 90.0f + halfArc, m_FgColor );
     }
 }
 
