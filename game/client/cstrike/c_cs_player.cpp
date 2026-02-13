@@ -3942,12 +3942,14 @@ void C_CSPlayer::DoExtraBoneProcessing( CStudioHdr *pStudioHdr, Vector pos[], Qu
 			}
 		}
 	}
+    
+    //Why install Origin twice?
 
-	Vector vecLeftFootPos = boneToWorld[nLeftFootBoneIndex].GetOrigin();
+	/*Vector vecLeftFootPos = boneToWorld[nLeftFootBoneIndex].GetOrigin();
 	Vector vecRightFootPos = boneToWorld[nRightFootBoneIndex].GetOrigin();
 
 	boneToWorld[nLeftFootBoneIndex].SetOrigin( vecAnimatedLeftFootPos );
-	boneToWorld[nRightFootBoneIndex].SetOrigin( vecAnimatedRightFootPos );
+	boneToWorld[nRightFootBoneIndex].SetOrigin( vecAnimatedRightFootPos ); */
 
 	Studio_SolveIK( pLeftFootChain->pLink( 0 )->bone, pLeftFootChain->pLink( 1 )->bone, nLeftFootBoneIndex, vecLeftFootPos, boneToWorld );
 	Studio_SolveIK( pRightFootChain->pLink( 0 )->bone, pRightFootChain->pLink( 1 )->bone, nRightFootBoneIndex, vecRightFootPos, boneToWorld );
